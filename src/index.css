@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Transform indigo branding variables to Dark Forest Green shades */
+  --color-indigo-50: #f2faf5;
+  --color-indigo-100: #e2f5e9;
+  --color-indigo-205: #c2eed4;
+  --color-indigo-200: #b2ebd4;
+  --color-indigo-300: #68d391;
+  --color-indigo-400: #34d399;
+  --color-indigo-505: #10b981;
+  --color-indigo-500: #047857;
+  --color-indigo-600: #0f5132; /* Primary Dark Green */
+  --color-indigo-705: #d4af37; /* Dynamic gold match for header navigation context */
+  --color-indigo-700: #0c3e26; /* Hover Deeper Green */
+  --color-indigo-800: #082d1c;
+  --color-indigo-900: #051e12;
+  --color-indigo-950: #020f09;
+
+  /* Target and map gold / amber variables elegantly */
+  --color-amber-50: #fdfbeb;
+  --color-amber-100: #fef7db;
+  --color-amber-200: #fdedad;
+  --color-amber-300: #fbdf6e;
+  --color-amber-400: #f9d134;
+  --color-amber-500: #d4af37; /* Clean Gold Accent */
+  --color-amber-600: #c5a028;
+  --color-amber-700: #a17f1a;
+  --color-amber-705: #b45309;
+  --color-amber-800: #7e5e11;
+  --color-amber-900: #5c4308;
+}
+
+body {
+  background-color: #fcfdfc;
+  color: #0d1e15;
+}
+
+/* Custom premium classes */
+.bg-gold-gradient {
+  background: linear-gradient(135deg, #f59e0b 0%, #d4af37 50%, #c5a028 100%);
+}
+
+.bg-dark-green-gradient {
+  background: linear-gradient(135deg, #022c22 0%, #064e3b 100%);
+}
+
+.bg-green-gold-gradient {
+  background: linear-gradient(135deg, #043f21 0%, #0f5132 50%, #d4af37 100%);
+}
+
+.bg-hero-gold-gradient {
+  background: linear-gradient(135deg, #052e16 0%, #0c3e26 40%, #c5a028 100%);
+}
+
+.text-gold-gradient {
+  background: linear-gradient(135deg, #f59e0b 0%, #d4af37 50%, #c5a028 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom scrollbar to match our pristine geometric design */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Perfect print stylesheet for Save as PDF */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  /* Hide every single element on the page */
+  body > * {
+    display: none !important;
+  }
+  /* Only show the invoice modal container and its subtree */
+  #invoice-bill-print-modal-wrapper,
+  #invoice-bill-print,
+  #invoice-bill-print * {
+    display: block !important;
+    visibility: visible !important;
+  }
+  /* Make wrapper fullscreen clean */
+  #invoice-bill-print-modal-wrapper {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: white !important;
+    z-index: 9999999 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  #invoice-bill-print {
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 20px !important;
+    margin: 0 !important;
+  }
+  /* Hide the back to history and print buttons */
+  .no-print {
+    display: none !important;
+  }
+}
+
+

@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Secure helper functions definitions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 2. User Accounts collection path
+    match /users/{userId} {
+      allow read: if isSignedIn() && (isOwner(userId) || resource.data.role == 'admin' || resource.data.role == 'superadmin');
+      allow create: if isSignedIn() && isOwner(userId) 
+        && (
+          request.resource.data.role == 'customer'
+          || request.resource.data.role == 'vendor'
+          || request.resource.data.role == 'admin'
+          || (request.resource.data.role == 'superadmin' && request.resource.data.email == 'boqorapps@gmail.com')
+        )
+        && request.resource.data.keys().hasAll(['id', 'email', 'name', 'role']) 
+        && request.resource.data.id == userId;
+      allow update: if isSignedIn() && isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'id', 'email']);
+      allow delete: if false;
+    }
+
+    // 3. Products Catalogue
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['id', 'title', 'price', 'category', 'stock', 'isApproved'])
+        && request.resource.data.isApproved == false
+        && request.resource.data.price is number
+        && request.resource.data.price >= 0;
+      allow update: if isSignedIn()
+        && (
+          (request.resource.data.isApproved == resource.data.isApproved && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isApproved', 'id']))
+          || (resource.data.vendorId == request.auth.uid)
+        );
+      allow delete: if isSignedIn();
+    }
+
+    // 4. Purchasing Orders
+    match /orders/{orderId} {
+      allow read: if isSignedIn() && (resource.data.customerId == request.auth.uid || resource.data.customerRole == 'admin');
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.customerId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // 5. Merchant Sellers directory
+    match /vendors/{vendorId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.status == 'pending';
+      allow update: if isSignedIn();
+      allow delete: if false;
+    }
+  }
+}

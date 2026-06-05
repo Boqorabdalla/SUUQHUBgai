@@ -1,0 +1,6 @@
+{
+  "name": "OmniChannel E-Commerce Storefront & Admin Portal",
+  "description": "A production-grade, highly-interactive multi-portal e-commerce suite. Features a complete customer storefront, customizable filters, an executive analytics Admin Dashboard, a Vendor portal, simulated Stripe payment workflows, localized multi-currency interfaces, responsive visual elements, and an AI-powered shopping companion powered by Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,21 @@
+{
+  "short_name": "ApexStore",
+  "name": "OmniChannel E-Commerce Storefront",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=192&q=85",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=512&q=85",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0a0a0a",
+  "theme_color": "#111111",
+  "display": "standalone",
+  "orientation": "portrait"
+}

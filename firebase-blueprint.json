@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with role details and regional preferences.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique user UID from Firebase Auth" },
+        "name": { "type": "string", "description": "User show name" },
+        "email": { "type": "string", "format": "email", "description": "Verified email address" },
+        "role": { "type": "string", "enum": ["customer", "vendor", "admin", "superadmin"], "description": "Role status" },
+        "language": { "type": "string", "enum": ["en", "es", "ar"], "description": "Selected language code" },
+        "currency": { "type": "string", "enum": ["USD", "EUR", "AED"], "description": "System UI currency choice" },
+        "wishlist": { "type": "array", "description": "List of favorite product IDs" }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Product": {
+      "title": "Marketplace Product",
+      "description": "Inventory listings created by merchants and verified by administrators.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "image": { "type": "string" },
+        "brand": { "type": "string" },
+        "sku": { "type": "string" },
+        "stock": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "isApproved": { "type": "boolean" },
+        "vendorId": { "type": "string" },
+        "vendorName": { "type": "string" }
+      },
+      "required": ["id", "title", "price", "category", "stock", "isApproved"]
+    },
+    "Order": {
+      "title": "Customer Purchase Order",
+      "description": "A shopping cart receipt checked out by a customer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "shipped", "delivered"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "customerId", "customerName", "customerEmail", "total", "status", "createdAt"]
+    },
+    "Vendor": {
+      "title": "Merchant Storefront Vendor",
+      "description": "Onboarded merchant representative or business partner record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "vendorName": { "type": "string" },
+        "representativeName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "category": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "earnings": { "type": "number" },
+        "description": { "type": "string" },
+        "taxId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "password": { "type": "string" }
+      },
+      "required": ["id", "vendorName", "representativeName", "email", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile store, accessible primarily by the user or global managers."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Marketplace products listings, readable publicly, writable by authorized vendors or managers."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Sales records. Customers read/write their own; admins manage all."
+    },
+    "/vendors/{vendorId}": {
+      "schema": "Vendor",
+      "description": "Sellers and storefront merchant identity records."
+    }
+  }
+}
