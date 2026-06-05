@@ -39,6 +39,22 @@ try {
           projectId: firebaseConfig.projectId
         });
         console.log("SERVER-SIDE FIRESTORE ADMIN: INITIALIZED WITH EXPLICIT SERVICE ACCOUNT KEY CREDENTIALS");
+      } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        try {
+          // Parse the JSON service account string from the environment variable
+          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+          finalApp = admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId: firebaseConfig.projectId
+          });
+          console.log("SERVER-SIDE FIRESTORE ADMIN: INITIALIZED SECURELY VIA FIREBASE_SERVICE_ACCOUNT ENVIRONMENT VARIABLE");
+        } catch (parseEnvErr) {
+          console.error("SERVER-SIDE FIRESTORE ADMIN: Failed to parse FIREBASE_SERVICE_ACCOUNT env variable:", parseEnvErr);
+          finalApp = admin.initializeApp({
+            projectId: firebaseConfig.projectId
+          });
+          console.log("SERVER-SIDE FIRESTORE ADMIN: FALLBACK TO INTERNALS DUE TO PARSING ERROR");
+        }
       } else {
         finalApp = admin.initializeApp({
           projectId: firebaseConfig.projectId
