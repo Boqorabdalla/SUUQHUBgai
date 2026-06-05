@@ -16,6 +16,7 @@ import AIChatAgent from './components/AIChatAgent';
 import LoginView from './components/LoginView';
 
 import { Product, CartItem, Coupon, UserRole, HeroCampaign } from './types';
+import { initialProducts } from './initialData';
 import { translations, formatPrice } from './utils';
 import { LayoutGrid, Filter, Search, ShieldCheck, Download, AlertCircle, ShoppingBag, ArrowRight, Sparkles, ChevronLeft, ChevronRight, Zap, RefreshCw, Star, Flame, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -40,7 +41,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
 
   // Unified Database states loaded from server.ts
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [wishlist, setWishlist] = useState<string[]>(['prod-headphones', 'prod-watch']);
   const [cart, setCart] = useState<CartItem[]>([]);
 
@@ -138,16 +139,36 @@ export default function App() {
       ]);
 
       if (pRes.ok) {
-        const data = await pRes.json();
-        setProducts(data);
+        const contentType = pRes.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await pRes.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setProducts(data);
+          } else {
+            console.warn("API returned empty product array/invalid data structure, using initial fallback products.");
+            setProducts(initialProducts);
+          }
+        } else {
+          console.warn("API returned non-JSON product payload, using initial fallback products.");
+          setProducts(initialProducts);
+        }
+      } else {
+        console.warn("API product endpoint returned non-OK code, using initial fallback products.");
+        setProducts(initialProducts);
       }
+
       if (campRes.ok) {
-        const campData = await campRes.json();
-        // Active sliders must be status === 'approved' for storefront listing
-        setHeroCampaigns(campData);
+        const contentType = campRes.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const campData = await campRes.json();
+          if (Array.isArray(campData)) {
+            setHeroCampaigns(campData);
+          }
+        }
       }
     } catch (err) {
       console.error("Failed fetching products or campaigns catalog:", err);
+      setProducts(initialProducts);
     }
   };
 

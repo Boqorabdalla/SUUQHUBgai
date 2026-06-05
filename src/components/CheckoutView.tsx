@@ -134,24 +134,49 @@ export default function CheckoutView({
         ]);
         
         if (feeRes.ok) {
-          const data = await feeRes.json();
-          setGlobalDeliveryFee(data.deliveryFee ?? 15);
-          const hasCard = data.enableCard !== false;
-          const hasCod = data.enableCod !== false;
-          setEnabledCard(hasCard);
-          setEnabledCod(hasCod);
-          
-          // Switch default selection if card is disabled
-          if (!hasCard) {
-            if (hasCod) {
-              setPaymentMethod('cod');
-            } else {
-              setPaymentMethod('zaad');
+          try {
+            const contentType = feeRes.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const data = await feeRes.json();
+              setGlobalDeliveryFee(data.deliveryFee ?? 15);
+              const hasCard = data.enableCard !== false;
+              const hasCod = data.enableCod !== false;
+              setEnabledCard(hasCard);
+              setEnabledCod(hasCod);
+              
+              // Switch default selection if card is disabled
+              if (!hasCard) {
+                if (hasCod) {
+                  setPaymentMethod('cod');
+                } else {
+                  setPaymentMethod('zaad');
+                }
+              }
             }
+          } catch (feeErr) {
+            console.error('Error parsing delivery fee config JSON in checkout:', feeErr);
           }
         }
-        if (prodRes.ok) setProducts(await prodRes.json());
-        if (vendRes.ok) setVendors(await vendRes.json());
+        if (prodRes.ok) {
+          try {
+            const contentType = prodRes.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              setProducts(await prodRes.json());
+            }
+          } catch (prodErr) {
+            console.error('Error parsing products JSON in checkout:', prodErr);
+          }
+        }
+        if (vendRes.ok) {
+          try {
+            const contentType = vendRes.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              setVendors(await vendRes.json());
+            }
+          } catch (vendErr) {
+            console.error('Error parsing vendors JSON in checkout:', vendErr);
+          }
+        }
       } catch (err) {
         console.error('Error fetching delivery, products, or vendors:', err);
       }
