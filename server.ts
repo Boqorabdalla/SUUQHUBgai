@@ -20,7 +20,7 @@ import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaig
 import { initialProducts, initialCoupons } from "./src/initialData";
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
 // Initialize Firebase Admin SDK inside the server
 let fbDbAdmin: any = null;
@@ -1288,7 +1288,7 @@ async function startServer() {
     console.log(`===============================================`);
     console.log(`APEX FULL-STACK SERVER BOOTED SUCCESSFULLY!`);
     console.log(`Local Access: http://localhost:${PORT}`);
-    console.log(`Port binding: 3000 / Host: 0.0.0.0`);
+    console.log(`Port binding: ${PORT} / Host: 0.0.0.0`);
     console.log(`===============================================`);
   });
 }
