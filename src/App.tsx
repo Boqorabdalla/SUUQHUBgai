@@ -22,7 +22,7 @@ import { LayoutGrid, Filter, Search, ShieldCheck, Download, AlertCircle, Shoppin
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function App() {
   // Localization + Currency States
@@ -97,13 +97,30 @@ export default function App() {
             });
             setSelectedRole(resolvedRole);
           } else {
+            const actualRole = (user.email || '').toLowerCase() === 'boqorapps@gmail.com' ? 'superadmin' : 'customer';
+            const payload = {
+              id: user.uid,
+              email: user.email || '',
+              name: user.displayName || user.email?.split('@')[0] || 'Guest User',
+              role: actualRole,
+              language: lang,
+              currency: currency,
+              wishlist: [],
+              createdAt: new Date().toISOString()
+            };
+            try {
+              await setDoc(doc(db, 'users', user.uid), payload);
+            } catch (err) {
+              console.warn("Could not auto-register redirect session in firestore database:", err);
+            }
+
             setFirebaseUser({
               id: user.uid,
               email: user.email || '',
-              name: user.displayName || 'Guest User',
-              role: 'customer'
+              name: user.displayName || user.email?.split('@')[0] || 'Guest User',
+              role: actualRole as any
             });
-            setSelectedRole('customer');
+            setSelectedRole(actualRole as any);
           }
         } catch (dbErr) {
           console.warn("Could not retrieve user document (permissions or rules issue):", dbErr);
