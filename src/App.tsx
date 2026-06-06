@@ -736,6 +736,8 @@ export default function App() {
                   setAppliedCheckoutCoupon(undefined);
                 }}
                 userEmail={firebaseUser?.email || "boqorapps@gmail.com"}
+                userId={firebaseUser?.id || "usr-customer-01"}
+                userRole={firebaseUser?.role || "customer"}
               />
             </motion.div>
           )}

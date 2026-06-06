@@ -67,5 +67,28 @@ service cloud.firestore {
       allow update: if isSignedIn();
       allow delete: if false;
     }
+
+    // 6. Global Configs
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 7. Coupons Database
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 8. Support Tickets
+    match /support-tickets/{ticketId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 9. Hero Banner Campaigns
+    match /hero-campaigns/{campaignId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
   }
 }

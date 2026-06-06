@@ -77,7 +77,11 @@ export default function LoginView({
         }
       } catch (err: any) {
         console.error("Error processing Google redirect login:", err);
-        setErrorMessage(err.message || 'Google Auth flow failed during redirect checkout.');
+        if (err.code === 'auth/unauthorized-domain') {
+          setErrorMessage(`Unauthorized Domain Error: Firebase requires you to authorize this Hostinger domain (${window.location.hostname}) in your Firebase Console before Google logins can work. Please add "${window.location.hostname}" to your authorized domains list in: Firebase Console -> Authentication -> Settings -> Authorized Domains.`);
+        } else {
+          setErrorMessage(err.message || 'Google Auth flow failed during redirect checkout.');
+        }
       } finally {
         setLoading(false);
       }
@@ -224,6 +228,8 @@ export default function LoginView({
       console.error(err);
       if (err.code === 'auth/popup-blocked') {
         setErrorMessage('Google Authentication pop-up was blocked. Please allow browser pop-ups, or use the "Google SSO via Redirect" option below!');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setErrorMessage(`Unauthorized Domain Error: Firebase requires you to authorize this Hostinger domain (${window.location.hostname}) in your Firebase Console. Under Build -> Authentication -> Settings -> Authorized Domains, click "Add Domain" and type: ${window.location.hostname}`);
       } else {
         setErrorMessage(err.message || 'Google Auth flow failed.');
       }

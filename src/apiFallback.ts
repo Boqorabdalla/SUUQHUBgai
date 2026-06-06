@@ -3,14 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { 
   collection, 
   doc, 
   getDoc, 
   getDocs, 
   setDoc, 
-  deleteDoc
+  deleteDoc,
+  query,
+  where
 } from 'firebase/firestore';
 import { initialProducts, initialCoupons } from './initialData';
 
@@ -76,14 +78,53 @@ const initialHeroCampaigns = [
 async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
   try {
     const colRef = collection(db, collectionName);
-    const snap = await getDocs(colRef);
+    
+    let snap;
+    if (collectionName === 'orders') {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        const userRole = userSnap.exists() ? userSnap.data()?.role : 'customer';
+        
+        // Admins, Superadmins, and Vendors can list all orders
+        if (userRole === 'admin' || userRole === 'superadmin' || userRole === 'vendor') {
+          snap = await getDocs(colRef);
+        } else {
+          // General customers can only list their own orders in compliance with security rules (avoids query errors)
+          const q = query(colRef, where('customerId', '==', currentUser.uid));
+          snap = await getDocs(q);
+        }
+      } else {
+        // Guest/Not logged in
+        const q = query(colRef, where('customerId', '==', 'non_existent_signed_out_user_id'));
+        snap = await getDocs(q);
+      }
+    } else {
+      snap = await getDocs(colRef);
+    }
+
     if (snap.empty && defaultData) {
       console.log(`Seeding empty Firestore collection "${collectionName}" with dynamic assets...`);
       for (const item of defaultData) {
         const id = item.id || item.code || item.code?.toUpperCase();
         await setDoc(doc(db, collectionName, id), item);
       }
-      const newSnap = await getDocs(colRef);
+      
+      let newSnap;
+      if (collectionName === 'orders' && auth.currentUser) {
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        const userRole = userSnap.exists() ? userSnap.data()?.role : 'customer';
+        if (userRole === 'admin' || userRole === 'superadmin' || userRole === 'vendor') {
+          newSnap = await getDocs(colRef);
+        } else {
+          const q = query(colRef, where('customerId', '==', auth.currentUser.uid));
+          newSnap = await getDocs(q);
+        }
+      } else {
+        newSnap = await getDocs(colRef);
+      }
       return newSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
     }
     return snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -322,8 +363,7 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
           const list = await getCollectionDocs('orders', []);
           return jsonResponse(list);
         } else if (method === 'POST') {
-          const rawOrders = await getCollectionDocs('orders', []);
-          const orderId = bodyObj.id || `ord-${100 + rawOrders.length + 1}-${Math.floor(100 + Math.random() * 900)}`;
+          const orderId = bodyObj.id || `ord-${Math.floor(100 + Math.random() * 900)}-${Date.now().toString().slice(-6)}`;
           
           const items = bodyObj.items || [];
           for (const item of items) {

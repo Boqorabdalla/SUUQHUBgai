@@ -16,6 +16,8 @@ interface CheckoutViewProps {
   onBackToCatalog: () => void;
   onOrderCompleted: (orderId: string) => void;
   userEmail: string;
+  userId?: string;
+  userRole?: string;
 }
 
 export default function CheckoutView({
@@ -25,7 +27,9 @@ export default function CheckoutView({
   lang,
   onBackToCatalog,
   onOrderCompleted,
-  userEmail
+  userEmail,
+  userId,
+  userRole
 }: CheckoutViewProps) {
   const t = translations[lang];
 
@@ -215,7 +219,8 @@ export default function CheckoutView({
     };
 
     const payload = {
-      customerId: "usr-customer-01",
+      customerId: userId || "usr-customer-01",
+      customerRole: userRole || "customer",
       customerName: fullName,
       customerEmail: userEmail || "customer@apex.com",
       items: cartItems.map(item => ({
