@@ -81,22 +81,57 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
     
     let snap;
     if (collectionName === 'orders') {
+      let isPrivileged = false;
+      let customerId = 'non_existent_signed_out_user_id';
+
+      // 1. Verify sandbox local user override first
+      try {
+        const localUserStr = typeof window !== 'undefined' ? localStorage.getItem('apex_local_user') : null;
+        if (localUserStr) {
+          const localUser = JSON.parse(localUserStr);
+          if (localUser) {
+            customerId = localUser.id || customerId;
+            const r = localUser.role;
+            if (r === 'admin' || r === 'superadmin' || r === 'vendor') {
+              isPrivileged = true;
+            }
+          }
+        }
+      } catch (localErr) {
+        console.warn("Failed to analyze local storage credentials inside fallback handler:", localErr);
+      }
+
+      // 2. Validate Firebase dynamic Auth state
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const userRef = doc(db, 'users', currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        const userRole = userSnap.exists() ? userSnap.data()?.role : 'customer';
+        customerId = currentUser.uid;
+        const emailLower = currentUser.email?.toLowerCase();
         
-        // Admins, Superadmins, and Vendors can list all orders
-        if (userRole === 'admin' || userRole === 'superadmin' || userRole === 'vendor') {
-          snap = await getDocs(colRef);
+        // High-trust sandbox presets bypass to avoid firestore document replication delays
+        if (emailLower === 'boqorapps@gmail.com' || emailLower === 'manaal@gmail.com' || emailLower === 'sarah@globaltrader.com') {
+          isPrivileged = true;
         } else {
-          // General customers can only list their own orders in compliance with security rules (avoids query errors)
-          const q = query(colRef, where('customerId', '==', currentUser.uid));
-          snap = await getDocs(q);
+          try {
+            const userRef = doc(db, 'users', currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              const uRole = userSnap.data()?.role;
+              if (uRole === 'admin' || uRole === 'superadmin' || uRole === 'vendor') {
+                isPrivileged = true;
+              }
+            }
+          } catch (err) {
+            console.warn("Could not query user doc in apiFallback mapping:", err);
+          }
         }
+      }
+
+      if (isPrivileged) {
+        snap = await getDocs(colRef);
+      } else if (currentUser || customerId !== 'non_existent_signed_out_user_id') {
+        const q = query(colRef, where('customerId', '==', customerId));
+        snap = await getDocs(q);
       } else {
-        // Guest/Not logged in
         const q = query(colRef, where('customerId', '==', 'non_existent_signed_out_user_id'));
         snap = await getDocs(q);
       }
@@ -112,14 +147,52 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
       }
       
       let newSnap;
-      if (collectionName === 'orders' && auth.currentUser) {
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        const userRole = userSnap.exists() ? userSnap.data()?.role : 'customer';
-        if (userRole === 'admin' || userRole === 'superadmin' || userRole === 'vendor') {
+      if (collectionName === 'orders') {
+        let isPrivilegedAfter = false;
+        let customerIdAfter = 'non_existent_signed_out_user_id';
+
+        try {
+          const localUserStr = typeof window !== 'undefined' ? localStorage.getItem('apex_local_user') : null;
+          if (localUserStr) {
+            const localUser = JSON.parse(localUserStr);
+            if (localUser) {
+              customerIdAfter = localUser.id || customerIdAfter;
+              const r = localUser.role;
+              if (r === 'admin' || r === 'superadmin' || r === 'vendor') {
+                isPrivilegedAfter = true;
+              }
+            }
+          }
+        } catch (localErr) {
+          console.warn("Failed to analyze local storage credentials inside post-seed handler:", localErr);
+        }
+
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          customerIdAfter = currentUser.uid;
+          const emailLower = currentUser.email?.toLowerCase();
+          if (emailLower === 'boqorapps@gmail.com' || emailLower === 'manaal@gmail.com' || emailLower === 'sarah@globaltrader.com') {
+            isPrivilegedAfter = true;
+          } else {
+            try {
+              const userRef = doc(db, 'users', currentUser.uid);
+              const userSnap = await getDoc(userRef);
+              if (userSnap.exists()) {
+                const uRole = userSnap.data()?.role;
+                if (uRole === 'admin' || uRole === 'superadmin' || uRole === 'vendor') {
+                  isPrivilegedAfter = true;
+                }
+              }
+            } catch (err) {
+              console.warn("Could not query user doc post-seed:", err);
+            }
+          }
+        }
+
+        if (isPrivilegedAfter) {
           newSnap = await getDocs(colRef);
         } else {
-          const q = query(colRef, where('customerId', '==', auth.currentUser.uid));
+          const q = query(colRef, where('customerId', '==', customerIdAfter));
           newSnap = await getDocs(q);
         }
       } else {
