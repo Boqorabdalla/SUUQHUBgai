@@ -1,239 +1,99 @@
 {
   "dbProducts": [
     {
-      "id": "prod-headphones",
-      "title": "Aura Pro Adaptive ANC Headphones",
-      "description": "Immerse yourself in rich, high-fidelity sound. Featuring adaptive active noise cancelling, custom dynamic drivers, spatial audio tracking, and ultra-plush memory foam cups for 40 hours of continuous elite acoustics.",
-      "price": 299,
+      "id": "prod-bottle",
+      "title": "ThermaFlask Vacuum Copper Bottle",
+      "description": "Keep your hydration crisp. Double-walled vacuum chamber, copper lined subcaps for superior warmth retention, food-grade 18/8 stainless rustless steel, and durable powder sand anti-scratch finish.",
+      "price": 36,
       "rating": 4.8,
-      "ratingCount": 142,
-      "category": "Electronics",
-      "subcategory": "Audio",
+      "ratingCount": 189,
+      "category": "Living",
+      "subcategory": "Hydration",
       "tags": [
-        "wireless",
-        "anc",
-        "premium",
-        "audio"
+        "kitchen",
+        "insulated",
+        "water",
+        "reusable"
       ],
-      "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+      "image": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80",
       "images": [
-        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&w=600&q=80"
+        "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80"
       ],
-      "brand": "Acoustix",
-      "sku": "AC-AUR-PRO",
-      "stock": 25,
+      "brand": "Therma",
+      "sku": "TH-FLK-COP",
+      "stock": 40,
       "isActive": true,
       "isApproved": true,
       "isFeatured": true,
-      "isBestSeller": true,
-      "isFlashDeal": true,
-      "discountPrice": 249,
       "variants": {
         "colors": [
           {
-            "id": "col-black",
-            "name": "Stealth Black",
-            "priceModifier": 0,
-            "stock": 12
-          },
-          {
-            "id": "col-silver",
-            "name": "Alabaster Silver",
-            "priceModifier": 15,
-            "stock": 8
-          },
-          {
-            "id": "col-gold",
-            "name": "Sovereign Gold",
-            "priceModifier": 30,
-            "stock": 5
-          }
-        ]
-      },
-      "specifications": {
-        "Driver Size": "40mm Dynamic",
-        "Battery Life": "Up to 40 Hours",
-        "Bluetooth Version": "5.3 LE Audio",
-        "Frequency Response": "4Hz - 40,000Hz",
-        "Charging Port": "USB-C Fast Charge"
-      }
-    },
-    {
-      "id": "prod-watch",
-      "title": "Horizon GPS Smart Watch-X",
-      "description": "An athletic companion designed for resilience. Engineered with dual-band multi-GPS tracking, ambient heart/pulse screening, blood-oxygen saturation feedback, offline maps compilation, and an indestructible titanium frame.",
-      "price": 349,
-      "rating": 4.7,
-      "ratingCount": 98,
-      "category": "Electronics",
-      "subcategory": "Wearables",
-      "tags": [
-        "fitness",
-        "gps",
-        "smartwatch",
-        "waterproof"
-      ],
-      "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
-      "images": [
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=600&q=80"
-      ],
-      "brand": "PulseTech",
-      "sku": "PT-HOR-X",
-      "stock": 18,
-      "isActive": true,
-      "isApproved": true,
-      "isFeatured": true,
-      "isNewArrival": true,
-      "isTrending": true,
-      "isFlashDeal": true,
-      "discountPrice": 299,
-      "variants": {
-        "colors": [
-          {
-            "id": "col-gray",
-            "name": "Titanium Gray",
-            "priceModifier": 0,
-            "stock": 10
-          },
-          {
-            "id": "col-orange",
-            "name": "Amber Burst",
-            "priceModifier": 0,
-            "stock": 8
-          }
-        ],
-        "sizes": [
-          {
-            "id": "sz-42mm",
-            "name": "42mm Dial",
-            "priceModifier": -20,
-            "stock": 8
-          },
-          {
-            "id": "sz-46mm",
-            "name": "46mm Dial",
-            "priceModifier": 0,
-            "stock": 10
-          }
-        ]
-      },
-      "specifications": {
-        "Frame Material": "Grade 5 Aerospace Titanium",
-        "Water Resistance": "100m (10 ATM)",
-        "Screen Type": "1.43\" AMOLED Always-On",
-        "GPS Type": "Dual-Band GNSS (L1+L5)",
-        "Sensors": "Optical heart rate, SpO2, Barometer, Compass"
-      }
-    },
-    {
-      "id": "prod-keyboard",
-      "title": "Veloce Pro Gasket Mechanical Keyboard",
-      "description": "Elegance and acoustic pure satisfaction. This premium hot-swappable mechanical keyboard features CNC machined aluminum casing, custom-lubed linear switches, custom foam sound dampening, and vibrant RGB programmable plates.",
-      "price": 159,
-      "rating": 4.9,
-      "ratingCount": 61,
-      "category": "Electronics",
-      "subcategory": "Accessories",
-      "tags": [
-        "keyboard",
-        "gaming",
-        "office",
-        "custom"
-      ],
-      "image": "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80",
-      "images": [
-        "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=600&q=80"
-      ],
-      "brand": "Veloce",
-      "sku": "VL-PRO-MEC",
-      "stock": 14,
-      "isActive": true,
-      "isApproved": true,
-      "isTrending": true,
-      "isFlashDeal": true,
-      "discountPrice": 119,
-      "variants": {
-        "colors": [
-          {
-            "id": "col-white",
-            "name": "Arctic Frost White",
-            "priceModifier": 0,
-            "stock": 8
-          },
-          {
-            "id": "col-navy",
-            "name": "Midnight Navy Blue",
-            "priceModifier": 10,
-            "stock": 6
-          }
-        ]
-      },
-      "specifications": {
-        "Form Factor": "75% Layout",
-        "Mount Style": "Double Gasket Mount",
-        "Switches": "Custom Pre-lubed Linear (45g actuate)",
-        "Connectivity": "Tri-mode (USB-C/2.4Ghz/Bluetooth 5.1)",
-        "Hot-swap Support": "3-pin and 5-pin MX compatible"
-      }
-    },
-    {
-      "id": "prod-backpack",
-      "title": "Nomad Roll-Top Weatherproof Backpack",
-      "description": "Designed to traverse borders, wilderness, and concrete jungles. Meticulously sewn with ballistic grade Cordura nylon, structured expandable 40L capacity, security pass-through layers, and a fully padded 16\" tech sleeve.",
-      "price": 95,
-      "rating": 4.6,
-      "ratingCount": 114,
-      "category": "Fashion",
-      "subcategory": "Bags",
-      "tags": [
-        "waterproof",
-        "travel",
-        "fashion",
-        "outdoor"
-      ],
-      "image": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80",
-      "images": [
-        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?auto=format&fit=crop&w=600&q=80"
-      ],
-      "brand": "Nomad Gear",
-      "sku": "NM-BP-EXP",
-      "stock": 35,
-      "isActive": true,
-      "isApproved": true,
-      "isBestSeller": true,
-      "variants": {
-        "colors": [
-          {
-            "id": "col-black",
-            "name": "Stealth Black",
-            "priceModifier": 0,
+            "id": "col-copper",
+            "name": "Raw Copper Rose",
+            "priceModifier": 4,
             "stock": 15
           },
           {
-            "id": "col-camel",
-            "name": "Safari Tan",
+            "id": "col-obsidian",
+            "name": "Obsidian Matte Black",
             "priceModifier": 0,
-            "stock": 12
+            "stock": 25
+          }
+        ]
+      },
+      "specifications": {
+        "Capacity Volume": "750ml (25 oz)",
+        "Warmth Guard": "Keeps cold up to 24 hours, hot up to 12 hours",
+        "Steel Rating": "18/8 (304) Pro-Grade Stainless Steel",
+        "BPA Level": "100% BPA and Phthalate Free"
+      }
+    },
+    {
+      "id": "prod-diffuser",
+      "title": "Aura Bamboo Ultrasonic Oil Diffuser",
+      "description": "Transform your room atmosphere with gentle aromatic vibrations. Naturally harvested FSC bamboo wood shell, whisper quiet ultrasonic core mist oscillator, warm LED status node, and auto water shut-off sensor.",
+      "price": 55,
+      "rating": 4.6,
+      "ratingCount": 79,
+      "category": "Beauty",
+      "subcategory": "Wellness",
+      "tags": [
+        "essential",
+        "home",
+        "wellness",
+        "bamboo"
+      ],
+      "image": "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80",
+      "images": [
+        "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80"
+      ],
+      "brand": "Aura Wellness",
+      "sku": "AW-BAM-DIF",
+      "stock": 18,
+      "isActive": true,
+      "isApproved": true,
+      "variants": {
+        "colors": [
+          {
+            "id": "col-light",
+            "name": "Natural Light Bamboo",
+            "priceModifier": 0,
+            "stock": 10
           },
           {
-            "id": "col-forest",
-            "name": "Forest Green",
-            "priceModifier": 0,
+            "id": "col-dark",
+            "name": "Espresso Dark Walnut",
+            "priceModifier": 5,
             "stock": 8
           }
         ]
       },
       "specifications": {
-        "Volume Capacity": "28L expandable to 40L",
-        "Laptop Protection": "Padded sleeve fits up to 16\" laptop",
-        "Material": "1000D Cordura Waterproof Nylon",
-        "Weight": "1.2 kg",
-        "Zipper System": "YKK Aquaguard zippers"
+        "Water Capacity": "300 ml",
+        "Oscillator Rate": "2.4MHz Ultrasonic Wave generator",
+        "Working Duration": "Up to 8 hours (Interval Mode)",
+        "Area Coverage": "35 m² space",
+        "Acoustic Pitch": "<24 dB ultra-quiet"
       }
     },
     {
@@ -305,6 +165,284 @@
       }
     },
     {
+      "id": "prod-chair",
+      "title": "Elysium Premium Ergonomic Mesh Chair",
+      "description": "Align your thoughts by aligning your spine. A masterpiece of workspace safety. Self-regulating lumbar tracking backrest, high-density breathability weave, fully responsive 4D soft-grip arm rests, and heavy duty smooth roll nodes.",
+      "price": 380,
+      "rating": 4.8,
+      "ratingCount": 42,
+      "category": "Living",
+      "subcategory": "Office Furniture",
+      "tags": [
+        "chair",
+        "chair-mesh",
+        "ergonomic",
+        "furniture"
+      ],
+      "image": "https://images.unsplash.com/photo-1505797149-43b0069ec26b?auto=format&fit=crop&w=600&q=80",
+      "images": [
+        "https://images.unsplash.com/photo-1505797149-43b0069ec26b?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1580481072645-022f9a6dbf27?auto=format&fit=crop&w=600&q=80"
+      ],
+      "brand": "Elysium Space",
+      "sku": "ES-ELY-MEC",
+      "stock": 12,
+      "isActive": true,
+      "isApproved": true,
+      "isTrending": true,
+      "isFlashDeal": true,
+      "discountPrice": 289,
+      "variants": {
+        "colors": [
+          {
+            "id": "col-charcoal",
+            "name": "Midnight Charcoal",
+            "priceModifier": 0,
+            "stock": 8
+          },
+          {
+            "id": "col-white",
+            "name": "Arctic Silver-White",
+            "priceModifier": 20,
+            "stock": 4
+          }
+        ]
+      },
+      "specifications": {
+        "Weight Capacity": "Up to 150 kg (330 lbs)",
+        "Lumbar Support": "Dual-pivot Adaptive Dynamic System",
+        "Gas Lift Class": "TUV Certified Class 4 Hydraulic",
+        "Armrest Adjustments": "4D Pivotable height, rotation, slide, outward",
+        "Casters Material": "Simulated noise-reducing poly-urethane"
+      }
+    },
+    {
+      "description": "Product Description\n\nReveal smoother, softer, and more radiant skin with Manaal Aloe Vera Hydrating Face Cream. Enriched with the soothing power of aloe vera and skin-nourishing ingredients, this lightweight moisturizer deeply hydrates while helping to improve your skin's natural glow. Its non-greasy formula absorbs quickly, leaving your skin refreshed, balanced, and silky smooth throughout the day.\n\nPerfect for daily use, this cream helps maintain healthy-looking skin and supports a brighter, more youthful complexion.",
+      "isNewArrival": true,
+      "title": "Manaal Aloe Vera Hydrating Face Cream – 3-Day Radiance Formula",
+      "stock": 14,
+      "productStory": "Product Brand Story / Heritage\n\nManaal Skin Care was founded with a simple mission: to help people achieve healthy, radiant skin through quality skincare inspired by nature. We believe that beauty starts with confidence, and confidence begins with caring for your skin using products that are effective, gentle, and accessible.\n\nDrawing inspiration from the nourishing properties of natural ingredients such as aloe vera, Manaal Skin Care combines traditional beauty wisdom with modern skincare practices to create products that support everyday skin health. Every formula is carefully selected to hydrate, protect, and enhance your skin's natural glow.\n\nAt Manaal Skin Care, we are committed to providing skincare solutions that empower individuals to look and feel their best. Our journey is built on trust, quality, and a passion for helping our customers embrace their natural beauty with confidence.\n\nOur Promise: Natural Inspiration • Quality Care • Radiant Results\n\nTagline: \"Nurturing Beauty, Naturally.\" ✨",
+      "price": 29.7,
+      "isApproved": true,
+      "category": "Beauty",
+      "isActive": true,
+      "image": "data:image/jpeg;base64,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",
+      "specifications": {},
+      "sku": "SKU-VEN-8608",
+      "subcategory": "Vendor List",
+      "rating": 5,
+      "ratingCount": 0,
+      "vendorId": "usr-vendor-03",
+      "brand": "Manaal skin care",
+      "images": [
+        "data:image/jpeg;base64,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"
+      ],
+      "vendorName": "Manaal skin care",
+      "id": "prod-1780476894857",
+      "discountPrice": 24,
+      "tags": [],
+      "variants": {
+        "sizes": [
+          {
+            "stock": 5,
+            "id": "sz-1780476872091-258",
+            "name": "700ML",
+            "priceModifier": 13
+          },
+          {
+            "id": "sz-1780476891340-92",
+            "stock": 5,
+            "priceModifier": 7,
+            "name": "500ML"
+          }
+        ]
+      }
+    },
+    {
+      "id": "prod-headphones",
+      "title": "Aura Pro Adaptive ANC Headphones",
+      "description": "Immerse yourself in rich, high-fidelity sound. Featuring adaptive active noise cancelling, custom dynamic drivers, spatial audio tracking, and ultra-plush memory foam cups for 40 hours of continuous elite acoustics.",
+      "price": 299,
+      "rating": 4.8,
+      "ratingCount": 142,
+      "category": "Electronics",
+      "subcategory": "Audio",
+      "tags": [
+        "wireless",
+        "anc",
+        "premium",
+        "audio"
+      ],
+      "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+      "images": [
+        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&w=600&q=80"
+      ],
+      "brand": "Acoustix",
+      "sku": "AC-AUR-PRO",
+      "stock": 25,
+      "isActive": true,
+      "isApproved": true,
+      "isFeatured": true,
+      "isBestSeller": true,
+      "isFlashDeal": true,
+      "discountPrice": 249,
+      "variants": {
+        "colors": [
+          {
+            "id": "col-black",
+            "name": "Stealth Black",
+            "priceModifier": 0,
+            "stock": 12
+          },
+          {
+            "id": "col-silver",
+            "name": "Alabaster Silver",
+            "priceModifier": 15,
+            "stock": 8
+          },
+          {
+            "id": "col-gold",
+            "name": "Sovereign Gold",
+            "priceModifier": 30,
+            "stock": 5
+          }
+        ]
+      },
+      "specifications": {
+        "Driver Size": "40mm Dynamic",
+        "Battery Life": "Up to 40 Hours",
+        "Bluetooth Version": "5.3 LE Audio",
+        "Frequency Response": "4Hz - 40,000Hz",
+        "Charging Port": "USB-C Fast Charge"
+      }
+    },
+    {
+      "id": "prod-backpack",
+      "title": "Nomad Roll-Top Weatherproof Backpack",
+      "description": "Designed to traverse borders, wilderness, and concrete jungles. Meticulously sewn with ballistic grade Cordura nylon, structured expandable 40L capacity, security pass-through layers, and a fully padded 16\" tech sleeve.",
+      "price": 95,
+      "rating": 4.6,
+      "ratingCount": 114,
+      "category": "Fashion",
+      "subcategory": "Bags",
+      "tags": [
+        "waterproof",
+        "travel",
+        "fashion",
+        "outdoor"
+      ],
+      "image": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80",
+      "images": [
+        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?auto=format&fit=crop&w=600&q=80"
+      ],
+      "brand": "Nomad Gear",
+      "sku": "NM-BP-EXP",
+      "stock": 35,
+      "isActive": true,
+      "isApproved": true,
+      "isBestSeller": true,
+      "variants": {
+        "colors": [
+          {
+            "id": "col-black",
+            "name": "Stealth Black",
+            "priceModifier": 0,
+            "stock": 15
+          },
+          {
+            "id": "col-camel",
+            "name": "Safari Tan",
+            "priceModifier": 0,
+            "stock": 12
+          },
+          {
+            "id": "col-forest",
+            "name": "Forest Green",
+            "priceModifier": 0,
+            "stock": 8
+          }
+        ]
+      },
+      "specifications": {
+        "Volume Capacity": "28L expandable to 40L",
+        "Laptop Protection": "Padded sleeve fits up to 16\" laptop",
+        "Material": "1000D Cordura Waterproof Nylon",
+        "Weight": "1.2 kg",
+        "Zipper System": "YKK Aquaguard zippers"
+      }
+    },
+    {
+      "id": "prod-watch",
+      "title": "Horizon GPS Smart Watch-X",
+      "description": "An athletic companion designed for resilience. Engineered with dual-band multi-GPS tracking, ambient heart/pulse screening, blood-oxygen saturation feedback, offline maps compilation, and an indestructible titanium frame.",
+      "price": 349,
+      "rating": 4.7,
+      "ratingCount": 98,
+      "category": "Electronics",
+      "subcategory": "Wearables",
+      "tags": [
+        "fitness",
+        "gps",
+        "smartwatch",
+        "waterproof"
+      ],
+      "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
+      "images": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=600&q=80"
+      ],
+      "brand": "PulseTech",
+      "sku": "PT-HOR-X",
+      "stock": 18,
+      "isActive": true,
+      "isApproved": true,
+      "isFeatured": true,
+      "isNewArrival": true,
+      "isTrending": true,
+      "isFlashDeal": true,
+      "discountPrice": 299,
+      "variants": {
+        "colors": [
+          {
+            "id": "col-gray",
+            "name": "Titanium Gray",
+            "priceModifier": 0,
+            "stock": 10
+          },
+          {
+            "id": "col-orange",
+            "name": "Amber Burst",
+            "priceModifier": 0,
+            "stock": 8
+          }
+        ],
+        "sizes": [
+          {
+            "id": "sz-42mm",
+            "name": "42mm Dial",
+            "priceModifier": -20,
+            "stock": 8
+          },
+          {
+            "id": "sz-46mm",
+            "name": "46mm Dial",
+            "priceModifier": 0,
+            "stock": 10
+          }
+        ]
+      },
+      "specifications": {
+        "Frame Material": "Grade 5 Aerospace Titanium",
+        "Water Resistance": "100m (10 ATM)",
+        "Screen Type": "1.43\" AMOLED Always-On",
+        "GPS Type": "Dual-Band GNSS (L1+L5)",
+        "Sensors": "Optical heart rate, SpO2, Barometer, Compass"
+      }
+    },
+    {
       "id": "prod-shoes",
       "title": "Stratus Breathable Running Shoes",
       "description": "Walk on air, sprint on clouds. Equipped with responsive Stratus-Pulse foam midfoot sole, highly porous woven knit canvas for maximal cooling, and high-friction rubber ridges designed mock-carbon traction board.",
@@ -362,160 +500,64 @@
       }
     },
     {
-      "id": "prod-bottle",
-      "title": "ThermaFlask Vacuum Copper Bottle",
-      "description": "Keep your hydration crisp. Double-walled vacuum chamber, copper lined subcaps for superior warmth retention, food-grade 18/8 stainless rustless steel, and durable powder sand anti-scratch finish.",
-      "price": 36,
-      "rating": 4.8,
-      "ratingCount": 189,
-      "category": "Living",
-      "subcategory": "Hydration",
+      "id": "prod-keyboard",
+      "title": "Veloce Pro Gasket Mechanical Keyboard",
+      "description": "Elegance and acoustic pure satisfaction. This premium hot-swappable mechanical keyboard features CNC machined aluminum casing, custom-lubed linear switches, custom foam sound dampening, and vibrant RGB programmable plates.",
+      "price": 159,
+      "rating": 4.9,
+      "ratingCount": 61,
+      "category": "Electronics",
+      "subcategory": "Accessories",
       "tags": [
-        "kitchen",
-        "insulated",
-        "water",
-        "reusable"
+        "keyboard",
+        "gaming",
+        "office",
+        "custom"
       ],
-      "image": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80",
+      "image": "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80",
       "images": [
-        "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80"
+        "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80",
+        "https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=600&q=80"
       ],
-      "brand": "Therma",
-      "sku": "TH-FLK-COP",
-      "stock": 40,
-      "isActive": true,
-      "isApproved": true,
-      "isFeatured": true,
-      "variants": {
-        "colors": [
-          {
-            "id": "col-copper",
-            "name": "Raw Copper Rose",
-            "priceModifier": 4,
-            "stock": 15
-          },
-          {
-            "id": "col-obsidian",
-            "name": "Obsidian Matte Black",
-            "priceModifier": 0,
-            "stock": 25
-          }
-        ]
-      },
-      "specifications": {
-        "Capacity Volume": "750ml (25 oz)",
-        "Warmth Guard": "Keeps cold up to 24 hours, hot up to 12 hours",
-        "Steel Rating": "18/8 (304) Pro-Grade Stainless Steel",
-        "BPA Level": "100% BPA and Phthalate Free"
-      }
-    },
-    {
-      "id": "prod-chair",
-      "title": "Elysium Premium Ergonomic Mesh Chair",
-      "description": "Align your thoughts by aligning your spine. A masterpiece of workspace safety. Self-regulating lumbar tracking backrest, high-density breathability weave, fully responsive 4D soft-grip arm rests, and heavy duty smooth roll nodes.",
-      "price": 380,
-      "rating": 4.8,
-      "ratingCount": 42,
-      "category": "Living",
-      "subcategory": "Office Furniture",
-      "tags": [
-        "chair",
-        "chair-mesh",
-        "ergonomic",
-        "furniture"
-      ],
-      "image": "https://images.unsplash.com/photo-1505797149-43b0069ec26b?auto=format&fit=crop&w=600&q=80",
-      "images": [
-        "https://images.unsplash.com/photo-1505797149-43b0069ec26b?auto=format&fit=crop&w=600&q=80",
-        "https://images.unsplash.com/photo-1580481072645-022f9a6dbf27?auto=format&fit=crop&w=600&q=80"
-      ],
-      "brand": "Elysium Space",
-      "sku": "ES-ELY-MEC",
-      "stock": 12,
+      "brand": "Veloce",
+      "sku": "VL-PRO-MEC",
+      "stock": 14,
       "isActive": true,
       "isApproved": true,
       "isTrending": true,
       "isFlashDeal": true,
-      "discountPrice": 289,
+      "discountPrice": 119,
       "variants": {
         "colors": [
-          {
-            "id": "col-charcoal",
-            "name": "Midnight Charcoal",
-            "priceModifier": 0,
-            "stock": 8
-          },
           {
             "id": "col-white",
-            "name": "Arctic Silver-White",
-            "priceModifier": 20,
-            "stock": 4
-          }
-        ]
-      },
-      "specifications": {
-        "Weight Capacity": "Up to 150 kg (330 lbs)",
-        "Lumbar Support": "Dual-pivot Adaptive Dynamic System",
-        "Gas Lift Class": "TUV Certified Class 4 Hydraulic",
-        "Armrest Adjustments": "4D Pivotable height, rotation, slide, outward",
-        "Casters Material": "Simulated noise-reducing poly-urethane"
-      }
-    },
-    {
-      "id": "prod-diffuser",
-      "title": "Aura Bamboo Ultrasonic Oil Diffuser",
-      "description": "Transform your room atmosphere with gentle aromatic vibrations. Naturally harvested FSC bamboo wood shell, whisper quiet ultrasonic core mist oscillator, warm LED status node, and auto water shut-off sensor.",
-      "price": 55,
-      "rating": 4.6,
-      "ratingCount": 79,
-      "category": "Beauty",
-      "subcategory": "Wellness",
-      "tags": [
-        "essential",
-        "home",
-        "wellness",
-        "bamboo"
-      ],
-      "image": "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80",
-      "images": [
-        "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80"
-      ],
-      "brand": "Aura Wellness",
-      "sku": "AW-BAM-DIF",
-      "stock": 18,
-      "isActive": true,
-      "isApproved": true,
-      "variants": {
-        "colors": [
-          {
-            "id": "col-light",
-            "name": "Natural Light Bamboo",
+            "name": "Arctic Frost White",
             "priceModifier": 0,
-            "stock": 10
+            "stock": 8
           },
           {
-            "id": "col-dark",
-            "name": "Espresso Dark Walnut",
-            "priceModifier": 5,
-            "stock": 8
+            "id": "col-navy",
+            "name": "Midnight Navy Blue",
+            "priceModifier": 10,
+            "stock": 6
           }
         ]
       },
       "specifications": {
-        "Water Capacity": "300 ml",
-        "Oscillator Rate": "2.4MHz Ultrasonic Wave generator",
-        "Working Duration": "Up to 8 hours (Interval Mode)",
-        "Area Coverage": "35 m² space",
-        "Acoustic Pitch": "<24 dB ultra-quiet"
+        "Form Factor": "75% Layout",
+        "Mount Style": "Double Gasket Mount",
+        "Switches": "Custom Pre-lubed Linear (45g actuate)",
+        "Connectivity": "Tri-mode (USB-C/2.4Ghz/Bluetooth 5.1)",
+        "Hot-swap Support": "3-pin and 5-pin MX compatible"
       }
     }
   ],
   "dbCoupons": [
     {
-      "code": "SUUQ10",
+      "code": "WELCOME5",
       "discountType": "percentage",
-      "value": 10,
-      "minSpend": 50,
+      "value": 5,
+      "minSpend": 20,
       "expiryDate": "2026-12-31",
       "isActive": true
     },
@@ -528,28 +570,15 @@
       "isActive": true
     },
     {
-      "code": "WELCOME5",
+      "code": "SUUQ10",
       "discountType": "percentage",
-      "value": 5,
-      "minSpend": 20,
+      "value": 10,
+      "minSpend": 50,
       "expiryDate": "2026-12-31",
       "isActive": true
     }
   ],
   "dbVendors": [
-    {
-      "id": "usr-vendor-02",
-      "vendorName": "Global Trader Store",
-      "representativeName": "Sarah Connor",
-      "email": "sarah@globaltrader.com",
-      "category": "Electronics",
-      "status": "approved",
-      "earnings": 1845,
-      "description": "Your local source for fine electronics and high-performance products.",
-      "taxId": "TRN-9948212",
-      "createdAt": "2026-05-10T11:00:00Z",
-      "password": "sarahPass123"
-    },
     {
       "id": "usr-vendor-03",
       "vendorName": "Manaal skin care",
@@ -559,12 +588,146 @@
       "status": "approved",
       "earnings": 0,
       "description": "Premium organic skin care products and dermatological solutions.",
-      "taxId": "TRN-3382741",
       "createdAt": "2026-06-01T12:00:00Z",
-      "password": "manaalPass123"
+      "taxId": "TRN-3382741",
+      "password": "123abc123",
+      "zaadNumber": "442312",
+      "edahabNumber": "512345"
+    },
+    {
+      "id": "usr-vendor-02",
+      "vendorName": "Global Trader Store",
+      "representativeName": "Sarah Connor",
+      "email": "sarah@globaltrader.com",
+      "category": "Electronics",
+      "status": "approved",
+      "earnings": 1845,
+      "description": "Your local source for fine electronics and high-performance products.",
+      "createdAt": "2026-05-10T11:00:00Z",
+      "taxId": "TRN-9948212",
+      "password": "sarahPass123"
+    },
+    {
+      "id": "usr-vendor-231",
+      "vendorName": "1to10's Storefront",
+      "representativeName": "1to10",
+      "email": "1to10@gmail.com",
+      "category": "General",
+      "status": "approved",
+      "earnings": 0,
+      "description": "Pending manual administrative verification for third-party seller account.",
+      "createdAt": "2026-06-03T10:24:16.362Z",
+      "taxId": "PENDING-TRN",
+      "password": "123abc123"
     }
   ],
   "dbOrders": [
+    {
+      "id": "ord-556-329781",
+      "customerId": "LLo5VdKHpgRikhE9b5BLklFpFv32",
+      "customerName": "Abdilahi Ahmed",
+      "customerEmail": "boqorcabdalla@gmail.com",
+      "items": [
+        {
+          "productId": "prod-1780476894857",
+          "title": "Manaal Aloe Vera Hydrating Face Cream – 3-Day Radiance Formula",
+          "price": 29.7,
+          "quantity": 1,
+          "selectedColor": "",
+          "selectedSize": "700ML",
+          "image": "data:image/jpeg;base64,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"
+        }
+      ],
+      "subtotal": 29.7,
+      "tax": 1.485,
+      "shippingCost": 15,
+      "discount": 0,
+      "total": 46.185,
+      "couponCode": null,
+      "paymentMethod": "Zaad Mobile",
+      "paymentStatus": "paid",
+      "shippingAddress": {
+        "fullName": "Abdilahi Ahmed",
+        "addressLine1": "Jigjiga yar, Hargeisa",
+        "city": "Hargeisa",
+        "state": "Maroodi Jeex",
+        "zipCode": "00000",
+        "country": "Somaliland",
+        "phone": "+252 63 1234567"
+      },
+      "status": "pending",
+      "statusHistory": [
+        {
+          "status": "pending",
+          "timestamp": "2026-06-06T11:45:30.321Z",
+          "note": "Order placed. Paid securely."
+        }
+      ],
+      "createdAt": "2026-06-06T11:45:30.321Z",
+      "estimatedDelivery": "2026-06-09T11:45:30.321Z",
+      "deliveryMethod": "delivery",
+      "mobilePayment": {
+        "provider": "zaad",
+        "transactionNumber": "txn-123123",
+        "senderNumber": "212121",
+        "senderName": "abdullah",
+        "dateTime": "2026-06-06 11:45"
+      },
+      "deliveryFeeRemittanceStatus": "owed"
+    },
+    {
+      "id": "ord-280-965325",
+      "customerId": "NfdA4mMOZUUBcP0LBOQpofrQB6C2",
+      "customerName": "Abdilahi Ahmed",
+      "customerEmail": "standard-buyer@apex.com",
+      "items": [
+        {
+          "productId": "prod-1780476894857",
+          "title": "Manaal Aloe Vera Hydrating Face Cream – 3-Day Radiance Formula",
+          "price": 29.7,
+          "quantity": 1,
+          "selectedColor": "",
+          "selectedSize": "700ML",
+          "image": "data:image/jpeg;base64,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"
+        }
+      ],
+      "subtotal": 29.7,
+      "tax": 1.485,
+      "shippingCost": 2,
+      "discount": 0,
+      "total": 33.185,
+      "couponCode": null,
+      "paymentMethod": "Zaad Mobile",
+      "paymentStatus": "paid",
+      "shippingAddress": {
+        "fullName": "Abdilahi Ahmed",
+        "addressLine1": "Jigjiga yar, Hargeisa",
+        "city": "Hargeisa",
+        "state": "Maroodi Jeex",
+        "zipCode": "00000",
+        "country": "Somaliland",
+        "phone": "+252 63 1234567"
+      },
+      "status": "pending",
+      "statusHistory": [
+        {
+          "status": "pending",
+          "timestamp": "2026-06-07T17:56:06.385Z",
+          "note": "Order placed. Paid securely."
+        }
+      ],
+      "createdAt": "2026-06-07T17:56:06.385Z",
+      "estimatedDelivery": "2026-06-10T17:56:06.385Z",
+      "deliveryMethod": "delivery",
+      "mobilePayment": {
+        "provider": "zaad",
+        "transactionNumber": "txn-00987",
+        "senderNumber": "43233423",
+        "senderName": "xaajiga",
+        "dateTime": "2026-06-07 17:55"
+      },
+      "deliveryFeeRemittanceStatus": "owed"
+    },
     {
       "id": "ord-101",
       "customerId": "usr-customer-01",
@@ -632,6 +795,112 @@
       "estimatedDelivery": "2026-05-27T18:00:00Z"
     },
     {
+      "id": "ord-894-600216",
+      "customerId": "NfdA4mMOZUUBcP0LBOQpofrQB6C2",
+      "customerName": "Abdilahi Ahmed",
+      "customerEmail": "standard-buyer@apex.com",
+      "items": [
+        {
+          "productId": "prod-1780476894857",
+          "title": "Manaal Aloe Vera Hydrating Face Cream – 3-Day Radiance Formula",
+          "price": 29.7,
+          "quantity": 1,
+          "selectedColor": "",
+          "selectedSize": "700ML",
+          "image": "data:image/jpeg;base64,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"
+        }
+      ],
+      "subtotal": 29.7,
+      "tax": 1.485,
+      "shippingCost": 2,
+      "discount": 0,
+      "total": 33.185,
+      "couponCode": null,
+      "paymentMethod": "Zaad Mobile",
+      "paymentStatus": "paid",
+      "shippingAddress": {
+        "fullName": "Abdilahi Ahmed",
+        "addressLine1": "Jigjiga yar, Hargeisa",
+        "city": "Hargeisa",
+        "state": "Maroodi Jeex",
+        "zipCode": "00000",
+        "country": "Somaliland",
+        "phone": "+252 63 1234567"
+      },
+      "status": "pending",
+      "statusHistory": [
+        {
+          "status": "pending",
+          "timestamp": "2026-06-07T18:06:41.049Z",
+          "note": "Order placed. Paid securely."
+        }
+      ],
+      "createdAt": "2026-06-07T18:06:41.049Z",
+      "estimatedDelivery": "2026-06-10T18:06:41.049Z",
+      "deliveryMethod": "delivery",
+      "mobilePayment": {
+        "provider": "zaad",
+        "transactionNumber": "txn89098",
+        "senderNumber": "55555768",
+        "senderName": "xaaji",
+        "dateTime": "2026-06-07 18:06"
+      },
+      "deliveryFeeRemittanceStatus": "owed"
+    },
+    {
+      "id": "ord-105-678",
+      "customerId": "NfdA4mMOZUUBcP0LBOQpofrQB6C2",
+      "customerName": "Abdilahi Ahmed",
+      "customerEmail": "standard-buyer@apex.com",
+      "items": [
+        {
+          "productId": "prod-1780476894857",
+          "title": "Manaal Aloe Vera Hydrating Face Cream – 3-Day Radiance Formula",
+          "price": 29.7,
+          "quantity": 1,
+          "selectedColor": "",
+          "selectedSize": "700ML",
+          "image": "data:image/jpeg;base64,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"
+        }
+      ],
+      "subtotal": 29.7,
+      "tax": 1.485,
+      "shippingCost": 2,
+      "discount": 0,
+      "total": 33.185,
+      "couponCode": null,
+      "paymentMethod": "Zaad Mobile",
+      "paymentStatus": "paid",
+      "shippingAddress": {
+        "fullName": "Abdilahi Ahmed",
+        "addressLine1": "Jigjiga yar, Hargeisa",
+        "city": "Hargeisa",
+        "state": "Maroodi Jeex",
+        "zipCode": "00000",
+        "country": "Somaliland",
+        "phone": "+252 63 1234567"
+      },
+      "status": "pending",
+      "statusHistory": [
+        {
+          "status": "pending",
+          "timestamp": "2026-06-07T18:08:52.285Z",
+          "note": "Order placed. Paid securely."
+        }
+      ],
+      "createdAt": "2026-06-07T18:08:52.285Z",
+      "estimatedDelivery": "2026-06-10T18:08:52.285Z",
+      "deliveryMethod": "delivery",
+      "mobilePayment": {
+        "provider": "zaad",
+        "transactionNumber": "TXN-878976",
+        "senderNumber": "323234",
+        "senderName": "xaajiga",
+        "dateTime": "2026-06-07 18:08"
+      },
+      "deliveryFeeRemittanceStatus": "owed"
+    },
+    {
       "id": "ord-102",
       "customerId": "usr-customer-02",
       "customerName": "Amina Al-Haddad",
@@ -678,6 +947,59 @@
       ],
       "createdAt": "2026-05-29T18:00:00Z",
       "estimatedDelivery": "2026-06-02T18:00:00Z"
+    },
+    {
+      "id": "ord-107-818",
+      "customerId": "NfdA4mMOZUUBcP0LBOQpofrQB6C2",
+      "customerName": "Abdilahi Ahmed",
+      "customerEmail": "standard-buyer@apex.com",
+      "items": [
+        {
+          "productId": "prod-1780476894857",
+          "title": "Manaal Aloe Vera Hydrating Face Cream – 3-Day Radiance Formula",
+          "price": 29.7,
+          "quantity": 1,
+          "selectedColor": "",
+          "selectedSize": "700ML",
+          "image": "data:image/jpeg;base64,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"
+        }
+      ],
+      "subtotal": 29.7,
+      "tax": 1.485,
+      "shippingCost": 2,
+      "discount": 0,
+      "total": 33.185,
+      "couponCode": null,
+      "paymentMethod": "Zaad Mobile",
+      "paymentStatus": "paid",
+      "shippingAddress": {
+        "fullName": "Abdilahi Ahmed",
+        "addressLine1": "Jigjiga yar, Hargeisa",
+        "city": "Hargeisa",
+        "state": "Maroodi Jeex",
+        "zipCode": "00000",
+        "country": "Somaliland",
+        "phone": "+252 63 1234567"
+      },
+      "status": "pending",
+      "statusHistory": [
+        {
+          "status": "pending",
+          "timestamp": "2026-06-07T18:22:32.274Z",
+          "note": "Order placed. Paid securely."
+        }
+      ],
+      "createdAt": "2026-06-07T18:22:32.274Z",
+      "estimatedDelivery": "2026-06-10T18:22:32.274Z",
+      "deliveryMethod": "delivery",
+      "mobilePayment": {
+        "provider": "zaad",
+        "transactionNumber": "uyt8876",
+        "senderNumber": "777777",
+        "senderName": "Salem Al-Mansoori",
+        "dateTime": "2026-06-07 18:22"
+      },
+      "deliveryFeeRemittanceStatus": "owed"
     }
   ],
   "dbTickets": [
@@ -732,5 +1054,8 @@
       "createdAt": "2026-05-25T11:00:00Z",
       "approvedAt": "2026-05-25T14:00:00Z"
     }
-  ]
+  ],
+  "deliveryFee": 2,
+  "enableCard": false,
+  "enableCod": false
 }

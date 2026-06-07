@@ -88,44 +88,6 @@ export default function LoginView({
     };
     handleRedirectResult();
   }, []);
-
-  const handleLocalBypass = (preset: 'customer' | 'vendor' | 'superadmin') => {
-    setLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-    
-    let demoEmail = '';
-    let demoName = 'Demo User';
-    let demoRole = preset;
-
-    if (preset === 'customer') {
-      demoEmail = 'standard-buyer@apex.com';
-      demoName = 'Salem AlMansoori';
-    } else if (preset === 'vendor') {
-      demoEmail = 'global-vendor@apex.com';
-      demoName = 'Sarah Connor';
-    } else {
-      demoEmail = 'boqorapps@gmail.com';
-      demoName = 'Super Admin';
-    }
-
-    const payload = {
-      id: `local-${preset}`,
-      email: demoEmail,
-      name: demoName,
-      role: demoRole
-    };
-
-    localStorage.setItem('apex_local_user', JSON.stringify(payload));
-    setSuccessMessage(`Sandbox Local Bypass Activated: Signed in as ${demoName}!`);
-    setAuthNotAllowed(false);
-    
-    setTimeout(() => {
-      onLoginSuccess(payload.id, payload.email, payload.name, payload.role);
-      setLoading(false);
-    }, 800);
-  };
-
   const syncUserToFirestore = async (uid: string, userEmail: string, userName: string, chosenRole: 'customer' | 'vendor' | 'admin' | 'superadmin') => {
     try {
       const userRef = doc(db, 'users', uid);
@@ -442,7 +404,9 @@ export default function LoginView({
         setErrorMessage('This email address is already registered to another account.');
       } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         if (email.toLowerCase() === 'boqorapps@gmail.com') {
-          setErrorMessage('Authenticating with boqorapps@gmail.com failed (auth/invalid-credential). Because this account was created in a previous session with database password "apexPassSecure001!", Firebase rejected the new "tripleA@123" credentials. Please try signing in with "apexPassSecure001!". Alternatively, go to your Firebase Console -> Authentication -> Users, find boqorapps@gmail.com, select Delete User, then register or click "Admin Master" to create it fresh with "tripleA@123".');
+          setErrorMessage('Authenticating with boqorapps@gmail.com failed. Please use your correct master password ("tripleA@123") or check your Firebase credentials.');
+        } else if (email.toLowerCase() === 'manaal@gmail.com') {
+          setErrorMessage('Authenticating with Manaal@gmail.com failed. Please use your correct merchant password ("123abc123").');
         } else {
           setErrorMessage('Incorrect password or invalid user credentials. Try again.');
         }
@@ -456,121 +420,7 @@ export default function LoginView({
     }
   };
 
-  // Helper trigger to instantly authenticate preset demo roles for debugging on live preview
-  const handlePredefinedDemoLogin = async (preset: 'buyer' | 'merchant' | 'admin') => {
-    setLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-    
-    let demoEmail = '';
-    let demoName = 'Demo User';
-    let demoRole: 'customer' | 'vendor' | 'admin' | 'superadmin' = 'customer';
 
-    if (preset === 'buyer') {
-      demoEmail = 'standard-buyer@apex.com';
-      demoName = 'Salem AlMansoori';
-      demoRole = 'customer';
-    } else if (preset === 'merchant') {
-      demoEmail = 'global-vendor@apex.com';
-      demoName = 'Sarah Connor';
-      demoRole = 'vendor';
-    } else {
-      demoEmail = 'boqorapps@gmail.com';
-      demoName = 'Super Admin';
-      demoRole = 'superadmin';
-    }
-
-    try {
-      const fixedPassword = preset === 'admin' ? 'tripleA@123' : 'apexPassSecure001!';
-      let customToken = '';
-      try {
-        const tokenRes = await fetch('/api/auth/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: demoEmail, password: fixedPassword, name: demoName })
-        });
-        if (tokenRes.ok) {
-          const tokenData = await tokenRes.json();
-          customToken = tokenData.customToken;
-        }
-      } catch (e) {
-        console.warn("Predefined login fallback to normal client-side SDK due to connection err:", e);
-      }
-
-      let user;
-      if (customToken) {
-        const { signInWithCustomToken } = await import('firebase/auth');
-        const loginRes = await signInWithCustomToken(auth, customToken);
-        user = loginRes.user;
-      } else {
-        try {
-          const loginRes = await signInWithEmailAndPassword(auth, demoEmail, fixedPassword);
-          user = loginRes.user;
-        } catch (e: any) {
-          if (e.code === 'auth/operation-not-allowed') {
-            throw e;
-          }
-          
-          if (preset === 'admin' && (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')) {
-            try {
-              const loginRes = await signInWithEmailAndPassword(auth, demoEmail, 'apexPassSecure001!');
-              user = loginRes.user;
-            } catch (fallbackErr: any) {
-              const signupRes = await createUserWithEmailAndPassword(auth, demoEmail, fixedPassword);
-              user = signupRes.user;
-              await syncUserToFirestore(user.uid, demoEmail, demoName, demoRole);
-            }
-          } else {
-            const signupRes = await createUserWithEmailAndPassword(auth, demoEmail, fixedPassword);
-            user = signupRes.user;
-            await syncUserToFirestore(user.uid, demoEmail, demoName, demoRole);
-          }
-        }
-      }
-
-      setSuccessMessage(`Simulated Auth: Entered as ${demoName} (${demoRole.toUpperCase()})`);
-      setTimeout(() => {
-        onLoginSuccess(user.uid, demoEmail, demoName, demoRole);
-      }, 800);
-    } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/operation-not-allowed') {
-        setAuthNotAllowed(true);
-        setErrorMessage('Firebase Authentication error (auth/operation-not-allowed): The Email/Password provider is not enabled in Firebase. Activating automatic Local Sandbox Bypass for you...');
-        
-        // Auto-run local fallback login to prevent any blockages!
-        const payload = {
-          id: `local-${demoRole}`,
-          email: demoEmail,
-          name: demoName,
-          role: demoRole
-        };
-        localStorage.setItem('apex_local_user', JSON.stringify(payload));
-        
-        setTimeout(() => {
-          onLoginSuccess(payload.id, payload.email, payload.name, payload.role);
-        }, 1200);
-      } else {
-        if (preset === 'admin') {
-          setErrorMessage('Authenticating with Firebase failed (likely due to a custom password set in a previous project or session). Seamlessly entering via Local Sandbox Bypass instead...');
-          const payload = {
-            id: 'local-superadmin',
-            email: 'boqorapps@gmail.com',
-            name: 'Super Admin',
-            role: 'superadmin' as const
-          };
-          localStorage.setItem('apex_local_user', JSON.stringify(payload));
-          setTimeout(() => {
-            onLoginSuccess(payload.id, payload.email, payload.name, payload.role);
-          }, 1200);
-          return;
-        }
-        setErrorMessage(`Demo registration failed: ${err.message}`);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-slate-50 font-sans">
@@ -597,23 +447,6 @@ export default function LoginView({
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <p className="leading-relaxed font-sans">{errorMessage}</p>
             </div>
-            {(errorMessage.includes('boqorapps@gmail.com') || errorMessage.includes('invalid-credential') || errorMessage.includes('wrong-password')) && (
-              <div className="mt-2 pt-2 border-t border-rose-200/50 flex flex-col gap-1.5">
-                <p className="font-bold text-rose-900">⚡ Bypass Password Block:</p>
-                <p className="text-[11px] text-rose-700 leading-relaxed font-sans">
-                  If this account was registered under a different app session or with an unknown password, you can bypass all Firebase Auth checks and sign in directly as Super Admin.
-                </p>
-                <div className="flex gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => handleLocalBypass('superadmin')}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-wider px-3 py-1.5 rounded transition shadow-sm cursor-pointer"
-                  >
-                    Bypass to Admin Dashboard
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -643,33 +476,6 @@ export default function LoginView({
               <p>2. Select your project and click <strong className="text-slate-800">Authentication</strong> in the left sidebar</p>
               <p>3. Go to the <strong className="text-slate-800">Sign-in method</strong> tab</p>
               <p>4. Click <strong className="text-slate-800">Add new provider</strong>, select <strong className="text-slate-800">Email/Password</strong>, toggle to <strong className="text-slate-800">Enable</strong>, and click <strong className="text-slate-800">Save</strong>.</p>
-            </div>
-
-            <div className="space-y-1.5 pt-1 border-t border-amber-100">
-              <p className="text-[10px] uppercase font-mono font-bold text-amber-800 tracking-wider">Fast Sandboxed Dev Sandbox Bypass:</p>
-              <div className="flex flex-wrap gap-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => handleLocalBypass('superadmin')}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition cursor-pointer"
-                >
-                  Super Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLocalBypass('vendor')}
-                  className="bg-slate-700 hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition cursor-pointer"
-                >
-                  Vendor Model
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLocalBypass('customer')}
-                  className="bg-slate-200 hover:bg-slate-300 text-slate-850 font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition cursor-pointer col-span-2"
-                >
-                  Customer Buyer
-                </button>
-              </div>
             </div>
           </div>
         )}
@@ -827,38 +633,7 @@ export default function LoginView({
           </p>
         </div>
 
-        {/* Sandbox Dev Shortcuts for quick testing */}
-        <div className="border-t border-slate-100 pt-4 mt-3 space-y-2 select-none">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-black">Fast Sandbox Demo Presets</span>
-            <span className="inline-flex items-center gap-1 text-[8px] uppercase font-mono text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded border border-indigo-100">
-              <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Instant Logins
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              onClick={() => handlePredefinedDemoLogin('buyer')}
-              disabled={loading}
-              className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 rounded text-[9px] uppercase tracking-wider font-bold text-slate-650 hover:text-indigo-700 transition cursor-pointer"
-            >
-              Customer
-            </button>
-            <button
-              onClick={() => handlePredefinedDemoLogin('merchant')}
-              disabled={loading}
-              className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 rounded text-[9px] uppercase tracking-wider font-bold text-slate-650 hover:text-indigo-700 transition cursor-pointer"
-            >
-              Vendor
-            </button>
-            <button
-              onClick={() => handlePredefinedDemoLogin('admin')}
-              disabled={loading}
-              className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-rose-50 hover:border-rose-200 rounded text-[9px] uppercase tracking-wider font-bold text-slate-650 hover:text-rose-700 transition cursor-pointer"
-            >
-              Admin Master
-            </button>
-          </div>
-        </div>
+
 
       </div>
     </div>

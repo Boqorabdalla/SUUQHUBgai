@@ -69,20 +69,6 @@ export default function App() {
   // Listen for user changes in Auth SDK
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // Prioritize local dev sandbox override if active
-      const localUserStr = localStorage.getItem('apex_local_user');
-      if (localUserStr) {
-        try {
-          const localUser = JSON.parse(localUserStr);
-          setFirebaseUser(localUser);
-          setSelectedRole(localUser.role || 'customer');
-          setAuthLoading(false);
-          return;
-        } catch (e) {
-          localStorage.removeItem('apex_local_user');
-        }
-      }
-
       if (user) {
         try {
           const docSnap = await getDoc(doc(db, 'users', user.uid));
@@ -1004,7 +990,6 @@ export default function App() {
         setSearchTerm={setSearchTerm}
         userName={firebaseUser?.name || 'Guest Account'}
         onSignOut={firebaseUser ? () => {
-          localStorage.removeItem('apex_local_user');
           signOut(auth).then(() => {
             setFirebaseUser(null);
             setSelectedRole('customer');

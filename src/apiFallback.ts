@@ -40,7 +40,7 @@ const initialVendors = [
     description: "Premium organic skin care products and dermatological solutions.",
     taxId: "TRN-3382741",
     createdAt: "2026-06-01T12:00:00Z",
-    password: "manaalPass123"
+    password: "123abc123"
   }
 ];
 
