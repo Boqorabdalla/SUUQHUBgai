@@ -142,8 +142,14 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
     if (snap.empty && defaultData) {
       console.log(`Seeding empty Firestore collection "${collectionName}" with dynamic assets...`);
       for (const item of defaultData) {
-        const id = item.id || item.code || item.code?.toUpperCase();
-        await setDoc(doc(db, collectionName, id), item);
+        const seededItem = { ...item };
+        if (collectionName === 'products' && !seededItem.vendorId) {
+          const isBeauty = seededItem.category === 'Beauty';
+          seededItem.vendorId = isBeauty ? 'usr-vendor-03' : 'usr-vendor-02';
+          seededItem.vendorName = isBeauty ? 'Manaal skin care' : 'Global Trader Store';
+        }
+        const id = seededItem.id || seededItem.code || seededItem.code?.toUpperCase();
+        await setDoc(doc(db, collectionName, id), seededItem);
       }
       
       let newSnap;
@@ -198,9 +204,38 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
       } else {
         newSnap = await getDocs(colRef);
       }
-      return newSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      let docs = newSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      if (collectionName === 'products') {
+        docs = docs.map((p: any) => {
+          if (!p.vendorId) {
+            const isBeauty = p.category === 'Beauty';
+            return {
+              ...p,
+              vendorId: isBeauty ? 'usr-vendor-03' : 'usr-vendor-02',
+              vendorName: isBeauty ? 'Manaal skin care' : 'Global Trader Store'
+            };
+          }
+          return p;
+        });
+      }
+      return docs;
     }
-    return snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+
+    let docs = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+    if (collectionName === 'products') {
+      docs = docs.map((p: any) => {
+        if (!p.vendorId) {
+          const isBeauty = p.category === 'Beauty';
+          return {
+            ...p,
+            vendorId: isBeauty ? 'usr-vendor-03' : 'usr-vendor-02',
+            vendorName: isBeauty ? 'Manaal skin care' : 'Global Trader Store'
+          };
+        }
+        return p;
+      });
+    }
+    return docs;
   } catch (err) {
     console.error(`Error reading/seeding Firestore collection "${collectionName}":`, err);
     return defaultData || [];
@@ -287,7 +322,13 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
         if (method === 'GET') {
           const snap = await getDoc(docRef);
           if (snap.exists()) {
-            return jsonResponse({ ...snap.data(), id: snap.id });
+            const productData = { ...snap.data(), id: snap.id } as any;
+            if (!productData.vendorId) {
+              const isBeauty = productData.category === 'Beauty';
+              productData.vendorId = isBeauty ? 'usr-vendor-03' : 'usr-vendor-02';
+              productData.vendorName = isBeauty ? 'Manaal skin care' : 'Global Trader Store';
+            }
+            return jsonResponse(productData);
           } else {
             return jsonResponse({ error: "Product not found" }, 404);
           }
