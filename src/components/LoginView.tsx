@@ -365,6 +365,7 @@ export default function LoginView({
               }
             }
             const loggedInUser = result.user;
+            await syncUserToFirestore(loggedInUser.uid, email, matchingVendor.representativeName, 'vendor');
             setSuccessMessage(`Credentials Verified! Welcome, ${matchingVendor.representativeName}.`);
             setTimeout(() => {
               onLoginSuccess(loggedInUser.uid, email, matchingVendor.representativeName, 'vendor');

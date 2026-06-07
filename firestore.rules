@@ -19,6 +19,15 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isVendorOrAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin'
+        );
+    }
+
     // 2. User Accounts collection path
     match /users/{userId} {
       allow read: if isSignedIn() && (isOwner(userId) || resource.data.role == 'admin' || resource.data.role == 'superadmin');
@@ -54,9 +63,9 @@ service cloud.firestore {
 
     // 4. Purchasing Orders
     match /orders/{orderId} {
-      allow read: if isSignedIn() && (resource.data.customerId == request.auth.uid || resource.data.customerRole == 'admin');
+      allow read: if isSignedIn() && (resource.data.customerId == request.auth.uid || resource.data.customerRole == 'admin' || isVendorOrAdmin());
       allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.customerId == request.auth.uid);
+      allow update: if isSignedIn() && (resource.data.customerId == request.auth.uid || isVendorOrAdmin());
       allow delete: if false;
     }
 
