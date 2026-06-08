@@ -204,9 +204,13 @@ export default function AdminPortal({
       });
       if (res.ok) {
         await fetchAdminData();
+      } else {
+        const errDetail = await res.json().catch(() => ({}));
+        alert(`Failed to update vendor status: ${errDetail.error || 'Unknown error occurred.'}`);
       }
     } catch (err) {
       console.error('Error updating vendor status:', err);
+      alert('An error occurred while updating the vendor status.');
     }
   };
 
@@ -245,9 +249,13 @@ export default function AdminPortal({
 
       if (res.ok) {
         await fetchAdminData();
+      } else {
+        const errDetail = await res.json().catch(() => ({}));
+        alert(`Failed to approve product: ${errDetail.error || 'Unknown error occurred.'}`);
       }
     } catch (err) {
       console.error(err);
+      alert('An error occurred while approving the product.');
     }
   };
 
@@ -258,9 +266,13 @@ export default function AdminPortal({
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchAdminData();
+      } else {
+        const errDetail = await res.json().catch(() => ({}));
+        alert(`Failed to delete product: ${errDetail.error || 'Unknown error occurred.'}`);
       }
     } catch (err) {
       console.error(err);
+      alert('An error occurred while deleting the product.');
     }
   };
 
@@ -275,9 +287,13 @@ export default function AdminPortal({
       if (res.ok) {
         setEditingProductId(null);
         await fetchAdminData();
+      } else {
+        const errDetail = await res.json().catch(() => ({}));
+        alert(`Failed to update stock: ${errDetail.error || 'Unknown error occurred.'}`);
       }
     } catch (err) {
       console.error(err);
+      alert('An error occurred while updating the stock.');
     }
   };
 
@@ -292,9 +308,13 @@ export default function AdminPortal({
 
       if (res.ok) {
         await fetchAdminData();
+      } else {
+        const errDetail = await res.json().catch(() => ({}));
+        alert(`Failed to update order status: ${errDetail.error || 'Unknown error occurred.'}`);
       }
     } catch (err) {
       console.error(err);
+      alert('An error occurred while updating the order status.');
     }
   };
 
