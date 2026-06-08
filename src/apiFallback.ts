@@ -298,16 +298,39 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
         const docRef = doc(db, 'config', 'delivery');
         const snap = await getDoc(docRef);
         if (snap.exists()) {
-          return jsonResponse(snap.data());
+          return jsonResponse({
+            deliveryFee: 15,
+            enableCard: true,
+            enableCod: true,
+            enableZaad: true,
+            enableEdahab: true,
+            ...snap.data()
+          });
         } else {
-          return jsonResponse({ deliveryFee: 15, enableCard: true, enableCod: true });
+          return jsonResponse({
+            deliveryFee: 15,
+            enableCard: true,
+            enableCod: true,
+            enableZaad: true,
+            enableEdahab: true
+          });
         }
       } else if (method === 'POST') {
         const docRef = doc(db, 'config', 'delivery');
+        const snap = await getDoc(docRef);
+        const existing = snap.exists() ? snap.data() : {
+          deliveryFee: 15,
+          enableCard: true,
+          enableCod: true,
+          enableZaad: true,
+          enableEdahab: true
+        };
         const payload = {
-          deliveryFee: Number(bodyObj.fee !== undefined ? bodyObj.fee : 15),
-          enableCard: bodyObj.enableCard !== false,
-          enableCod: bodyObj.enableCod !== false
+          deliveryFee: Number(bodyObj.fee !== undefined ? bodyObj.fee : (bodyObj.deliveryFee !== undefined ? bodyObj.deliveryFee : existing.deliveryFee)),
+          enableCard: bodyObj.enableCard !== undefined ? bodyObj.enableCard === true : (existing.enableCard !== false),
+          enableCod: bodyObj.enableCod !== undefined ? bodyObj.enableCod === true : (existing.enableCod !== false),
+          enableZaad: bodyObj.enableZaad !== undefined ? bodyObj.enableZaad === true : (existing.enableZaad !== false),
+          enableEdahab: bodyObj.enableEdahab !== undefined ? bodyObj.enableEdahab === true : (existing.enableEdahab !== false)
         };
         await setDoc(docRef, payload);
         return jsonResponse({ success: true, ...payload });
@@ -465,16 +488,49 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
           if (!snap.exists()) return jsonResponse({ error: "Order not found" }, 404);
           
           const existingOrder = snap.data();
+          const status = bodyObj.status;
+          const note = bodyObj.note;
+          const vendorId = bodyObj.vendorId;
+          
           const history = existingOrder.statusHistory || [];
           history.push({
-            status: bodyObj.status,
+            status: status,
             timestamp: new Date().toISOString(),
-            note: bodyObj.note || `Status updated to ${bodyObj.status}`
+            note: note || `Status updated to ${status}`
           });
+          
+          const vendorStatuses = existingOrder.vendorStatuses || {};
+          let mainStatus = status;
+          
+          if (vendorId) {
+            vendorStatuses[vendorId] = status;
+            
+            // Recompute main status
+            const vendorIds = Object.keys(vendorStatuses);
+            if (vendorIds.length > 0) {
+              const statuses = vendorIds.map(vid => vendorStatuses[vid]);
+              if (statuses.every(s => s === 'delivered')) {
+                mainStatus = 'delivered';
+              } else if (statuses.every(s => s === 'shipped' || s === 'delivered')) {
+                mainStatus = 'shipped';
+              } else if (statuses.every(s => s === 'processing' || s === 'shipped' || s === 'delivered')) {
+                mainStatus = 'processing';
+              } else {
+                mainStatus = 'pending';
+              }
+            }
+          } else {
+            // Admin override
+            for (const vid of Object.keys(vendorStatuses)) {
+              vendorStatuses[vid] = status;
+            }
+          }
+          
           const merged = {
             ...existingOrder,
-            status: bodyObj.status,
-            statusHistory: history
+            status: mainStatus,
+            statusHistory: history,
+            vendorStatuses
           };
           await setDoc(docRef, merged);
           return jsonResponse(merged);
@@ -490,6 +546,7 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
           const orderId = bodyObj.id || `ord-${Math.floor(100 + Math.random() * 900)}-${Date.now().toString().slice(-6)}`;
           
           const items = bodyObj.items || [];
+          const vendorStatuses: Record<string, string> = {};
           for (const item of items) {
             const pId = item.productId || item.id;
             const pRef = doc(db, 'products', pId);
@@ -498,6 +555,10 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
               const pData = pSnap.data();
               const newStock = Math.max(0, (pData.stock || 0) - (item.quantity || 1));
               await setDoc(pRef, { ...pData, stock: newStock });
+              
+              if (pData.vendorId) {
+                vendorStatuses[pData.vendorId] = "pending";
+              }
             }
           }
 
@@ -520,6 +581,7 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
             statusHistory: [
               { status: "pending", timestamp: new Date().toISOString(), note: "Order placed. Paid securely." }
             ],
+            vendorStatuses,
             createdAt: new Date().toISOString(),
             estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
             deliveryMethod: bodyObj.deliveryMethod || 'delivery',

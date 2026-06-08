@@ -66,11 +66,18 @@ export default function VendorPortal({
   const [remitSuccess, setRemitSuccess] = useState(false);
   const [remitProvider, setRemitProvider] = useState<'zaad' | 'edahab'>('zaad');
 
+  const lastVendorIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
     if (selectedVendor) {
-      setZaadNumber(selectedVendor.zaadNumber || '');
-      setEdahabNumber(selectedVendor.edahabNumber || '');
-      setRepresentativeName(selectedVendor.representativeName || '');
+      if (lastVendorIdRef.current !== selectedVendor.id) {
+        setZaadNumber(selectedVendor.zaadNumber || '');
+        setEdahabNumber(selectedVendor.edahabNumber || '');
+        setRepresentativeName(selectedVendor.representativeName || '');
+        lastVendorIdRef.current = selectedVendor.id;
+      }
+    } else {
+      lastVendorIdRef.current = null;
     }
   }, [selectedVendor]);
 
@@ -424,7 +431,7 @@ export default function VendorPortal({
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, note })
+        body: JSON.stringify({ status, note, vendorId: selectedVendor?.id })
       });
       if (res.ok) {
         if (selectedVendor) {
@@ -1592,7 +1599,10 @@ export default function VendorPortal({
               {/* Filter pills */}
               <div className="flex flex-wrap gap-1 bg-slate-200/60 p-1 rounded-lg border border-slate-205 w-fit">
               {['all', 'pending', 'processing', 'shipped', 'delivered'].map((status) => {
-                const count = orders.filter(o => status === 'all' || o.status === status).length;
+                const count = orders.filter(o => {
+                  const getVendorOrderStatus = (x: Order) => (x.vendorStatuses && selectedVendor && x.vendorStatuses[selectedVendor.id]) || x.status;
+                  return status === 'all' || getVendorOrderStatus(o) === status;
+                }).length;
                 return (
                   <button
                     key={status}
@@ -1622,18 +1632,26 @@ export default function VendorPortal({
                 </p>
               </div>
             </div>
-          ) : orders.filter(o => activeStatusFilter === 'all' || o.status === activeStatusFilter).length === 0 ? (
+          ) : orders.filter(o => {
+            const getVendorOrderStatus = (x: Order) => (x.vendorStatuses && selectedVendor && x.vendorStatuses[selectedVendor.id]) || x.status;
+            return activeStatusFilter === 'all' || getVendorOrderStatus(o) === activeStatusFilter;
+          }).length === 0 ? (
             <div className="text-center py-12 bg-white rounded-xl border border-slate-200 text-slate-400 font-mono text-xs">
               No product orders are currently in the "{activeStatusFilter.toUpperCase()}" queue stage.
             </div>
           ) : (
             <div className="space-y-5">
               {orders
-                .filter(o => activeStatusFilter === 'all' || o.status === activeStatusFilter)
+                .filter(o => {
+                  const getVendorOrderStatus = (x: Order) => (x.vendorStatuses && selectedVendor && x.vendorStatuses[selectedVendor.id]) || x.status;
+                  return activeStatusFilter === 'all' || getVendorOrderStatus(o) === activeStatusFilter;
+                })
                 .map((ord) => {
                   const vendorPortionItems = ord.items.filter(item => products.some(p => p.id === item.productId));
                   const vendorPortionSum = vendorPortionItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                  const isFullyDelivered = ord.status === 'delivered';
+                  const getVendorOrderStatus = (x: Order) => (x.vendorStatuses && selectedVendor && x.vendorStatuses[selectedVendor.id]) || x.status;
+                  const currentVendorStatus = getVendorOrderStatus(ord);
+                  const isFullyDelivered = currentVendorStatus === 'delivered';
 
                   const lastHistory = ord.statusHistory && ord.statusHistory.length > 0
                     ? ord.statusHistory[ord.statusHistory.length - 1]
@@ -1656,11 +1674,11 @@ export default function VendorPortal({
                               {ord.id}
                             </span>
                             <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border tracking-wider ${
-                              ord.status === 'delivered' ? 'bg-emerald-50 border-emerald-250 text-emerald-700' :
-                              ord.status === 'shipped' ? 'bg-indigo-50 border-indigo-250 text-indigo-700' :
+                              currentVendorStatus === 'delivered' ? 'bg-emerald-50 border-emerald-250 text-emerald-700' :
+                              currentVendorStatus === 'shipped' ? 'bg-indigo-50 border-indigo-250 text-indigo-700' :
                               'bg-amber-50 border-amber-250 text-amber-705'
                             }`}>
-                              {ord.status === 'shipped' ? '🚚 Dispatched (Shipped)' : ord.status}
+                              {currentVendorStatus === 'shipped' ? '🚚 Dispatched (Shipped)' : currentVendorStatus}
                             </span>
                             
                             {/* Delivery Method Badge */}
@@ -1829,7 +1847,7 @@ export default function VendorPortal({
 
                           {ord.deliveryMethod !== 'pickup' ? (
                             <>
-                              {ord.status === 'pending' ? (
+                              {currentVendorStatus === 'pending' ? (
                                 <button
                                   disabled={transitioningOrderId !== null}
                                   onClick={() => handleTransitionOrderStatus(ord.id, 'processing', `Store seller merchant ${selectedVendor?.vendorName} has approved checkout and packaged the item. Ready for SuuqHub courier pickup.`)}
@@ -1837,7 +1855,7 @@ export default function VendorPortal({
                                 >
                                   <ArrowRight className="w-4 h-4" /> Approve & Pack order (Home Delivery)
                                 </button>
-                              ) : ord.status === 'processing' ? (
+                              ) : currentVendorStatus === 'processing' ? (
                                 <div className="flex flex-col gap-1 text-left p-3.5 bg-amber-50 border border-amber-205 rounded-lg max-w-xs sm:max-w-sm font-sans">
                                   <span className="text-[10px] uppercase font-bold text-amber-800 flex items-center gap-1">
                                     📦 Packed & Awaiting SuuqHub Dispatch
@@ -1846,7 +1864,7 @@ export default function VendorPortal({
                                     Vendor packaging done. SuuqHub operations has been notified and will handle courier dispatching shortly.
                                   </p>
                                 </div>
-                              ) : ord.status === 'shipped' ? (
+                              ) : currentVendorStatus === 'shipped' ? (
                                 <div className="flex flex-col gap-1 text-left p-3.5 bg-indigo-50 border border-indigo-150 rounded-lg max-w-xs sm:max-w-sm font-sans">
                                   <span className="text-[10px] uppercase font-bold text-indigo-800 flex items-center gap-1">
                                     🚚 Dispatched with SuuqHub Courier
@@ -1868,7 +1886,7 @@ export default function VendorPortal({
                             </>
                           ) : (
                             <>
-                              {ord.status === 'pending' && (
+                              {currentVendorStatus === 'pending' && (
                                 <button
                                   disabled={transitioningOrderId !== null}
                                   onClick={() => handleTransitionOrderStatus(ord.id, 'processing', `Store seller merchant ${selectedVendor?.vendorName} has approved checkout. Customer self-pickup package is being structured.`)}
@@ -1878,7 +1896,7 @@ export default function VendorPortal({
                                 </button>
                               )}
 
-                              {ord.status === 'processing' && (
+                              {currentVendorStatus === 'processing' && (
                                 <button
                                   disabled={transitioningOrderId !== null}
                                   onClick={() => handleTransitionOrderStatus(ord.id, 'shipped', `Sellers packaging done. Package is prepared and marked waiting for client self-pickup.`)}
@@ -1888,7 +1906,7 @@ export default function VendorPortal({
                                 </button>
                               )}
 
-                              {ord.status === 'shipped' && (
+                              {currentVendorStatus === 'shipped' && (
                                 <button
                                   disabled={transitioningOrderId !== null}
                                   onClick={() => handleTransitionOrderStatus(ord.id, 'delivered', `Fulfillment verified; confirmed patient client picked up items directly at storefront.`)}

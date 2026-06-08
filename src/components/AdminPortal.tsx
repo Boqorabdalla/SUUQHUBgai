@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Package, ShieldAlert, DollarSign, Users, Award, TrendingUp, Check, Play, Trash2, Edit, Save, Plus, Loader2, Lock, Key, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Package, ShieldAlert, DollarSign, Users, Award, TrendingUp, Check, Play, Trash2, Edit, Save, Plus, Loader2, Lock, Key, Eye, EyeOff, ShieldCheck, RefreshCw, Search, SlidersHorizontal, Store, Clock, ArrowRight, AlertCircle, MapPin, User, CreditCard, Copy, Sparkles, Truck } from 'lucide-react';
 import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign } from '../types';
 import { formatPrice } from '../utils';
 
@@ -63,7 +63,15 @@ export default function AdminPortal({
   const [newDeliveryFeeText, setNewDeliveryFeeText] = useState<string>('15');
   const [enableCard, setEnableCard] = useState<boolean>(true);
   const [enableCod, setEnableCod] = useState<boolean>(true);
+  const [enableZaad, setEnableZaad] = useState<boolean>(true);
+  const [enableEdahab, setEnableEdahab] = useState<boolean>(true);
   const [updatingLogistics, setUpdatingLogistics] = useState<boolean>(false);
+
+  // Search and filtered orders
+  const [orderQuery, setOrderQuery] = useState<string>('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'pending' | 'processing' | 'shipped' | 'delivered'>('all');
+  const [orderMethodFilter, setOrderMethodFilter] = useState<'all' | 'pickup' | 'delivery'>('delivery');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAdminData();
@@ -100,6 +108,8 @@ export default function AdminPortal({
       setNewDeliveryFeeText(String(dData.deliveryFee ?? 15));
       setEnableCard(dData.enableCard !== false);
       setEnableCod(dData.enableCod !== false);
+      setEnableZaad(dData.enableZaad !== false);
+      setEnableEdahab(dData.enableEdahab !== false);
 
       await fetchHeroCampaigns();
     } catch (err) {
@@ -109,20 +119,26 @@ export default function AdminPortal({
     }
   };
 
-  const handleTogglePaymentMethod = async (method: 'card' | 'cod', enabled: boolean) => {
+  const handleTogglePaymentMethod = async (method: 'card' | 'cod' | 'zaad' | 'edahab', enabled: boolean) => {
     try {
       setUpdatingLogistics(true);
+      const payload: any = {};
+      if (method === 'card') payload.enableCard = enabled;
+      else if (method === 'cod') payload.enableCod = enabled;
+      else if (method === 'zaad') payload.enableZaad = enabled;
+      else if (method === 'edahab') payload.enableEdahab = enabled;
+
       const res = await fetch('/api/delivery-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          [method === 'card' ? 'enableCard' : 'enableCod']: enabled
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const data = await res.json();
         setEnableCard(data.enableCard !== false);
         setEnableCod(data.enableCod !== false);
+        setEnableZaad(data.enableZaad !== false);
+        setEnableEdahab(data.enableEdahab !== false);
       }
     } catch (err) {
       console.error('Error updating payment method toggle:', err);
@@ -162,6 +178,36 @@ export default function AdminPortal({
       setUpdatingLogistics(false);
     }
   };
+
+  const filteredAndSortedOrders = React.useMemo(() => {
+    let list = [...orders];
+
+    if (orderQuery.trim()) {
+      const q = orderQuery.toLowerCase();
+      list = list.filter(o => 
+        o.id.toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        o.customerEmail.toLowerCase().includes(q) ||
+        (o.shippingAddress?.phone || '').toLowerCase().includes(q) ||
+        (o.paymentMethod || '').toLowerCase().includes(q) ||
+        (o.mobilePayment?.transactionNumber || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (orderStatusFilter !== 'all') {
+      list = list.filter(o => o.status === orderStatusFilter);
+    }
+
+    if (orderMethodFilter !== 'all') {
+      list = list.filter(o => o.deliveryMethod === orderMethodFilter);
+    }
+
+    return list.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime() || 0;
+      const dateB = new Date(b.createdAt).getTime() || 0;
+      return dateB - dateA;
+    });
+  }, [orders, orderQuery, orderStatusFilter, orderMethodFilter]);
 
   const fetchHeroCampaigns = async () => {
     try {
@@ -955,15 +1001,15 @@ export default function AdminPortal({
               {/* Payment methods toggling configuration card */}
               <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl text-left space-y-3 shadow-3xs flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-mono text-emerald-700 uppercase tracking-widest font-extrabold flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-indigo-700 uppercase tracking-widest font-extrabold flex items-center gap-1.5">
                     💳 Payment Gateway Toggles
                   </span>
                   <p className="text-[11px] font-sans text-slate-500 leading-relaxed mt-1">
-                    Toggle checkout options. <b>ZAAD</b> and <b>eDahab</b> peer-to-peer mobile payments are natively always enabled.
+                    Toggle active checkout payment methods across the entire platform.
                   </p>
                 </div>
 
-                <div className="space-y-2 pt-1">
+                <div className="grid grid-cols-1 gap-2 pt-1">
                   
                   {/* Credit Card Toggle */}
                   <div className="flex items-center justify-between p-2.5 bg-white border border-slate-205 rounded-xl shadow-3xs">
@@ -976,7 +1022,7 @@ export default function AdminPortal({
                       onClick={() => handleTogglePaymentMethod('card', !enableCard)}
                       className={`relative inline-flex h-5.5 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enableCard ? 'bg-indigo-600' : 'bg-slate-200'}`}
                     >
-                      <span className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${enableCard ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+                      <span className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-xs ring-0 transition duration-205 ease-in-out ${enableCard ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
                     </button>
                   </div>
 
@@ -991,7 +1037,37 @@ export default function AdminPortal({
                       onClick={() => handleTogglePaymentMethod('cod', !enableCod)}
                       className={`relative inline-flex h-5.5 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enableCod ? 'bg-indigo-600' : 'bg-slate-200'}`}
                     >
-                      <span className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${enableCod ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+                      <span className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-xs ring-0 transition duration-205 ease-in-out ${enableCod ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+                    </button>
+                  </div>
+
+                  {/* Zaad Toggle */}
+                  <div className="flex items-center justify-between p-2.5 bg-white border border-slate-205 rounded-xl shadow-3xs">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-850 block leading-tight">Zaad Mobile Pay</span>
+                      <span className="text-[9px] text-emerald-600 font-mono font-bold">P2P Escrow Transfer</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePaymentMethod('zaad', !enableZaad)}
+                      className={`relative inline-flex h-5.5 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enableZaad ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    >
+                      <span className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-xs ring-0 transition duration-205 ease-in-out ${enableZaad ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+                    </button>
+                  </div>
+
+                  {/* eDahab Toggle */}
+                  <div className="flex items-center justify-between p-2.5 bg-white border border-slate-205 rounded-xl shadow-3xs">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-850 block leading-tight">eDahab Wallet Pay</span>
+                      <span className="text-[9px] text-amber-700 font-mono font-bold">Mobile Wallet Transfer</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePaymentMethod('edahab', !enableEdahab)}
+                      className={`relative inline-flex h-5.5 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enableEdahab ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    >
+                      <span className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-xs ring-0 transition duration-205 ease-in-out ${enableEdahab ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
                     </button>
                   </div>
 
@@ -1000,114 +1076,486 @@ export default function AdminPortal({
 
             </div>
 
-            <div className="overflow-x-auto rounded border border-slate-205">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 border-b border-slate-200 uppercase font-mono text-[9px] text-slate-500">
-                  <tr>
-                    <th className="p-3">Order Code</th>
-                    <th className="p-3">buyer Details</th>
-                    <th className="p-3 text-center">Handover Type</th>
-                    <th className="p-3 text-center">Bill total</th>
-                    <th className="p-3 text-center">Fulfill dates</th>
-                    <th className="p-3 text-center">Payment Info</th>
-                    <th className="p-3 text-center">Dispatched status</th>
-                    <th className="p-3 text-right">controls</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {orders.map((ord) => (
-                    <tr key={ord.id} className="hover:bg-slate-50/50 transition">
-                      <td className="p-3 font-mono font-bold text-slate-800">{ord.id}</td>
-                      <td className="p-3 text-xs">
-                        <span className="block font-semibold text-slate-800">{ord.customerName}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">{ord.customerEmail}</span>
-                      </td>
+            {/* Sub-tabs to completely segregate Home Delivery and Self Pickup queues */}
+            <div className="flex border border-slate-200/80 bg-slate-100 p-1 rounded-xl shadow-3xs max-w-2xl text-left">
+              <button
+                type="button"
+                onClick={() => {
+                  setOrderMethodFilter('delivery');
+                  setOrderStatusFilter('all');
+                }}
+                className={`flex-1 py-3 px-4 rounded-lg text-xs uppercase tracking-wider font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  orderMethodFilter === 'delivery'
+                    ? 'bg-indigo-650 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+                }`}
+              >
+                <Package className="w-4 h-4 shrink-0" />
+                📦 Home Delivery Logistics Center
+                <span className={`text-[10px] ml-1.5 px-2 py-0.5 rounded-full font-mono font-bold ${
+                  orderMethodFilter === 'delivery' ? 'bg-indigo-800/60 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {orders.filter(o => o.deliveryMethod !== 'pickup').length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOrderMethodFilter('pickup');
+                  setOrderStatusFilter('all');
+                }}
+                className={`flex-1 py-3 px-4 rounded-lg text-xs uppercase tracking-wider font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  orderMethodFilter === 'pickup'
+                    ? 'bg-indigo-650 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+                }`}
+              >
+                <Store className="w-4 h-4 shrink-0" />
+                🛒 Store Self-Pickup Clearance
+                <span className={`text-[10px] ml-1.5 px-2 py-0.5 rounded-full font-mono font-bold ${
+                  orderMethodFilter === 'pickup' ? 'bg-indigo-800/60 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {orders.filter(o => o.deliveryMethod === 'pickup').length}
+                </span>
+              </button>
+            </div>
 
-                      {/* Handover type badge column */}
-                      <td className="p-3 text-center">
-                        <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded border tracking-wider inline-block ${
-                          ord.deliveryMethod === 'pickup'
-                            ? 'bg-teal-50 border-teal-205 text-teal-700'
-                            : 'bg-blue-50 border-blue-255 text-blue-700'
-                        }`}>
-                          {ord.deliveryMethod === 'pickup' ? '🛒 Self Pickup' : '📦 Home Delivery'}
-                        </span>
-                      </td>
+            {/* Search and Filter Row */}
+            <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col md:flex-row items-center justify-between gap-3 text-left">
+              <div className="relative w-full md:max-w-md">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Search className="h-4 w-4 text-slate-400" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search order ID, customer name, email, phone, payment ref..."
+                  value={orderQuery}
+                  onChange={(e) => setOrderQuery(e.target.value)}
+                  className="w-full text-xs pl-9 pr-4 py-2.5 bg-white border border-slate-205 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-650 font-sans shadow-3xs"
+                />
+              </div>
 
-                      <td className="p-3 text-center font-mono font-bold text-slate-900">${ord.total}</td>
-                      <td className="p-3 text-center font-mono text-[10px] text-slate-400">{new Date(ord.createdAt).toLocaleDateString()}</td>
-                      
-                      <td className="p-3 text-center">
-                        <span className={`text-[10px] font-mono px-2.5 py-1 rounded border inline-block font-bold ${
-                          ord.paymentMethod === 'Cash on Delivery' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                          ord.paymentMethod && ord.paymentMethod.includes('Zaad') ? 'bg-emerald-50 text-emerald-800 border-emerald-200 font-extrabold' :
-                          ord.paymentMethod && ord.paymentMethod.includes('Edahab') ? 'bg-amber-50 text-amber-800 border-amber-200 font-extrabold' :
-                          'bg-slate-50 text-slate-600 border-slate-200'
-                        }`}>{ord.paymentMethod}</span>
-                        {ord.mobilePayment && (
-                          <div className="text-[10px] font-mono text-slate-500 mt-2.5 space-y-0.5 text-left max-w-[150px] mx-auto border-t border-slate-100 pt-1.5 leading-snug">
-                            <p className="font-bold text-slate-755">Txn: <span className="underline select-all font-bold text-indigo-600">{ord.mobilePayment.transactionNumber}</span></p>
-                            <p>From: {ord.mobilePayment.senderNumber}</p>
-                            <p>Name: {ord.mobilePayment.senderName}</p>
-                            <p className="text-[9px] text-slate-400">{ord.mobilePayment.dateTime}</p>
-                          </div>
-                        )}
-                      </td>
+              <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <div className="flex flex-wrap gap-1 bg-slate-200/65 p-1 rounded-lg border border-slate-205">
+                  {(['all', 'pending', 'processing', 'shipped', 'delivered'] as const).map((st) => {
+                    const count = orders.filter(o => {
+                      const matchMethod = orderMethodFilter === 'all' || o.deliveryMethod === orderMethodFilter;
+                      const matchQuery = !orderQuery.trim() || (
+                        o.id.toLowerCase().includes(orderQuery.toLowerCase()) ||
+                        o.customerName.toLowerCase().includes(orderQuery.toLowerCase()) ||
+                        o.customerEmail.toLowerCase().includes(orderQuery.toLowerCase()) ||
+                        (o.shippingAddress?.phone || '').toLowerCase().includes(orderQuery.toLowerCase()) ||
+                        (o.mobilePayment?.transactionNumber || '').toLowerCase().includes(orderQuery.toLowerCase())
+                      );
+                      return (st === 'all' || o.status === st) && matchMethod && matchQuery;
+                    }).length;
+                    
+                    return (
+                      <button
+                        key={st}
+                        onClick={() => setOrderStatusFilter(st)}
+                        className={`px-3 py-1 text-[10px] font-bold uppercase rounded-md tracking-wider cursor-pointer transition-all ${
+                          orderStatusFilter === st
+                            ? 'bg-indigo-600 text-white shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-800 hover:bg-slate-305'
+                        }`}
+                      >
+                        {st} <span className="opacity-70 font-mono text-[9px]">({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
 
-                      <td className="p-3 text-center">
-                        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm border ${
-                          ord.status === 'delivered' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                          ord.status === 'shipped' ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-extrabold' :
-                          'bg-amber-50 border-amber-200 text-amber-700'
-                        }`}>
-                          {ord.status === 'shipped' ? '🚚 Dispatched' : ord.status}
-                        </span>
-                      </td>
+            {/* Redesigned High-End Bento Dispatch Board */}
+            <div className="space-y-6">
+              {filteredAndSortedOrders.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-2xl border border-slate-150 text-slate-450 font-mono text-xs">
+                  ⚡ No orders matching selected fulfillment queue configurations in record logs.
+                </div>
+              ) : (
+                filteredAndSortedOrders.map((ord) => {
+                  // Compute direct item-level vendor details
+                  const oBreakdown = (() => {
+                    const itemsWithVendorInfo = ord.items.map(item => {
+                      const prod = products.find(p => p.id === (item.productId || (item as any).id));
+                      const vendor = prod ? vendors.find(v => v.id === prod.vendorId) : null;
+                      const vendorStatus = (ord.vendorStatuses && vendor && ord.vendorStatuses[vendor.id]) || ord.status || 'pending';
+                      return { ...item, vendor, vendorStatus };
+                    });
 
-                      <td className="p-3 text-right font-sans">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {ord.status === 'pending' && (
-                            <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded font-bold font-mono uppercase">
-                              🕒 Awaiting Vendor Pack
-                            </span>
-                          )}
-                          {ord.status === 'processing' && (
-                            <button
-                              onClick={() => {
-                                const note = ord.deliveryMethod === 'pickup'
-                                  ? 'SuuqHub Admin verified packaging; order marked ready for customer storefront pickup.'
-                                  : 'SuuqHub Logistics has dispatched the order. Package in transit with express couriers.';
-                                handleTransitionOrderStatus(ord.id, 'shipped', note);
-                              }}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded text-xs cursor-pointer inline-flex items-center gap-1 active:scale-95 transition"
-                            >
-                              {ord.deliveryMethod === 'pickup' ? '📦 Ready for Pickup' : '🚚 Ship Out (Dispatch)'}
-                            </button>
-                          )}
-                          {ord.status === 'shipped' && (
-                            <button
-                              onClick={() => {
-                                const note = ord.deliveryMethod === 'pickup'
-                                  ? 'SuuqHub Admin confirmed direct client storefront pickup handover completed successfully.'
-                                  : 'SuuqHub Courier has successfully delivered the home shipment. Enjoy your purchase!';
-                                handleTransitionOrderStatus(ord.id, 'delivered', note);
-                              }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded text-xs cursor-pointer inline-flex items-center gap-1 active:scale-95 transition"
-                            >
-                              {ord.deliveryMethod === 'pickup' ? '✅ Complete Handover' : '✅ Declare Delivered'}
-                            </button>
-                          )}
-                          {ord.status === 'delivered' && (
-                            <span className="text-emerald-700 text-[10px] font-bold uppercase mr-2 font-mono bg-emerald-50 px-2 py-0.5 rounded border border-emerald-150">
-                              Archived verified
-                            </span>
-                          )}
+                    const uniqueVendorsInvolved = Array.from(new Set(
+                      itemsWithVendorInfo.map(item => item.vendor?.id).filter(Boolean) as string[]
+                    )).map(vId => {
+                      const vMeta = vendors.find(v => v.id === vId);
+                      const vStatus = ord.vendorStatuses?.[vId] || (ord.status === 'delivered' ? 'delivered' : ord.status === 'shipped' ? 'shipped' : 'pending');
+                      return {
+                        id: vId,
+                        name: vMeta?.vendorName || `Merchant Outlet (${vId.substring(0, 5)})`,
+                        status: vStatus
+                      };
+                    });
+
+                    const isMultiVendor = uniqueVendorsInvolved.length > 1;
+                    const approvedVendors = uniqueVendorsInvolved.filter(v => v.status !== 'pending');
+                    const pendingVendors = uniqueVendorsInvolved.filter(v => v.status === 'pending');
+                    const totalVendorsCount = uniqueVendorsInvolved.length;
+                    const approvedCount = approvedVendors.length;
+
+                    const isPartiallyApproved = isMultiVendor && approvedCount > 0 && approvedCount < totalVendorsCount;
+                    const allSellersApproved = totalVendorsCount > 0 && approvedCount === totalVendorsCount;
+
+                    return {
+                      itemsWithVendorInfo,
+                      uniqueVendorsInvolved,
+                      isMultiVendor,
+                      approvedVendors,
+                      pendingVendors,
+                      totalVendorsCount,
+                      approvedCount,
+                      isPartiallyApproved,
+                      allSellersApproved
+                    };
+                  })();
+
+                  // Border styling based on current state
+                  let borderLeftColor = 'border-l-4 border-l-amber-500';
+                  if (ord.status === 'delivered') borderLeftColor = 'border-l-4 border-l-emerald-500';
+                  else if (ord.status === 'shipped') borderLeftColor = 'border-l-4 border-l-indigo-600';
+                  else if (oBreakdown.isPartiallyApproved) borderLeftColor = 'border-l-4 border-l-rose-400';
+
+                  return (
+                    <div 
+                      key={ord.id} 
+                      className={`bg-white border border-slate-205 rounded-2xl shadow-3xs hover:shadow-xs transition-all duration-200 overflow-hidden ${borderLeftColor}`}
+                    >
+                      {/* Top Bar Header */}
+                      <div className="bg-slate-50/70 border-b border-slate-200/80 px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-black text-slate-800 tracking-wider flex items-center gap-1.5 text-xs">
+                            <Package className="w-4 h-4 text-slate-500 shrink-0" />
+                            {ord.id}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(ord.id);
+                              setCopiedId(ord.id);
+                              setTimeout(() => setCopiedId(null), 1500);
+                            }}
+                            className="bg-white border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-indigo-650 px-2 py-1 rounded transition flex items-center gap-1 font-mono text-[9px] cursor-pointer"
+                            title="Copy Order ID Code"
+                          >
+                            {copiedId === ord.id ? (
+                              <span className="text-emerald-700 font-bold flex items-center gap-0.5">
+                                <Check className="w-3 h-3" /> Copied!
+                              </span>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3 shrink-0" /> Copy ID
+                              </>
+                            )}
+                          </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-[11px] font-mono text-slate-450 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 shrink-0" />
+                            {new Date(ord.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                          <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded border tracking-wider ${
+                            ord.deliveryMethod === 'pickup'
+                              ? 'bg-teal-50 border-teal-200 text-teal-700'
+                              : 'bg-blue-50 border-blue-200 text-blue-700'
+                          }`}>
+                            {ord.deliveryMethod === 'pickup' ? '🛒 Self Pickup' : '📦 Home Delivery'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content Grids */}
+                      <div className="p-5 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                        
+                        {/* Column 1: Purchaser Profile details & Address info */}
+                        <div className="lg:col-span-3 space-y-3 pb-5 lg:pb-0 border-b lg:border-b-0 lg:border-r border-slate-100 lg:pr-5">
+                          <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 block font-bold">Purchaser Profile</span>
+                          
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-3xs shrink-0">
+                              {ord.customerName?.[0] || 'U'}
+                            </div>
+                            <div className="min-w-0 flex-1 leading-snug">
+                              <span className="block font-black text-slate-800 text-xs truncate leading-normal">{ord.customerName}</span>
+                              <span className="text-[10px] text-slate-400 font-mono block truncate">{ord.customerEmail}</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 text-[11.5px] text-slate-700 pt-2 border-t border-slate-50">
+                            {ord.shippingAddress?.phone && (
+                              <p className="flex items-center gap-2 text-slate-700">
+                                <span className="text-slate-400 font-mono uppercase text-[9px] font-bold">Phone:</span>
+                                <strong className="font-sans font-extrabold select-all">{ord.shippingAddress.phone}</strong>
+                              </p>
+                            )}
+
+                            {ord.deliveryMethod !== 'pickup' && ord.shippingAddress ? (
+                              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl mt-2 leading-relaxed text-left space-y-1">
+                                <span className="text-[8.5px] font-mono uppercase tracking-wider text-slate-400 block font-bold">Delivery Address:</span>
+                                <p className="font-bold text-slate-800 flex items-start gap-1 text-[11px]">
+                                  <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                                  {ord.shippingAddress.region}, {ord.shippingAddress.city}
+                                </p>
+                                <p className="text-slate-500 text-[10.5px] leading-relaxed pl-4.5">{ord.shippingAddress.district}, {ord.shippingAddress.streetAddress}</p>
+                                {ord.shippingAddress.homeInstructions && (
+                                  <div className="bg-indigo-50/60 border border-indigo-100 p-2 rounded text-[10px] text-indigo-800 leading-normal font-sans">
+                                    💡 Instruction: <i>"{ord.shippingAddress.homeInstructions}"</i>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="bg-teal-50/45 border border-teal-150 p-3 rounded-xl mt-2 leading-relaxed text-left">
+                                <span className="text-[8.5px] font-mono uppercase tracking-wider text-teal-600 block font-bold">Handover Class:</span>
+                                <p className="font-bold text-slate-800 flex items-center gap-1 mt-0.5 text-xs">
+                                  <Store className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                  Customer Storefront Pickup
+                                </p>
+                                <p className="text-slate-500 text-[10px] mt-1 leading-normal">Fulfillment cleared strictly in person at the vendor storefront.</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Column 2: Bill Summary & Remittance details */}
+                        <div className="lg:col-span-3 space-y-4 pb-5 lg:pb-0 border-b lg:border-b-0 lg:border-r border-slate-100 lg:px-5">
+                          <div>
+                            <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 block font-bold mb-1.5">Basket & Pricing</span>
+                            <div className="space-y-1 text-[11px] font-sans">
+                              <div className="flex justify-between text-slate-550">
+                                <span>Cart Subtotal:</span>
+                                <span className="font-mono font-bold text-slate-700">${(ord.total - (ord.shippingCost || 0)).toFixed(2)}</span>
+                              </div>
+                              {ord.deliveryMethod !== 'pickup' && (
+                                <div className="flex justify-between text-indigo-650 font-bold">
+                                  <span>Logistics Delivery Fee:</span>
+                                  <span className="font-mono">${ord.shippingCost ?? 15}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between text-xs pt-2 border-t border-slate-100 font-extrabold text-slate-900">
+                                <span className="flex items-center gap-1 text-slate-800"><DollarSign className="w-4 h-4 text-emerald-600 shrink-0" /> Paid Amount:</span>
+                                <span className="font-mono text-sm px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-150 rounded-lg">${ord.total.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-slate-100">
+                            <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 block font-bold mb-1.5">Gateway & Reference</span>
+                            <span className={`text-[10px] font-mono px-2.5 py-1 rounded border inline-block font-extrabold ${
+                              ord.paymentMethod === 'Cash on Delivery' ? 'bg-slate-100 text-slate-700 border-slate-200' :
+                              ord.paymentMethod && ord.paymentMethod.includes('Zaad') ? 'bg-emerald-50 text-emerald-800 border-emerald-200 font-black' :
+                              ord.paymentMethod && ord.paymentMethod.includes('Edahab') ? 'bg-amber-50 text-amber-800 border-amber-200 font-black' :
+                              'bg-slate-50 text-slate-600 border-slate-200'
+                            }`}>{ord.paymentMethod}</span>
+                            
+                            {ord.mobilePayment && (
+                              <div className="text-[10px] font-mono text-slate-600 mt-2 bg-slate-50 border border-slate-200 p-2.5 rounded-xl leading-relaxed space-y-0.5 text-left">
+                                <p className="font-bold flex justify-between">
+                                  <span className="text-slate-400 text-[8.5px]">PROVIDER:</span> 
+                                  <span className="uppercase text-indigo-700">{ord.mobilePayment.provider}</span>
+                                </p>
+                                <p className="font-bold flex justify-between">
+                                  <span className="text-slate-400 text-[8.5px]">TRANSACTION:</span> 
+                                  <span className="underline select-all text-indigo-650 text-[10px] font-black">{ord.mobilePayment.transactionNumber}</span>
+                                </p>
+                                <p className="flex justify-between">
+                                  <span className="text-slate-400 text-[8.5px]">SENDER:</span> 
+                                  <span className="text-slate-800 font-bold">{ord.mobilePayment.senderNumber}</span>
+                                </p>
+                                <p className="text-[9px] text-slate-400 text-right mt-1 pt-1 border-t border-slate-200/50">{ord.mobilePayment.dateTime}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Column 3: Multi-vendor Audits & Order Contents (Col Span 4) */}
+                        <div className="lg:col-span-4 space-y-4 pb-5 lg:pb-0 border-b lg:border-b-0 lg:border-r border-slate-100 lg:px-5 flex flex-col justify-between">
+                          <div className="space-y-2 text-left">
+                            <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 block font-bold">Logistics Basket Contents</span>
+                            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                              {oBreakdown.itemsWithVendorInfo.map((itm, index) => (
+                                <div key={index} className="flex gap-2.5 items-center p-2 bg-slate-50/70 border border-slate-150 rounded-xl hover:bg-slate-50/100 transition">
+                                  <img 
+                                    referrerPolicy="no-referrer"
+                                    src={itm.image} 
+                                    alt={itm.title} 
+                                    className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0" 
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{itm.title}</p>
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1 leading-none">
+                                      <span>Qty: {itm.quantity} • ${itm.price}</span>
+                                      {itm.vendor && (
+                                        <span className="text-indigo-600 font-bold truncate max-w-[125px]">🏪 {itm.vendor.vendorName}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Multi-Vendor real-time notification alerts (Requested Feature) */}
+                          <div className="mt-auto pt-3 border-t border-slate-100/80">
+                            <span className="text-[9px] font-mono uppercase tracking-widest text-indigo-500 block font-bold mb-1.5 flex items-center gap-1">
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              Multi-Vendor Dispatch Checklist
+                            </span>
+                            
+                            {oBreakdown.isPartiallyApproved ? (
+                              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] leading-relaxed text-rose-955 space-y-1 shadow-2xs border-l-4 border-l-rose-500">
+                                <div className="flex items-start gap-1.5 font-sans font-bold text-rose-800 text-[11px]">
+                                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 animate-pulse" />
+                                  <span>⚠️ PARTIALLY PACKED & AWAITING</span>
+                                </div>
+                                <p className="font-sans text-slate-755 leading-normal mt-1">
+                                  Merchant partner <strong className="text-emerald-700 font-extrabold">{oBreakdown.approvedVendors.map(v => v.name).join(', ')}</strong> has approved and packed their portion, but we are <span className="font-bold text-rose-700 underline decoration-indigo-600">waiting for {oBreakdown.pendingVendors.map(v => v.name).join(', ')}</span> to approve and pack their items in order to dispatch.
+                                </p>
+                              </div>
+                            ) : oBreakdown.isMultiVendor && oBreakdown.allSellersApproved && ord.status === 'pending' ? (
+                              <div className="p-3 bg-emerald-50 border border-emerald-150 rounded-xl text-[11px] leading-relaxed text-emerald-900 space-y-1 shadow-3xs border-l-4 border-l-emerald-500">
+                                <div className="flex items-center gap-1.5 font-sans font-bold text-emerald-800">
+                                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <span>🟢 ALL INVOLVED SELLERS APPROVED!</span>
+                                </div>
+                                <p className="font-sans text-slate-650 leading-normal">
+                                  All {oBreakdown.totalVendorsCount} partner sellers have approved, packed, and cleared checkout details! SuuqHub can now dispatch central express logistics.
+                                </p>
+                              </div>
+                            ) : oBreakdown.isMultiVendor && oBreakdown.approvedCount === 0 ? (
+                              <div className="p-2.5 bg-slate-50 border border-slate-205 rounded-xl text-[10.5px] leading-normal text-slate-500 flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                                <span className="font-sans font-medium">Awaiting initial packaging verifications from {oBreakdown.totalVendorsCount} distinct sellers...</span>
+                              </div>
+                            ) : (
+                              /* Single-vendor scenarios */
+                              <div className="text-[11px] font-sans">
+                                {ord.status === 'pending' ? (
+                                  <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-800 flex items-center gap-1.5 leading-tight text-left">
+                                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <span>Awaiting storefront seller to approve and finalize packaging.</span>
+                                  </div>
+                                ) : ord.status === 'processing' ? (
+                                  <div className="p-2.5 bg-emerald-50 border border-emerald-150 rounded-xl text-emerald-850 flex items-center gap-1.5 font-semibold leading-tight text-left">
+                                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <span>Seller packed. Safe to dispatch with delivery couriers!</span>
+                                  </div>
+                                ) : (
+                                  <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 font-mono text-[10px] tracking-wider text-center">
+                                    Fulfillment history archived & closed.
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Column 4: Handover & Courier update controls */}
+                        <div className="lg:col-span-2 flex flex-col justify-between items-stretch lg:pl-5 pt-4 lg:pt-0">
+                          <div className="space-y-1.5 text-center lg:text-right">
+                            <span className="text-[9px] font-mono uppercase tracking-widest text-slate-450 block font-bold text-center">Dispatch Status</span>
+                            <div className="inline-block w-full">
+                              <span className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border block text-center tracking-wider font-mono ${
+                                ord.status === 'delivered' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+                                ord.status === 'shipped' ? 'bg-indigo-55 bg-indigo-50 border-indigo-250 text-indigo-800 font-extrabold animate-pulse' :
+                                ord.status === 'processing' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                                'bg-slate-100 border-slate-205 text-slate-600'
+                              }`}>
+                                {ord.status === 'shipped' ? '🚚 Dispatch Active' : ord.status === 'processing' ? '📦 Ready' : ord.status}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Graphical Timeline */}
+                          <div className="my-4 py-2 border-y border-dashed border-slate-100 flex flex-col justify-center text-left">
+                            <div className="w-full bg-slate-100 rounded-full h-1">
+                              <div 
+                                className={`h-full transition-all duration-300 ${
+                                  ord.status === 'delivered' ? 'w-full bg-emerald-500' :
+                                  ord.status === 'shipped' ? 'w-3/4 bg-indigo-650' :
+                                  ord.status === 'processing' ? 'w-1/2 bg-amber-500' :
+                                  oBreakdown.approvedCount > 0 ? 'w-1/4 bg-rose-450 bg-rose-400' :
+                                  'w-[10%] bg-slate-300'
+                                }`}
+                              />
+                            </div>
+                            <div className="flex justify-between text-[8px] font-mono text-slate-400 uppercase mt-1">
+                              <span className={ord.status === 'pending' ? 'text-indigo-600 font-bold' : ''}>Cart</span>
+                              <span className={ord.status === 'processing' ? 'text-indigo-600 font-bold' : ''}>Packs</span>
+                              <span className={ord.status === 'shipped' ? 'text-indigo-600 font-bold' : ''}>Transit</span>
+                              <span className={ord.status === 'delivered' ? 'text-emerald-600 font-bold' : ''}>Done</span>
+                            </div>
+                          </div>
+
+                          {/* Controls & Actions */}
+                          <div className="space-y-2 mt-auto">
+                            {ord.status === 'pending' && (
+                              <div className="text-center p-2.5 bg-slate-50 border border-slate-200 rounded-xl leading-normal">
+                                <span className="text-[10px] font-bold text-slate-550 flex items-center justify-center gap-1 font-mono uppercase">
+                                  <Clock className="w-3.5 h-3.5" /> 
+                                  {oBreakdown.isPartiallyApproved ? 'Waiting Seller' : 'Awaiting Seller Pack'}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {ord.status === 'processing' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const note = ord.deliveryMethod === 'pickup'
+                                    ? 'SuuqHub Admin verified packaging; order marked ready for customer storefront pickup.'
+                                    : 'SuuqHub Logistics has dispatched the order. Package in transit with express couriers.';
+                                  handleTransitionOrderStatus(ord.id, 'shipped', note);
+                                }}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl cursor-pointer shadow-3xs transition flex items-center justify-center gap-1.5 active:scale-95 text-center"
+                              >
+                                <Truck className="w-3.5 h-3.5 shrink-0" />
+                                {ord.deliveryMethod === 'pickup' ? 'Mark Ready Pickup' : 'Dispatch (Ship)'}
+                              </button>
+                            )}
+
+                            {ord.status === 'shipped' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const note = ord.deliveryMethod === 'pickup'
+                                    ? 'SuuqHub Admin confirmed direct client storefront pickup handover completed successfully.'
+                                    : 'SuuqHub Courier has successfully delivered the home shipment. Enjoy your purchase!';
+                                  handleTransitionOrderStatus(ord.id, 'delivered', note);
+                                }}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl cursor-pointer shadow-3xs transition flex items-center justify-center gap-1.5 active:scale-95 text-center"
+                              >
+                                <Check className="w-3.5 h-3.5 shrink-0" />
+                                {ord.deliveryMethod === 'pickup' ? 'Complete Handover' : 'Arrived (Delivered)'}
+                              </button>
+                            )}
+
+                            {ord.status === 'delivered' && (
+                              <div className="p-2 bg-emerald-50 border border-emerald-150 rounded-xl text-center">
+                                <span className="text-emerald-700 font-extrabold font-mono text-[9px] uppercase tracking-wider block">
+                                  ✓ ORDER DELIVERED
+                                </span>
+                                <span className="text-[8.5px] text-emerald-500 font-mono font-medium block mt-0.5">Archived successfully</span>
+                              </div>
+                            )}
+                          </div>
+
+                        </div>
+                        
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {/* Merchant Logistics Remittances & Auditing Ledger */}

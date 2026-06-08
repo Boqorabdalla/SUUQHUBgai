@@ -104,6 +104,7 @@ export interface Order {
   };
   status: OrderStatus;
   statusHistory: { status: OrderStatus; timestamp: string; note?: string }[];
+  vendorStatuses?: Record<string, OrderStatus>;
   createdAt: string;
   estimatedDelivery: string;
   deliveryMethod?: 'pickup' | 'delivery';

@@ -22,6 +22,8 @@ export default function CustomerDashboard({
   // Database states
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Active sub views
@@ -47,16 +49,22 @@ export default function CustomerDashboard({
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [ordRes, tktRes] = await Promise.all([
+      const [ordRes, tktRes, prodRes, vendRes] = await Promise.all([
         fetch('/api/orders'),
-        fetch('/api/tickets')
+        fetch('/api/tickets'),
+        fetch('/api/products'),
+        fetch('/api/vendors')
       ]);
 
       const ordData = await ordRes.json();
       const tktData = await tktRes.json();
+      const prodData = await prodRes.json();
+      const vendData = await vendRes.json();
 
       setOrders(ordData.filter((o: Order) => o.customerId === userId || o.id.startsWith('ord-')));
       setTickets(tktData.filter((t: SupportTicket) => t.userId === userId));
+      setProducts(prodData || []);
+      setVendors(vendData || []);
 
     } catch (err) {
       console.error('Error fetching dashboard details:', err);
@@ -270,6 +278,77 @@ export default function CustomerDashboard({
                         <span className="text-[10px] text-slate-400 capitalize mt-2 font-semibold">
                           {st === 'shipped' ? 'Dispatched' : st}
                         </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Product Items with Merchant-level Status & Payment configuration numbers details panel */}
+              <div className="space-y-4 border-t border-slate-100 pt-6 text-left">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Package className="w-4 h-4 text-indigo-600 animate-pulse" /> Itemized Merchant Fulfillment & Payments
+                  </h4>
+                  <span className="text-[10px] text-slate-400">Tracks independent vendor statuses</span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  {selectedOrder.items.map((item, idx) => {
+                    const prod = products.find(p => p.id === item.productId || p.id === (item as any).id);
+                    const vendor = prod ? vendors.find(v => v.id === prod.vendorId) : null;
+                    const itemStatus = (selectedOrder.vendorStatuses && vendor && selectedOrder.vendorStatuses[vendor.id]) || selectedOrder.status;
+
+                    return (
+                      <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            referrerPolicy="no-referrer"
+                            src={item.image} 
+                            alt={item.title} 
+                            className="w-12 h-12 rounded-lg border border-slate-200 object-cover shrink-0" 
+                          />
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">{item.title}</p>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-slate-500 font-sans">
+                              <span>Qty: {item.quantity}</span>
+                              <span>•</span>
+                              <span>Price: ${item.price.toFixed(2)}</span>
+                              {vendor && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-indigo-650 font-bold">Store: {vendor.vendorName}</span>
+                                </>
+                              )}
+                            </div>
+                            
+                            {/* Merchant receiving payment info details */}
+                            {vendor && (vendor.zaadNumber || vendor.edahabNumber) && (
+                              <div className="flex flex-wrap items-center gap-1.5 mt-2 bg-white/75 border border-slate-150 rounded-lg p-2 max-w-sm sm:max-w-md">
+                                <span className="text-[8.5px] font-mono uppercase tracking-wider text-slate-400 block font-bold mr-1">Direct Vendor Pay Info:</span>
+                                {vendor.zaadNumber && (
+                                  <span className="text-[9.5px] font-mono text-emerald-800 bg-emerald-50 border border-emerald-100 px-1.5 py-0.2 rounded font-bold">Zaad: <strong className="select-all underline cursor-help">{vendor.zaadNumber}</strong></span>
+                                )}
+                                {vendor.edahabNumber && (
+                                  <span className="text-[9.5px] font-mono text-amber-800 bg-amber-50 border border-amber-100 px-1.5 py-0.2 rounded font-bold">Edahab: <strong className="select-all underline cursor-help">{vendor.edahabNumber}</strong></span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status for this vendor's item */}
+                        <div className="flex flex-col items-start sm:items-end shrink-0 w-full sm:w-auto border-t sm:border-0 pt-3 sm:pt-0">
+                          <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest block mb-1">Fulfillment status</span>
+                          <span className={`text-[10px] font-extrabold uppercase px-3 py-1 rounded-full border ${
+                            itemStatus === 'delivered' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 font-bold' :
+                            itemStatus === 'shipped' ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold' :
+                            itemStatus === 'processing' ? 'bg-amber-50 border-amber-205 text-amber-800' :
+                            'bg-slate-100 border-slate-205 text-slate-600'
+                          }`}>
+                            {itemStatus === 'shipped' ? '🚚 Out for delivery' : itemStatus}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}

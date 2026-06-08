@@ -46,6 +46,8 @@ export default function CheckoutView({
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod' | 'zaad' | 'edahab'>('card');
   const [enabledCard, setEnabledCard] = useState(true);
   const [enabledCod, setEnabledCod] = useState(true);
+  const [enabledZaad, setEnabledZaad] = useState(true);
+  const [enabledEdahab, setEnabledEdahab] = useState(true);
 
   // Interactive Payment / Credit Card States
   const [cardNumber, setCardNumber] = useState('');
@@ -145,16 +147,24 @@ export default function CheckoutView({
               setGlobalDeliveryFee(data.deliveryFee ?? 15);
               const hasCard = data.enableCard !== false;
               const hasCod = data.enableCod !== false;
+              const hasZaad = data.enableZaad !== false;
+              const hasEdahab = data.enableEdahab !== false;
               setEnabledCard(hasCard);
               setEnabledCod(hasCod);
+              setEnabledZaad(hasZaad);
+              setEnabledEdahab(hasEdahab);
               
-              // Switch default selection if card is disabled
+              // Switch default selection based on available active options
               if (!hasCard) {
                 if (hasCod) {
                   setPaymentMethod('cod');
-                } else {
+                } else if (hasZaad) {
                   setPaymentMethod('zaad');
+                } else if (hasEdahab) {
+                  setPaymentMethod('edahab');
                 }
+              } else {
+                setPaymentMethod('card');
               }
             }
           } catch (feeErr) {
@@ -482,28 +492,32 @@ export default function CheckoutView({
                         </div>
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('zaad')}
-                      className={`p-4 rounded-xl border text-left flex flex-col justify-between transition cursor-pointer ${paymentMethod === 'zaad' ? 'border-emerald-600 bg-emerald-50/10 ring-1 ring-emerald-600' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-                    >
-                      <span className="text-emerald-700 font-extrabold text-[10px] mb-2 px-1.5 py-0.5 bg-emerald-50 rounded border border-emerald-200 inline-block font-mono tracking-wider">ZAAD MOBILE</span>
-                      <div>
-                        <span className="block text-xs font-bold text-slate-850">Zaad Peer-to-Peer</span>
-                        <span className="block text-[10px] text-emerald-650 mt-0.5 font-medium">No fee, instant ledger transfer</span>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('edahab')}
-                      className={`p-4 rounded-xl border text-left flex flex-col justify-between transition cursor-pointer ${paymentMethod === 'edahab' ? 'border-amber-600 bg-amber-50/10 ring-1 ring-amber-600' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-                    >
-                      <span className="text-amber-705 font-extrabold text-[10px] mb-2 px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200 inline-block font-mono tracking-wider">EDAHAB</span>
-                      <div>
-                        <span className="block text-xs font-bold text-slate-850">eDahab Wallet Pay</span>
-                        <span className="block text-[10px] text-amber-650 mt-0.5 font-medium">Mobile payment transfer</span>
-                      </div>
-                    </button>
+                    {enabledZaad && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('zaad')}
+                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition cursor-pointer ${paymentMethod === 'zaad' ? 'border-emerald-600 bg-emerald-50/10 ring-1 ring-emerald-600' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                      >
+                        <span className="text-emerald-700 font-extrabold text-[10px] mb-2 px-1.5 py-0.5 bg-emerald-50 rounded border border-emerald-200 inline-block font-mono tracking-wider">ZAAD MOBILE</span>
+                        <div>
+                          <span className="block text-xs font-bold text-slate-850">Zaad Peer-to-Peer</span>
+                          <span className="block text-[10px] text-emerald-650 mt-0.5 font-medium">No fee, instant ledger transfer</span>
+                        </div>
+                      </button>
+                    )}
+                    {enabledEdahab && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('edahab')}
+                        className={`p-4 rounded-xl border text-left flex flex-col justify-between transition cursor-pointer ${paymentMethod === 'edahab' ? 'border-amber-600 bg-amber-50/10 ring-1 ring-amber-600' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                      >
+                        <span className="text-amber-705 font-extrabold text-[10px] mb-2 px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200 inline-block font-mono tracking-wider">EDAHAB</span>
+                        <div>
+                          <span className="block text-xs font-bold text-slate-850">eDahab Wallet Pay</span>
+                          <span className="block text-[10px] text-amber-650 mt-0.5 font-medium">Mobile payment transfer</span>
+                        </div>
+                      </button>
+                    )}
                   </div>
                 </div>
 

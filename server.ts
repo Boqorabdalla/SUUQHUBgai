@@ -851,12 +851,16 @@ app.post("/api/orders", async (req, res) => {
   }
 
   // Stock depletion verification
+  const vendorStatuses: Record<string, OrderStatus> = {};
   for (const item of items) {
     const pId = item.productId || item.id;
     const prod = dbProducts.find(p => p.id === pId);
     if (prod) {
       prod.stock = Math.max(0, prod.stock - item.quantity);
       await saveProductToFirestore(prod);
+      if (prod.vendorId) {
+        vendorStatuses[prod.vendorId] = "pending";
+      }
     }
   }
 
@@ -879,6 +883,7 @@ app.post("/api/orders", async (req, res) => {
     statusHistory: [
       { status: "pending", timestamp: new Date().toISOString(), note: "Order placed. Paid securely." }
     ],
+    vendorStatuses,
     createdAt: new Date().toISOString(),
     estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days limit
     deliveryMethod: deliveryMethod || 'delivery',
@@ -913,19 +918,55 @@ app.put("/api/orders/:id/remittance", (req, res) => {
 });
 
 app.put("/api/orders/:id/status", (req, res) => {
-  const { status, note } = req.body;
+  const { status, note, vendorId } = req.body;
   const order = dbOrders.find(o => o.id === req.params.id);
 
   if (!order) {
     return res.status(404).json({ error: "Order not found" });
   }
 
-  order.status = status as OrderStatus;
-  order.statusHistory.push({
-    status: status as OrderStatus,
-    timestamp: new Date().toISOString(),
-    note: note || `Status updated to ${status}`
-  });
+  if (vendorId) {
+    if (!order.vendorStatuses) {
+      order.vendorStatuses = {};
+    }
+    order.vendorStatuses[vendorId] = status as OrderStatus;
+
+    order.statusHistory.push({
+      status: status as OrderStatus,
+      timestamp: new Date().toISOString(),
+      note: note || `Vendor status updated to ${status}`
+    });
+
+    // Recompute main status based on all vendors
+    const vendorIds = Object.keys(order.vendorStatuses);
+    if (vendorIds.length > 0) {
+      const statuses = vendorIds.map(vid => order.vendorStatuses?.[vid]);
+      if (statuses.every(s => s === 'delivered')) {
+        order.status = 'delivered';
+      } else if (statuses.every(s => s === 'shipped' || s === 'delivered')) {
+        order.status = 'shipped';
+      } else if (statuses.every(s => s === 'processing' || s === 'shipped' || s === 'delivered')) {
+        order.status = 'processing';
+      } else {
+        order.status = 'pending';
+      }
+    } else {
+      order.status = status as OrderStatus;
+    }
+  } else {
+    order.status = status as OrderStatus;
+    order.statusHistory.push({
+      status: status as OrderStatus,
+      timestamp: new Date().toISOString(),
+      note: note || `Status updated to ${status}`
+    });
+
+    if (order.vendorStatuses) {
+      for (const vid of Object.keys(order.vendorStatuses)) {
+        order.vendorStatuses[vid] = status as OrderStatus;
+      }
+    }
+  }
 
   saveDbToFile();
   saveOrderToFirestore(order);
