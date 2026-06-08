@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent } from 'lucide-react';
+import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent, RefreshCw } from 'lucide-react';
 import { Product, Vendor, Order, OrderItem, OrderStatus, Coupon, ProductVariant } from '../types';
 
 const safeParseError = async (res: Response, defaultMsg: string): Promise<string> => {
@@ -234,8 +234,18 @@ export default function VendorPortal({
     fetchInitialData();
   }, [userEmail]);
 
-  const fetchInitialData = async () => {
-    setLoading(true);
+  useEffect(() => {
+    // Silent background polling every 7 seconds to grab live order status changes from the SuperAdmin
+    const interval = setInterval(() => {
+      if (userEmail) {
+        fetchInitialData(true);
+      }
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [userEmail]);
+
+  const fetchInitialData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [pRes, vRes, oRes] = await Promise.all([
         fetch('/api/products'),
@@ -278,7 +288,7 @@ export default function VendorPortal({
     } catch (err) {
       console.error('Error synchronizing vendor portal:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -1559,8 +1569,8 @@ export default function VendorPortal({
       {activeTab === 'orders' && (
         <div className="space-y-6 text-left animate-in fade-in duration-200" id="vendor-orders-section">
           {/* Header Dashboard section */}
-          <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="space-y-1">
+          <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="space-y-1 flex-1">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                 <ShieldCheck className="w-4.5 h-4.5 text-indigo-600 animate-pulse" /> {selectedVendor?.vendorName} order management intake
               </h3>
@@ -1569,8 +1579,18 @@ export default function VendorPortal({
               </p>
             </div>
 
-            {/* Filter pills */}
-            <div className="flex flex-wrap gap-1 bg-slate-200/60 p-1 rounded-lg border border-slate-205 w-fit">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                onClick={() => fetchInitialData(false)}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-205 rounded-lg cursor-pointer shadow-3xs active:scale-95 transition disabled:opacity-60"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${loading ? 'animate-spin' : ''}`} />
+                Sync Central Statuses
+              </button>
+
+              {/* Filter pills */}
+              <div className="flex flex-wrap gap-1 bg-slate-200/60 p-1 rounded-lg border border-slate-205 w-fit">
               {['all', 'pending', 'processing', 'shipped', 'delivered'].map((status) => {
                 const count = orders.filter(o => status === 'all' || o.status === status).length;
                 return (
@@ -1589,6 +1609,7 @@ export default function VendorPortal({
               })}
             </div>
           </div>
+        </div>
 
           {/* Orders Listings Content */}
           {orders.length === 0 ? (
@@ -1613,6 +1634,17 @@ export default function VendorPortal({
                   const vendorPortionItems = ord.items.filter(item => products.some(p => p.id === item.productId));
                   const vendorPortionSum = vendorPortionItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                   const isFullyDelivered = ord.status === 'delivered';
+
+                  const lastHistory = ord.statusHistory && ord.statusHistory.length > 0
+                    ? ord.statusHistory[ord.statusHistory.length - 1]
+                    : null;
+                  const isUpdatedByAdmin = lastHistory && (
+                    lastHistory.note.toLowerCase().includes('suuqhub') ||
+                    lastHistory.note.toLowerCase().includes('admin') ||
+                    lastHistory.note.toLowerCase().includes('central') ||
+                    lastHistory.note.toLowerCase().includes('logistics') ||
+                    lastHistory.note.toLowerCase().includes('courier')
+                  );
 
                   return (
                     <div key={ord.id} className="bg-white border rounded-xl border-slate-205 shadow-2xs overflow-hidden transition hover:border-indigo-200" id={`vendor-ord-card-${ord.id}`}>
@@ -1746,14 +1778,29 @@ export default function VendorPortal({
                       {/* Card Bottom status logs tracking */}
                       <div className="p-4 bg-slate-50/30 border-t border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                         <div className="flex-1">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedOrderId(expandedOrderId === ord.id ? null : ord.id)}
-                            className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <Clock className="w-3.5 h-3.5" /> 
-                            {expandedOrderId === ord.id ? "Collapse processing history" : "Inspect activity timeline"} ({ord.statusHistory?.length || 1})
-                          </button>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedOrderId(expandedOrderId === ord.id ? null : ord.id)}
+                              className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Clock className="w-3.5 h-3.5" /> 
+                              {expandedOrderId === ord.id ? "Collapse processing history" : "Inspect activity timeline"} ({ord.statusHistory?.length || 1})
+                            </button>
+
+                            {isUpdatedByAdmin && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-indigo-50 border border-indigo-150 text-indigo-800 px-2 py-0.5 rounded shadow-3xs animate-pulse">
+                                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" /> Status Managed by SuperAdmin
+                              </span>
+                            )}
+                          </div>
+
+                          {isUpdatedByAdmin && lastHistory && (
+                            <div className="mt-2 p-3 bg-indigo-50/30 border border-indigo-100/60 rounded-lg max-w-xl text-left font-sans">
+                              <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">SuperAdmin Execution Note:</p>
+                              <p className="text-[10.5px] text-slate-700 italic font-medium mt-0.5">"{lastHistory.note}"</p>
+                            </div>
+                          )}
 
                           {expandedOrderId === ord.id && (
                             <div className="mt-4 border-l-2 border-slate-200 pl-4.5 space-y-3.5 py-1 max-w-xl transition-all">

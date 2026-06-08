@@ -1064,40 +1064,42 @@ export default function AdminPortal({
                         </span>
                       </td>
 
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5 font-sans">
-                          {ord.deliveryMethod !== 'pickup' ? (
-                            <>
-                              {ord.status === 'pending' && (
-                                <span className="text-[10px] text-amber-600 bg-amber-55 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded font-bold font-mono uppercase">
-                                  🕒 Awaiting Vendor Pack
-                                </span>
-                              )}
-                              {ord.status === 'processing' && (
-                                <button
-                                  onClick={() => handleTransitionOrderStatus(ord.id, 'shipped', 'SuuqHub Logistics has dispatched the order. Package in transit with express couriers to your Abu Dhabi address.')}
-                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded text-xs cursor-pointer inline-flex items-center gap-1 active:scale-95 transition"
-                                >
-                                  🚚 Ship Out (Dispatch)
-                                </button>
-                              )}
-                              {ord.status === 'shipped' && (
-                                <button
-                                  onClick={() => handleTransitionOrderStatus(ord.id, 'delivered', 'SuuqHub Courier has successfully delivered the home shipment. Enjoy your purchase!')}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded text-xs cursor-pointer inline-flex items-center gap-1 active:scale-95 transition"
-                                >
-                                  ✅ Declare Delivered
-                                </button>
-                              )}
-                              {ord.status === 'delivered' && (
-                                <span className="text-emerald-700 text-[10px] font-bold uppercase mr-2 font-mono bg-emerald-50 px-2 py-0.5 rounded border border-emerald-150">
-                                  Archived verified
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-slate-400 text-[10.5px] italic font-medium">
-                              Managed by Merchant (Self-Pickup)
+                      <td className="p-3 text-right font-sans">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {ord.status === 'pending' && (
+                            <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded font-bold font-mono uppercase">
+                              🕒 Awaiting Vendor Pack
+                            </span>
+                          )}
+                          {ord.status === 'processing' && (
+                            <button
+                              onClick={() => {
+                                const note = ord.deliveryMethod === 'pickup'
+                                  ? 'SuuqHub Admin verified packaging; order marked ready for customer storefront pickup.'
+                                  : 'SuuqHub Logistics has dispatched the order. Package in transit with express couriers.';
+                                handleTransitionOrderStatus(ord.id, 'shipped', note);
+                              }}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded text-xs cursor-pointer inline-flex items-center gap-1 active:scale-95 transition"
+                            >
+                              {ord.deliveryMethod === 'pickup' ? '📦 Ready for Pickup' : '🚚 Ship Out (Dispatch)'}
+                            </button>
+                          )}
+                          {ord.status === 'shipped' && (
+                            <button
+                              onClick={() => {
+                                const note = ord.deliveryMethod === 'pickup'
+                                  ? 'SuuqHub Admin confirmed direct client storefront pickup handover completed successfully.'
+                                  : 'SuuqHub Courier has successfully delivered the home shipment. Enjoy your purchase!';
+                                handleTransitionOrderStatus(ord.id, 'delivered', note);
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded text-xs cursor-pointer inline-flex items-center gap-1 active:scale-95 transition"
+                            >
+                              {ord.deliveryMethod === 'pickup' ? '✅ Complete Handover' : '✅ Declare Delivered'}
+                            </button>
+                          )}
+                          {ord.status === 'delivered' && (
+                            <span className="text-emerald-700 text-[10px] font-bold uppercase mr-2 font-mono bg-emerald-50 px-2 py-0.5 rounded border border-emerald-150">
+                              Archived verified
                             </span>
                           )}
                         </div>
