@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Product, Coupon, User } from './types';
+import { Product, Coupon, User, Order } from './types';
 
 export const initialProducts: Product[] = [
   {
@@ -372,3 +372,159 @@ export const initialUser: User = {
   ],
   wishlist: ['prod-headphones', 'prod-keyboard']
 };
+
+export const initialOrders: Order[] = [
+  {
+    id: "ord-984-752361",
+    customerId: "LLo5VdKHpgRikhE9b5BLklFpFv32",
+    customerName: "Abdilahi Ahmed",
+    customerEmail: "boqorcabdalla@gmail.com",
+    items: [
+      {
+        productId: "prod-1780913270124",
+        title: "Test P",
+        price: 7,
+        quantity: 1,
+        image: "https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=600&q=80"
+      }
+    ],
+    subtotal: 7,
+    tax: 0.35,
+    shippingCost: 2,
+    discount: 0,
+    total: 9.35,
+    paymentMethod: "Zaad Mobile",
+    paymentStatus: "paid",
+    shippingAddress: {
+      fullName: "Abdilahi Ahmed",
+      addressLine1: "Jigjiga yar, Hargeisa",
+      city: "Hargeisa",
+      state: "Maroodi Jeex",
+      zipCode: "00000",
+      country: "Somaliland",
+      phone: "+252 63 1234567"
+    },
+    status: "processing",
+    statusHistory: [
+      {
+        status: "pending",
+        timestamp: "2026-06-08T10:32:00.000Z",
+        note: "Order placed. Paid securely via Zaad Mobile."
+      },
+      {
+        status: "processing",
+        timestamp: "2026-06-08T10:33:00.086Z",
+        note: "Store seller merchant 1to10's Storefront has approved checkout and packaged the item. Ready for SuuqHub courier pickup."
+      }
+    ],
+    createdAt: "2026-06-08T10:32:00.000Z",
+    estimatedDelivery: "2026-06-11T10:32:00.000Z",
+    deliveryMethod: "delivery",
+    mobilePayment: {
+      provider: "zaad",
+      transactionNumber: "txn-00987",
+      senderNumber: "43233423",
+      senderName: "xaajiga",
+      dateTime: "2026-06-08 10:32"
+    },
+    deliveryFeeRemittanceStatus: "owed"
+  },
+  {
+    id: "ord-556-329781",
+    customerId: "LLo5VdKHpgRikhE9b5BLklFpFv32",
+    customerName: "Abdilahi Ahmed",
+    customerEmail: "boqorcabdalla@gmail.com",
+    items: [
+      {
+        productId: "prod-1780476894857",
+        title: "Manaal Aloe Vera Hydrating Face Cream – 3-Day Radiance Formula",
+        price: 29.7,
+        quantity: 1,
+        image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80"
+      }
+    ],
+    subtotal: 29.7,
+    tax: 1.485,
+    shippingCost: 15,
+    discount: 0,
+    total: 46.185,
+    paymentMethod: "Zaad Mobile",
+    paymentStatus: "paid",
+    shippingAddress: {
+      fullName: "Abdilahi Ahmed",
+      addressLine1: "Jigjiga yar, Hargeisa",
+      city: "Hargeisa",
+      state: "Maroodi Jeex",
+      zipCode: "00000",
+      country: "Somaliland",
+      phone: "+252 63 1234567"
+    },
+    status: "pending",
+    statusHistory: [
+      {
+        status: "pending",
+        timestamp: "2026-06-06T11:45:30.321Z",
+        note: "Order placed. Paid securely."
+      }
+    ],
+    createdAt: "2026-06-06T11:45:30.321Z",
+    estimatedDelivery: "2026-06-09T11:45:30.321Z",
+    deliveryMethod: "delivery",
+    mobilePayment: {
+      provider: "zaad",
+      transactionNumber: "txn-123123",
+      senderNumber: "212121",
+      senderName: "abdullah",
+      dateTime: "2026-06-06 11:45"
+    },
+    deliveryFeeRemittanceStatus: "owed"
+  },
+  {
+    id: "ord-101",
+    customerId: "usr-customer-01",
+    customerName: "Salem Al-Mansoori",
+    customerEmail: "salem@mideast.com",
+    items: [
+      {
+        productId: "prod-headphones",
+        title: "Aura Pro Adaptive ANC Headphones",
+        price: 299,
+        quantity: 1,
+        image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80"
+      }
+    ],
+    subtotal: 299,
+    tax: 14.95,
+    shippingCost: 15,
+    discount: 0,
+    total: 328.95,
+    paymentMethod: "Stripe Card",
+    paymentStatus: "paid",
+    shippingAddress: {
+      fullName: "Salem Al-Mansoori",
+      addressLine1: "Villa 14, Al Bateen Area",
+      city: "Abu Dhabi",
+      state: "Abu Dhabi",
+      zipCode: "00000",
+      country: "United Arab Emirates",
+      phone: "+971 50 123 4567"
+    },
+    status: "delivered",
+    statusHistory: [
+      {
+        status: "pending",
+        timestamp: "2026-05-24T10:00:00Z",
+        note: "Order placed"
+      },
+      {
+        status: "delivered",
+        timestamp: "2026-05-27T16:15:00Z",
+        note: "Signed by Salim"
+      }
+    ],
+    createdAt: "2026-05-24T10:00:00Z",
+    estimatedDelivery: "2026-05-27T18:00:00Z",
+    deliveryMethod: "delivery",
+    deliveryFeeRemittanceStatus: null
+  }
+];

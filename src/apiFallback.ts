@@ -14,7 +14,7 @@ import {
   query,
   where
 } from 'firebase/firestore';
-import { initialProducts, initialCoupons } from './initialData';
+import { initialProducts, initialCoupons, initialOrders } from './initialData';
 
 const initialVendors = [
   {
@@ -474,7 +474,7 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
         return jsonResponse(merged);
       } else {
         if (method === 'GET') {
-          const list = await getCollectionDocs('orders', []);
+          const list = await getCollectionDocs('orders', initialOrders);
           return jsonResponse(list);
         } else if (method === 'POST') {
           const orderId = bodyObj.id || `ord-${Math.floor(100 + Math.random() * 900)}-${Date.now().toString().slice(-6)}`;
@@ -677,7 +677,7 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
 
     // 8. REPORTS
     if (pathname === '/api/reports/sales') {
-      const orderList = await getCollectionDocs('orders', []);
+      const orderList = await getCollectionDocs('orders', initialOrders);
       const report: any[] = [];
       const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
       let startValue = 4200;
