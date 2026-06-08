@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Package, ShieldAlert, DollarSign, Users, Award, TrendingUp, Check, Play, Trash2, Edit, Save, Plus, Loader2, Lock, Key, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Package, ShieldAlert, DollarSign, Users, Award, TrendingUp, Check, Play, Trash2, Edit, Save, Plus, Loader2, Lock, Key, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
 import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign } from '../types';
 import { formatPrice } from '../utils';
 
@@ -67,7 +67,7 @@ export default function AdminPortal({
 
   useEffect(() => {
     fetchAdminData();
-  }, []);
+  }, [userId]);
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -420,6 +420,14 @@ export default function AdminPortal({
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">Centralized omnichannel controller for multi-vendor catalog auditing, billing structures, client CRM tickets, and site-wide marketing slides.</p>
         </div>
         <div className="mt-3 md:mt-0 flex items-center gap-2 md:self-end">
+          <button
+            onClick={() => fetchAdminData()}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-205 rounded-lg cursor-pointer shadow-3xs active:scale-95 transition disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-505 ${loading ? 'animate-spin' : ''}`} />
+            Sync Database
+          </button>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-750 rounded border border-indigo-200">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping" />
             Session: System Superadmin

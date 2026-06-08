@@ -42,7 +42,7 @@ export default function CustomerDashboard({
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [userId]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
