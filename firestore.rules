@@ -20,7 +20,10 @@ service cloud.firestore {
     }
 
     function isSuperadminEmail() {
-      return isSignedIn() && request.auth.token.email.toLowerCase() == 'boqorapps@gmail.com';
+      return isSignedIn() && 
+             request.auth.token != null && 
+             request.auth.token.email != null && 
+             request.auth.token.email.toLowerCase() == 'boqorapps@gmail.com';
     }
 
     function isVendorOrAdmin() {
@@ -50,15 +53,15 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn() && (isOwner(userId) || isSuperadminEmail() || resource.data.role == 'admin' || resource.data.role == 'superadmin');
       allow create: if isSignedIn() && (isOwner(userId) || isSuperadminEmail()) 
+        && request.resource.data.keys().hasAll(['id', 'email', 'name', 'role']) 
+        && request.resource.data.id == userId
         && (
           request.resource.data.role == 'customer'
           || request.resource.data.role == 'vendor'
           || request.resource.data.role == 'admin'
-          || (request.resource.data.role == 'superadmin' && request.resource.data.email.toLowerCase() == 'boqorapps@gmail.com')
+          || (request.resource.data.role == 'superadmin' && request.resource.data.email != null && request.resource.data.email.toLowerCase() == 'boqorapps@gmail.com')
           || isSuperadminEmail()
-        )
-        && request.resource.data.keys().hasAll(['id', 'email', 'name', 'role']) 
-        && request.resource.data.id == userId;
+        );
       allow update: if isSignedIn() && (isOwner(userId) || isSuperadminEmail())
         && (isSuperadminEmail() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'id', 'email']));
       allow delete: if isSuperadminEmail();

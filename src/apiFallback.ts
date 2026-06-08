@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { db, auth } from './firebase';
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { 
   collection, 
   doc, 
@@ -447,31 +447,41 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
       if (routePath.includes('/remittance')) {
         const orderId = routePath.replace('/remittance', '').replace('/', '');
         const docRef = doc(db, 'orders', orderId);
-        const snap = await getDoc(docRef);
-        if (!snap.exists()) return jsonResponse({ error: "Order not found" }, 404);
-        const merged = { ...snap.data(), ...bodyObj };
-        await setDoc(docRef, merged);
-        return jsonResponse(merged);
+        try {
+          const snap = await getDoc(docRef);
+          if (!snap.exists()) return jsonResponse({ error: "Order not found" }, 404);
+          const merged = { ...snap.data(), ...bodyObj };
+          await setDoc(docRef, merged);
+          return jsonResponse(merged);
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
+          return jsonResponse({ error: error instanceof Error ? error.message : String(error) }, 400);
+        }
       } else if (routePath.includes('/status')) {
         const orderId = routePath.replace('/status', '').replace('/', '');
         const docRef = doc(db, 'orders', orderId);
-        const snap = await getDoc(docRef);
-        if (!snap.exists()) return jsonResponse({ error: "Order not found" }, 404);
-        
-        const existingOrder = snap.data();
-        const history = existingOrder.statusHistory || [];
-        history.push({
-          status: bodyObj.status,
-          timestamp: new Date().toISOString(),
-          note: bodyObj.note || `Status updated to ${bodyObj.status}`
-        });
-        const merged = {
-          ...existingOrder,
-          status: bodyObj.status,
-          statusHistory: history
-        };
-        await setDoc(docRef, merged);
-        return jsonResponse(merged);
+        try {
+          const snap = await getDoc(docRef);
+          if (!snap.exists()) return jsonResponse({ error: "Order not found" }, 404);
+          
+          const existingOrder = snap.data();
+          const history = existingOrder.statusHistory || [];
+          history.push({
+            status: bodyObj.status,
+            timestamp: new Date().toISOString(),
+            note: bodyObj.note || `Status updated to ${bodyObj.status}`
+          });
+          const merged = {
+            ...existingOrder,
+            status: bodyObj.status,
+            statusHistory: history
+          };
+          await setDoc(docRef, merged);
+          return jsonResponse(merged);
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
+          return jsonResponse({ error: error instanceof Error ? error.message : String(error) }, 400);
+        }
       } else {
         if (method === 'GET') {
           const list = await getCollectionDocs('orders', initialOrders);
