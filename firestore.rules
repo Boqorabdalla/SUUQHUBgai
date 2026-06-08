@@ -23,7 +23,7 @@ service cloud.firestore {
       return isSignedIn() && 
              request.auth.token != null && 
              request.auth.token.email != null && 
-             request.auth.token.email.toLowerCase() == 'boqorapps@gmail.com';
+             request.auth.token.email.lower() == 'boqorapps@gmail.com';
     }
 
     function isVendorOrAdmin() {
@@ -59,7 +59,7 @@ service cloud.firestore {
           request.resource.data.role == 'customer'
           || request.resource.data.role == 'vendor'
           || request.resource.data.role == 'admin'
-          || (request.resource.data.role == 'superadmin' && request.resource.data.email != null && request.resource.data.email.toLowerCase() == 'boqorapps@gmail.com')
+          || (request.resource.data.role == 'superadmin' && request.resource.data.email != null && request.resource.data.email.lower() == 'boqorapps@gmail.com')
           || isSuperadminEmail()
         );
       allow update: if isSignedIn() && (isOwner(userId) || isSuperadminEmail())
