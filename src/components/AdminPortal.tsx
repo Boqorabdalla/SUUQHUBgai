@@ -12,12 +12,14 @@ interface AdminPortalProps {
   userId: string;
   lang: 'en' | 'ar' | 'es';
   currency: 'USD' | 'EUR' | 'AED';
+  userRole?: string;
 }
 
 export default function AdminPortal({
   userId,
   lang,
-  currency
+  currency,
+  userRole
 }: AdminPortalProps) {
   // DB states from Express
   const [products, setProducts] = useState<Product[]>([]);
@@ -26,11 +28,26 @@ export default function AdminPortal({
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [salesReport, setSalesReport] = useState<{ date: string; sales: number; orders: number }[]>([]);
+  const [deliveryManagers, setDeliveryManagers] = useState<any[]>([]);
+
+  // Delivery Manager creation form states
+  const [dmName, setDmName] = useState('');
+  const [dmEmail, setDmEmail] = useState('');
+  const [dmPassword, setDmPassword] = useState('');
+  const [dmSuccess, setDmSuccess] = useState('');
+  const [dmError, setDmError] = useState('');
+  const [dmLoading, setDmLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
 
   // Active sub tab
-  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'vendors' | 'orders' | 'coupons' | 'tickets' | 'campaigns'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'vendors' | 'orders' | 'coupons' | 'tickets' | 'campaigns' | 'delivery'>('analytics');
+
+  useEffect(() => {
+    if (userRole === 'delivery_manager') {
+      setActiveTab('delivery');
+    }
+  }, [userRole]);
 
   // Campaign auditing states
   const [heroCampaigns, setHeroCampaigns] = useState<HeroCampaign[]>([]);
@@ -80,14 +97,15 @@ export default function AdminPortal({
   const fetchAdminData = async () => {
     setLoading(true);
     try {
-      const [pRes, oRes, cRes, tRes, sRes, vRes, dRes] = await Promise.all([
+      const [pRes, oRes, cRes, tRes, sRes, vRes, dRes, dmRes] = await Promise.all([
         fetch('/api/products'),
         fetch('/api/orders'),
         fetch('/api/coupons'),
         fetch('/api/tickets'),
         fetch('/api/reports/sales'),
         fetch('/api/vendors'),
-        fetch('/api/delivery-config')
+        fetch('/api/delivery-config'),
+        fetch('/api/delivery-managers')
       ]);
 
       const pData = await pRes.json();
@@ -97,6 +115,7 @@ export default function AdminPortal({
       const sData = await sRes.json();
       const vData = await vRes.json();
       const dData = await dRes.json();
+      const dmData = dmRes.ok ? await dmRes.json() : [];
 
       setProducts(pData);
       setOrders(oData);
@@ -104,6 +123,7 @@ export default function AdminPortal({
       setTickets(tData);
       setSalesReport(sData);
       setVendors(vData);
+      setDeliveryManagers(dmData);
       setDeliveryFee(dData.deliveryFee ?? 15);
       setNewDeliveryFeeText(String(dData.deliveryFee ?? 15));
       setEnableCard(dData.enableCard !== false);
@@ -281,6 +301,38 @@ export default function AdminPortal({
       return false;
     } finally {
       setUpdatingCredentials(false);
+    }
+  };
+
+  const handleCreateDeliveryManager = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dmName || !dmEmail || !dmPassword) {
+      setDmError("All fields are strictly required.");
+      return;
+    }
+    setDmLoading(true);
+    setDmError('');
+    setDmSuccess('');
+    try {
+      const res = await fetch('/api/delivery-managers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: dmName, email: dmEmail, password: dmPassword, role: 'delivery_manager' })
+      });
+      if (res.ok) {
+        setDmSuccess("Delivery Manager account registered successfully!");
+        setDmName('');
+        setDmEmail('');
+        setDmPassword('');
+        await fetchAdminData();
+      } else {
+        const err = await res.json();
+        setDmError(err.error || "Failed to register delivery manager.");
+      }
+    } catch (err) {
+      setDmError("Network connectivity issue.");
+    } finally {
+      setDmLoading(false);
     }
   };
 
@@ -463,7 +515,7 @@ export default function AdminPortal({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-4 border-b border-slate-205">
         <div>
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">SuuqHub Administration Command</h1>
-          <p className="text-xs text-slate-500 mt-1 leading-relaxed">Centralized omnichannel controller for multi-vendor catalog auditing, billing structures, client CRM tickets, and site-wide marketing slides.</p>
+          <p className="text-xs text-slate-500 mt-1 leading-relaxed">Centralized command controller for multi-vendor catalog auditing, billing structures, client CRM tickets, and site-wide marketing slides.</p>
         </div>
         <div className="mt-3 md:mt-0 flex items-center gap-2 md:self-end">
           <button
@@ -476,7 +528,7 @@ export default function AdminPortal({
           </button>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-750 rounded border border-indigo-200">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping" />
-            Session: System Superadmin
+            Session: {userRole === 'delivery_manager' ? 'Delivery Logistics Manager' : 'System Superadmin'}
           </span>
         </div>
       </div>
@@ -495,11 +547,12 @@ export default function AdminPortal({
                 { id: 'analytics', label: 'Executive Analytics', count: 0, desc: 'Gross revenue tracking' },
                 { id: 'products', label: 'Inventory & Approvals', count: pendingSubmissions, desc: 'Vendor product audit' },
                 { id: 'vendors', label: 'Vendor Approvals', count: pendingVendorsCount, desc: 'Staff & Seller profiles' },
-                { id: 'orders', label: 'Fulfillments Manager', count: orders.filter(o=>o.status !== 'delivered').length, desc: 'Shipping & Payment configs' },
+                { id: 'delivery', label: 'Home Delivery Logistics', count: orders.filter(o => o.deliveryMethod === 'delivery' && o.status !== 'delivered').length, desc: 'Deliveries, flat rates & remittances ledger' },
+                { id: 'orders', label: 'Store Self-Pickup Clearance', count: orders.filter(o => o.deliveryMethod === 'pickup' && o.status !== 'delivered').length, desc: 'Customer storefront handover' },
                 { id: 'campaigns', label: 'Store Slider Showcase', count: heroCampaigns.filter(c => c.status === 'pending').length, desc: 'Hero slider banners' },
                 { id: 'coupons', label: 'Vouchers & Coupons', count: coupons.length, desc: 'Store-wide active promotions' },
-                { id: 'tickets', label: 'CRM Help Tickets', count: tickets.filter(t=>t.status==='open').length, desc: 'Consumer support threads' }
-              ].map((subTab) => {
+                { id: 'tickets', label: 'CRM Help Tickets', count: tickets.filter(t => t.status === 'open').length, desc: 'Consumer support threads' }
+              ].filter(subTab => userRole !== 'delivery_manager' || subTab.id === 'delivery').map((subTab) => {
                 const isActive = activeTab === subTab.id;
                 return (
                   <button
@@ -526,7 +579,7 @@ export default function AdminPortal({
           <div className="bg-slate-50/40 border border-slate-200 rounded-2xl p-4.5 space-y-3.5">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[10px] text-slate-550 font-extrabold uppercase tracking-wider font-mono">Omnichannel Health</span>
+              <span className="text-[10px] text-slate-550 font-extrabold uppercase tracking-wider font-mono">Marketplace Health</span>
             </div>
             <div className="space-y-2 text-xs">
               <div className="flex justify-between border-b border-slate-200/45 pb-1.5">
@@ -756,7 +809,7 @@ export default function AdminPortal({
           <div className="space-y-4 font-sans text-left">
             <h3 className="text-sm font-bold text-slate-800 mb-2 uppercase tracking-wide">Merchant Registrations & Audits</h3>
             <p className="text-[11px] text-slate-500 max-w-2xl">
-              Onboard and verify third-party sellers requesting access to SuuqHub Omnichannel inventory distribution. Pending merchants cannot list products until approved by the platform manager.
+              Onboard and verify third-party sellers requesting access to SuuqHub (Smart Market Place) inventory distribution. Pending merchants cannot list products until approved by the platform manager.
             </p>
 
             <div className="overflow-x-auto rounded border border-slate-200">
@@ -951,6 +1004,129 @@ export default function AdminPortal({
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Part 2.5B: Delivery Logistics Staff Registries */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-6 mt-6 border-t border-slate-200">
+              {/* Form creation */}
+              <div className="lg:col-span-4 bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left">
+                <span className="text-[9px] font-mono uppercase bg-indigo-50 border border-indigo-150 text-indigo-750 font-black px-2.5 py-1 rounded block w-fit mb-3.5 tracking-wider">
+                  New Logistics Staff Key
+                </span>
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">Onboard Delivery Manager</h4>
+                <p className="text-[10.5px] text-slate-500 leading-relaxed mt-1 mb-4">
+                  Register specialized logistics operators granted restricted access to only view and process requested home delivery orders.
+                </p>
+
+                <form onSubmit={handleCreateDeliveryManager} className="space-y-3">
+                  <div>
+                    <label className="block text-[9.5px] font-mono uppercase text-slate-500 font-bold mb-1">Full Representative Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={dmName}
+                      onChange={(e) => setDmName(e.target.value)}
+                      placeholder="e.g. Abdirahman Ali"
+                      className="w-full text-xs bg-white border border-slate-205 rounded p-2 focus:outline-none focus:ring-1 focus:ring-indigo-600 font-sans text-slate-800"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[9.5px] font-mono uppercase text-slate-500 font-bold mb-1">Secure Courier Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={dmEmail}
+                      onChange={(e) => setDmEmail(e.target.value)}
+                      placeholder="e.g. ali.delivery@suuqhub.com"
+                      className="w-full text-xs bg-white border border-slate-205 rounded p-2 focus:outline-none focus:ring-1 focus:ring-indigo-600 font-sans text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9.5px] font-mono uppercase text-slate-500 font-bold mb-1">Staff Access Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={dmPassword}
+                      onChange={(e) => setDmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full text-xs bg-white border border-slate-205 rounded p-2 focus:outline-none focus:ring-1 focus:ring-indigo-600 font-mono text-slate-800"
+                    />
+                  </div>
+
+                  {dmError && (
+                    <p className="text-[10.5px] text-rose-600 font-medium bg-rose-50 border border-rose-100 p-2 rounded">{dmError}</p>
+                  )}
+                  {dmSuccess && (
+                    <p className="text-[10.5px] text-emerald-700 font-medium bg-emerald-50 border border-emerald-100 p-2 rounded">{dmSuccess}</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={dmLoading}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95 transition flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    {dmLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Authorize Delivery Manager"}
+                  </button>
+                </form>
+              </div>
+
+              {/* staff list table */}
+              <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-5 text-left flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide mb-1 flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-indigo-600" /> Authorized Logistics & Courier Managers
+                  </h4>
+                  <p className="text-[10.5px] text-slate-500 leading-normal mb-4">
+                    Active staff profiles registered in the database, with sandboxed access restricted purely to the Home Delivery Logistics panel.
+                  </p>
+
+                  <div className="overflow-x-auto border border-slate-150 rounded-lg animate-fadeIn">
+                    <table className="w-full text-left font-sans text-[11px] text-slate-650">
+                      <thead className="bg-slate-50/80 border-b border-slate-150 font-mono uppercase text-[8.5px] text-slate-450">
+                        <tr>
+                          <th className="p-3">Staff Profile Name</th>
+                          <th className="p-3">Authorized Mail ID</th>
+                          <th className="p-3">Credentials Token</th>
+                          <th className="p-3">Access Level Role</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {deliveryManagers.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-6 text-center text-slate-400 font-mono text-[10px]">
+                              No delivery manager accounts registered yet. Use the form to onboard logistics operators.
+                            </td>
+                          </tr>
+                        ) : (
+                          deliveryManagers.map((dm) => (
+                            <tr key={dm.id} className="hover:bg-slate-50 transition">
+                              <td className="p-3 font-semibold text-slate-800">{dm.representativeName}</td>
+                              <td className="p-3 font-mono text-indigo-600 select-all">{dm.email}</td>
+                              <td className="p-3">
+                                <span className="font-mono bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-[10px] text-slate-600 select-all font-bold">
+                                  {dm.password}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] uppercase font-black bg-blue-50 border border-blue-200 text-blue-700 font-mono">
+                                  {dm.role}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="bg-indigo-50/30 border border-indigo-100 p-3.5 rounded-xl text-[10.5px] leading-relaxed text-slate-600 mt-4">
+                  <span className="font-bold text-indigo-900 block mb-0.5">🔒 Sandboxed Credentials Policy</span>
+                  Delivery staff credentials bypass standard customer checks to provide an instant local portal view centered uniquely around requested home delivery order queues.
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1671,6 +1847,475 @@ export default function AdminPortal({
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Module 3.5: Home Delivery Logistics & Remittances Center (New Feature) */}
+        {activeTab === 'delivery' && (
+          <div className="space-y-6 animate-fadeIn text-left font-sans">
+            <div className="border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                🚚 Home Delivery Logistics Command
+              </h3>
+              <p className="text-[11.5px] text-slate-550 mt-1">
+                Configure centralized shipping flat-charges, monitor active couriers, inspect split multi-vendor packaging checklists, and audit mobile payments remittance ledger.
+              </p>
+            </div>
+
+            {/* Flat Rate Setup & Payment Gateways Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Shipping fee configuration */}
+              <div className="md:col-span-2 bg-slate-50 border border-slate-200 p-5 rounded-2xl text-left flex flex-col justify-between shadow-3xs">
+                <div>
+                  <span className="text-[10px] font-mono text-indigo-700 uppercase tracking-widest font-extrabold flex items-center gap-1.5">
+                    🛡️ Flat Delivery Charge Config
+                  </span>
+                  <p className="text-xs font-sans text-slate-600 leading-relaxed mt-2">
+                    Set a flat delivery rate applied universally across all multi-vendor orders. Customers choosing <b>Home Delivery</b> will pay this fee, while <b>Self Pickup</b> remains entirely free ($0 USD).
+                  </p>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <span className="text-xs font-mono text-slate-550">
+                    Active Delivery Rate: <b className="text-indigo-600 text-sm font-bold font-mono">${deliveryFee} USD</b>
+                  </span>
+                  <form onSubmit={handleUpdateDeliveryFee} className="flex gap-2 w-full sm:w-auto sm:max-w-xs">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      className="w-full sm:w-28 text-xs font-mono px-3 py-1.5 border rounded bg-white border-slate-250 text-slate-800 focus:outline-none"
+                      value={newDeliveryFeeText}
+                      onChange={(e) => setNewDeliveryFeeText(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={updatingLogistics}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10.5px] px-3.5 py-1.5 rounded-lg font-bold cursor-pointer transition whitespace-nowrap active:scale-95"
+                    >
+                      {updatingLogistics ? 'Saving...' : 'Set Flat Fee'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Payment methods toggling configuration card */}
+              <div className="bg-slate-50 border border-slate-205 p-5 rounded-2xl text-left space-y-3 shadow-3xs flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-mono text-indigo-700 uppercase tracking-widest font-extrabold flex items-center gap-1.5">
+                    💳 Escrow Payment Gateroads
+                  </span>
+                  <p className="text-[11px] font-sans text-slate-500 leading-relaxed mt-1">
+                    Toggle active checkout payment methods across the entire platform.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-1.5 pt-1">
+                  {/* Credit Card Toggle */}
+                  <div className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-xl">
+                    <span className="text-[10.5px] font-bold text-slate-800 block">Stripe Card Pay</span>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePaymentMethod('card', !enableCard)}
+                      className={`relative inline-flex h-4.5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none ${enableCard ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    >
+                      <span className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition duration-205 ${enableCard ? 'translate-x-[20px]' : 'translate-x-[2px]'}`} />
+                    </button>
+                  </div>
+
+                  {/* Cash on Delivery Toggle */}
+                  <div className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-xl">
+                    <span className="text-[10.5px] font-bold text-slate-800 block">Cash on Delivery</span>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePaymentMethod('cod', !enableCod)}
+                      className={`relative inline-flex h-4.5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none ${enableCod ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    >
+                      <span className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition duration-205 ${enableCod ? 'translate-x-[20px]' : 'translate-x-[2px]'}`} />
+                    </button>
+                  </div>
+
+                  {/* Zaad Toggle */}
+                  <div className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-xl">
+                    <span className="text-[10.5px] font-bold text-slate-850 block">Zaad Mobile Pay</span>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePaymentMethod('zaad', !enableZaad)}
+                      className={`relative inline-flex h-4.5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-205 focus:outline-none ${enableZaad ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    >
+                      <span className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition duration-205 ${enableZaad ? 'translate-x-[20px]' : 'translate-x-[2px]'}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Status Filter buttons & search bar */}
+            <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col md:flex-row items-center justify-between gap-3 text-left">
+              <div className="relative w-full md:max-w-md">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Search className="h-4 w-4 text-slate-400" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search delivery orders by buyer name, phone..."
+                  value={orderQuery}
+                  onChange={(e) => setOrderQuery(e.target.value)}
+                  className="w-full text-xs pl-9 pr-4 py-2.5 bg-white border border-slate-205 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-650 font-sans shadow-3xs"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] text-slate-400 font-mono uppercase font-bold mr-1">Status:</span>
+                {(['all', 'pending', 'processing', 'shipped', 'delivered'] as const).map((st) => {
+                  const count = orders.filter(o => {
+                    if (o.deliveryMethod !== 'delivery') return false;
+                    const matchQ = !orderQuery.trim() || o.customerName.toLowerCase().includes(orderQuery.toLowerCase()) || o.id.includes(orderQuery);
+                    return (st === 'all' || o.status === st) && matchQ;
+                  }).length;
+                  return (
+                    <button
+                      key={st}
+                      onClick={() => setOrderStatusFilter(st)}
+                      className={`px-3 py-1 text-[9px] font-bold uppercase rounded-md transition-all cursor-pointer ${orderStatusFilter === st ? 'bg-indigo-600 text-white shadow-3xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      {st} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Beautiful, High-End Deliveries Logistics Board & Split-Vendor approval indicators */}
+            <div className="space-y-4">
+              {orders.filter(o => {
+                if (o.deliveryMethod !== 'delivery') return false;
+                const matchQ = !orderQuery.trim() || o.customerName.toLowerCase().includes(orderQuery.toLowerCase()) || o.id.includes(orderQuery);
+                const matchStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
+                return matchQ && matchStatus;
+              }).length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-xl border border-slate-200/80 text-xs italic text-slate-450 font-mono">
+                  📦 No Home Delivery orders matching selected filters are currently logged in system indices.
+                </div>
+              ) : (
+                orders.filter(o => {
+                  if (o.deliveryMethod !== 'delivery') return false;
+                  const matchQ = !orderQuery.trim() || o.customerName.toLowerCase().includes(orderQuery.toLowerCase()) || o.id.includes(orderQuery);
+                  const matchStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
+                  return matchQ && matchStatus;
+                }).map((ord) => {
+                  const oBreakdown = (() => {
+                    const itemsWithVendorInfo = ord.items.map(item => {
+                      const prod = products.find(p => p.id === (item.productId || (item as any).id));
+                      const vendor = prod ? vendors.find(v => v.id === prod.vendorId) : null;
+                      const vendorStatus = (ord.vendorStatuses && vendor && ord.vendorStatuses[vendor.id]) || ord.status || 'pending';
+                      return { ...item, vendor, vendorStatus };
+                    });
+
+                    const uniqueVendorsInvolved = Array.from(new Set(
+                      itemsWithVendorInfo.map(item => item.vendor?.id).filter(Boolean) as string[]
+                    )).map(vId => {
+                      const vMeta = vendors.find(v => v.id === vId);
+                      const vStatus = ord.vendorStatuses?.[vId] || (ord.status === 'delivered' ? 'delivered' : ord.status === 'shipped' ? 'shipped' : 'pending');
+                      return {
+                        id: vId,
+                        name: vMeta?.vendorName || `Store Outlet`,
+                        status: vStatus
+                      };
+                    });
+
+                    const isMultiVendor = uniqueVendorsInvolved.length > 1;
+                    const approvedVendors = uniqueVendorsInvolved.filter(v => v.status !== 'pending');
+                    const pendingVendors = uniqueVendorsInvolved.filter(v => v.status === 'pending');
+                    const totalVendorsCount = uniqueVendorsInvolved.length;
+                    const approvedCount = approvedVendors.length;
+                    const isPartiallyApproved = isMultiVendor && approvedCount > 0 && approvedCount < totalVendorsCount;
+                    const allSellersApproved = totalVendorsCount > 0 && approvedCount === totalVendorsCount;
+
+                    return {
+                      itemsWithVendorInfo,
+                      uniqueVendorsInvolved,
+                      isMultiVendor,
+                      approvedVendors,
+                      pendingVendors,
+                      isPartiallyApproved,
+                      allSellersApproved
+                    };
+                  })();
+
+                  // Styling helper variables
+                  let borderStyle = 'border-l-4 border-l-amber-500';
+                  if (ord.status === 'delivered') borderStyle = 'border-l-4 border-l-emerald-500';
+                  else if (ord.status === 'shipped') borderStyle = 'border-l-4 border-l-indigo-600';
+                  else if (oBreakdown.isPartiallyApproved) borderStyle = 'border-l-4 border-l-rose-400';
+
+                  return (
+                    <div key={ord.id} className={`bg-white border border-slate-200 rounded-2xl shadow-3xs hover:shadow-2xs transition overflow-hidden text-xs text-slate-705 ${borderStyle}`}>
+                      
+                      {/* Top ribbon bar */}
+                      <div className="bg-slate-50 border-b border-slate-150 px-5 py-3 flex flex-wrap items-center justify-between text-slate-500 text-[11px]">
+                        <span className="font-mono font-black text-slate-800 tracking-wider">
+                          📦 ID: #{ord.id.substring(0, 10).toUpperCase()}
+                        </span>
+                        <div className="flex items-center gap-2 font-semibold">
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {new Date(ord.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                          <span className="bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-indigo-700 font-mono uppercase text-[9.5px]">Home Delivery</span>
+                        </div>
+                      </div>
+
+                      {/* Content panel */}
+                      <div className="p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 leading-normal">
+                        
+                        {/* Profile & Location Column */}
+                        <div className="lg:col-span-3 pb-4 lg:pb-0 lg:border-r border-slate-100 pr-4 space-y-2 text-left">
+                          <span className="text-[8.5px] uppercase tracking-wider text-slate-400 font-black font-mono">Consumer Address</span>
+                          <div className="flex gap-2 items-center">
+                            <div className="w-7 h-7 bg-indigo-50 text-indigo-600 font-bold rounded-full flex items-center justify-center font-display text-xs">
+                              {ord.customerName?.[0] || 'U'}
+                            </div>
+                            <div className="truncate">
+                              <span className="block font-semibold text-slate-800 truncate">{ord.customerName}</span>
+                              <span className="text-[10px] font-mono text-slate-400 truncate">{ord.customerEmail}</span>
+                            </div>
+                          </div>
+                          {ord.shippingAddress && (
+                            <div className="bg-slate-50/80 border border-slate-150 p-3 rounded-lg text-[10.5px] text-slate-650 space-y-1 mt-1">
+                              <p className="font-bold flex items-center gap-1 text-slate-800 text-xs">
+                                <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {ord.shippingAddress.region}, {ord.shippingAddress.city}
+                              </p>
+                              <p className="pl-4.5">{ord.shippingAddress.district}, {ord.shippingAddress.streetAddress}</p>
+                              {ord.shippingAddress.phone && <p className="font-mono mt-0.5 text-slate-800 pl-4.5 font-bold">Tel: {ord.shippingAddress.phone}</p>}
+                              {ord.shippingAddress.homeInstructions && (
+                                <p className="bg-amber-50 text-amber-900 border border-amber-100 rounded p-1.5 mt-1 text-[9px] italic">
+                                  💡 Instruction: "{ord.shippingAddress.homeInstructions}"
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bill details */}
+                        <div className="lg:col-span-3 pb-4 lg:pb-0 lg:border-r border-slate-100 px-2 text-left space-y-3.5">
+                          <div>
+                            <span className="text-[8.5px] uppercase tracking-wider text-slate-400 font-black font-mono block mb-1">Fee & Payment Gateway</span>
+                            <div className="space-y-1 font-sans text-slate-600 text-[11px]">
+                              <div className="flex justify-between">
+                                <span>Cart Basket:</span>
+                                <span className="font-mono">${(ord.total - (ord.shippingCost || 0)).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between font-bold text-indigo-700">
+                                <span>Flat Courier Fee:</span>
+                                <span className="font-mono">${ord.shippingCost ?? 15}</span>
+                              </div>
+                              <div className="flex justify-between text-xs font-black text-slate-800 border-t border-slate-100 pt-1.5 mt-1">
+                                <span>Grand Total:</span>
+                                <span className="font-mono text-indigo-700 font-extrabold">${ord.total.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1 pt-1 border-t border-slate-100">
+                            <span className="block text-[8.5px] font-mono uppercase text-slate-400 font-bold">Channel Provider</span>
+                            <span className="inline-block bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5 rounded text-[10px] font-mono leading-none font-bold">{ord.paymentMethod || 'Sandbox Portal'}</span>
+                          </div>
+                        </div>
+
+                        {/* Multi-Vendor Ready Checklists (Requested Feature) */}
+                        <div className="lg:col-span-4 pb-4 lg:pb-0 lg:border-r border-slate-100 px-2 text-left space-y-3">
+                          <div>
+                            <span className="text-[8.5px] uppercase tracking-wider text-indigo-600 font-black font-mono block mb-1">Split-Vendor Checklists</span>
+                            
+                            <div className="space-y-1 max-h-[140px] overflow-y-auto mt-1.5 pr-1">
+                              {oBreakdown.itemsWithVendorInfo.map((itm, index) => (
+                                <div key={index} className="flex gap-2 items-center p-1 px-2 border border-slate-100 rounded-lg bg-slate-50/50 text-[10.5px]">
+                                  <span className="font-bold text-slate-700 flex-1 truncate">{itm.title} (x{itm.quantity})</span>
+                                  {itm.vendor && (
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <span className="text-slate-450 text-[9.5px]">🏪 {itm.vendor.vendorName}</span>
+                                      <span className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-bold ${itm.vendorStatus !== 'pending' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-100 animate-pulse'}`}>
+                                        {itm.vendorStatus !== 'pending' ? '✓ READY' : '⏳ PENDING'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Prominent Superadmin Split Notice Indicator */}
+                            {oBreakdown.isPartiallyApproved ? (
+                              <div className="p-2.5 bg-rose-50 border border-rose-220 rounded-xl mt-3 text-[10.5px] leading-relaxed text-rose-800 space-y-0.5 border-l-4 border-l-rose-500 shadow-2xs">
+                                <div className="flex items-center gap-1 font-extrabold text-[10px] text-rose-900 tracking-wide uppercase">
+                                  <AlertCircle className="w-3.5 h-3.5 shrink-0 animate-ping" /> Split Dispatch Blocked
+                                </div>
+                                <p className="font-sans leading-normal text-slate-650">
+                                  Some merchant orders approved, but we are <span className="font-black decoration-rose-500 underline">waiting for {oBreakdown.pendingVendors.map(v => v.name).join(', ')}</span>'s storefront approval to prepare courier logistics!
+                                </p>
+                              </div>
+                            ) : oBreakdown.isMultiVendor && oBreakdown.allSellersApproved && ord.status === 'pending' ? (
+                              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl mt-3 text-[10.5px] leading-relaxed text-emerald-800 border-l-4 border-l-emerald-500 shadow-3xs">
+                                <div className="flex items-center gap-1 font-extrabold text-[10px] text-emerald-900 uppercase">
+                                  <Check className="w-3.5 h-3.5 shrink-0" /> Unified Package Cleared!
+                                </div>
+                                <p className="text-slate-600 leading-normal">
+                                  All partner sellers approved. Package is fully assembled and safe for courier dispatch.
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Courier Delivery update controls & Timeline */}
+                        <div className="lg:col-span-2 flex flex-col justify-between items-stretch pl-2 py-0.5">
+                          <div className="space-y-1.5 text-center lg:text-right text-xs">
+                            <span className="text-[8.5px] font-mono uppercase tracking-widest text-slate-400 block font-bold text-center">Courier Status</span>
+                            <span className={`text-[10px] font-black uppercase px-2.5 py-1.5 rounded-full border block text-center tracking-wider font-mono ${
+                              ord.status === 'delivered' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+                              ord.status === 'shipped' ? 'bg-indigo-55 bg-indigo-50 border-indigo-250 text-indigo-800 font-extrabold animate-pulse' :
+                              ord.status === 'processing' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                              'bg-slate-150 border-slate-200 text-slate-600'
+                            }`}>
+                              {ord.status === 'shipped' ? '🚚 Out For Delivery' : ord.status === 'processing' ? '📦 Packed & Ready' : ord.status}
+                            </span>
+                          </div>
+
+                          <div className="pt-4 border-t border-dashed border-slate-100 flex justify-end gap-1.5">
+                            {ord.status === 'pending' && (
+                              <button
+                                onClick={() => handleTransitionOrderStatus(ord.id, 'processing')}
+                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-lg shadow-3xs transition cursor-pointer"
+                              >
+                                Assemble & Pack
+                              </button>
+                            )}
+                            {ord.status === 'processing' && (
+                              <button
+                                onClick={() => handleTransitionOrderStatus(ord.id, 'shipped')}
+                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-lg shadow-3xs transition cursor-pointer"
+                              >
+                                Handover Courier
+                              </button>
+                            )}
+                            {ord.status === 'shipped' && (
+                              <button
+                                onClick={() => handleTransitionOrderStatus(ord.id, 'delivered')}
+                                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase rounded-lg shadow-3xs transition cursor-pointer"
+                              >
+                                Confirm Arrived
+                              </button>
+                            )}
+                            {ord.status === 'delivered' && (
+                              <span className="text-emerald-700 bg-emerald-50 border border-emerald-150 font-black font-mono text-[9px] uppercase tracking-wider rounded-lg px-2 py-1 text-center w-full">
+                                Handed Over ✓
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
+
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Merchant Logistics Remittances & Auditing Table */}
+            <div className="bg-white p-5 rounded-xl border border-slate-205 mt-8 space-y-4 text-left shadow-xs">
+              <div className="flex border-b border-slate-100 pb-3 items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5 font-sans mb-0.5 font-black">
+                    🚚 Merchant Payouts Ledger
+                  </h4>
+                  <p className="text-[11.5px] text-slate-500 mt-0.5 leading-relaxed">
+                    Approve or reject cellular mobile wallet transfer receipts sent by merchant partners to reimburse the centralized delivery couriers fee.
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full font-bold uppercase border border-indigo-100">
+                    Flat logistics fee: $15.00/order
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left font-sans text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-mono uppercase tracking-wider">
+                      <th className="p-3">Order Code</th>
+                      <th className="p-3">Buyer Profile</th>
+                      <th className="p-3">Payment Reference Detail</th>
+                      <th className="p-3 text-right">Ledger Verification action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-150-b text-[11px] text-slate-700">
+                    {orders.filter(o => o.deliveryMethod === 'delivery').length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-5 text-center text-slate-400 italic font-mono">No delivery ledger records currently synced.</td>
+                      </tr>
+                    ) : (
+                      orders.filter(o => o.deliveryMethod === 'delivery').map((ord) => {
+                        const remStatus = ord.deliveryFeeRemittanceStatus || 'owed';
+                        return (
+                          <tr key={ord.id} className="hover:bg-slate-50/45 transition">
+                            <td className="p-3 font-mono">
+                              <span className="font-bold text-slate-800 block">#{ord.id.substring(0, 8)}</span>
+                              <span className="text-[10px] text-slate-400 block">{new Date(ord.createdAt).toLocaleDateString()}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className="font-bold text-slate-800 block">{ord.customerName}</span>
+                              <span className="text-[10px] font-mono text-slate-450">Payable amount: ${ord.total}</span>
+                            </td>
+                            <td className="p-3">
+                              {ord.deliveryFeeRemittanceDetails ? (
+                                <div className="space-y-0.5 text-xs text-left">
+                                  <p className="text-slate-800 font-bold font-sans">Provider: <b className="uppercase text-indigo-600">{ord.deliveryFeeRemittanceDetails.provider}</b> (No: {ord.deliveryFeeRemittanceDetails.senderNumber})</p>
+                                  <p className="font-mono text-[10px] text-slate-600">Trans ID: <span className="bg-slate-100 select-all font-black px-1 rounded">{ord.deliveryFeeRemittanceDetails.transactionNumber}</span> ({ord.deliveryFeeRemittanceDetails.dateRemitted})</p>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">No mobile receipt logged</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-right">
+                              {remStatus === 'submitted' && (
+                                <div className="flex gap-1.5 justify-end">
+                                  <button
+                                    onClick={() => handleAuditRemittance(ord.id, 'confirmed')}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded transition cursor-pointer"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() => handleAuditRemittance(ord.id, 'owed')}
+                                    className="bg-slate-50 border border-slate-200 text-rose-500 hover:bg-rose-50 text-[10px] px-2.5 py-1 rounded transition cursor-pointer font-semibold"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              )}
+                              {remStatus === 'confirmed' && (
+                                <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5 text-[10px] uppercase font-mono">
+                                  Verified ✓
+                                </span>
+                              )}
+                              {remStatus === 'owed' && (
+                                <span className="text-slate-400 italic font-mono text-[10.5px]">
+                                  Awaiting remittance
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         )}
 

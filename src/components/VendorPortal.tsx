@@ -44,6 +44,13 @@ export default function VendorPortal({
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'campaigns' | 'coupons' | 'finance' | 'settings'>('products');
+
+  useEffect(() => {
+    if (userRole === 'order_manager') {
+      setActiveTab('orders');
+    }
+  }, [userRole]);
+
   const [activeStatusFilter, setActiveStatusFilter] = useState<string>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [transitioningOrderId, setTransitioningOrderId] = useState<string | null>(null);
@@ -263,9 +270,11 @@ export default function VendorPortal({
       const vData = await vRes.json();
       const oData = await oRes.json();
 
-      // Filter vendors to isolate ONLY the logged-in representative's email
+      // Filter vendors to isolate ONLY the logged-in representative's email or sub-user email
       const matchingVendors = vData.filter(
-        (v: Vendor) => v.email && v.email.toLowerCase() === userEmail.toLowerCase()
+        (v: Vendor) => 
+          (v.email && v.email.toLowerCase() === userEmail.toLowerCase()) ||
+          (v.subUsers && v.subUsers.some((su: any) => su.email && su.email.toLowerCase() === userEmail.toLowerCase()))
       );
 
       setVendors(matchingVendors);
@@ -801,7 +810,7 @@ export default function VendorPortal({
           <div className="space-y-1.5">
             <p className="font-bold text-slate-850 uppercase tracking-widest text-[10px]">Merchant Profile Mapping Unconfigured</p>
             <p className="text-slate-605 text-xs text-slate-705 leading-relaxed">
-              Your logged-in Seller representative account <span className="font-mono bg-white font-bold px-1.5 py-0.5 rounded border border-amber-200 text-slate-800">{userEmail}</span> has been authenticated, but there is no active storefront mapped to this Email address inside the omnichannel seller's database.
+              Your logged-in Seller representative account <span className="font-mono bg-white font-bold px-1.5 py-0.5 rounded border border-amber-200 text-slate-800">{userEmail}</span> has been authenticated, but there is no active storefront mapped to this Email address inside the platform seller's database.
             </p>
             <div className="bg-white/80 p-3.5 rounded border border-amber-150 text-[11.5px] text-slate-700 font-sans leading-relaxed mt-2 space-y-1.5 animate-fadeIn">
               <span className="font-black text-amber-900 block tracking-wide uppercase text-[9.5px]">How to resolve this inside the sandbox:</span>
@@ -835,7 +844,7 @@ export default function VendorPortal({
               <Sparkles className="w-4.5 h-4.5 animate-pulse" /> Merchant Registration & Onboarding
             </h3>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Submit your corporate and representative credentials to request secondary vendor directory catalog privileges on SuuqHub Omnichannel. Accounts will require manual administrative authorization by the platform Superadmin backoffice.
+              Submit your corporate and representative credentials to request secondary vendor directory catalog privileges on SuuqHub (Smart Market Place). Accounts will require manual administrative authorization by the platform Superadmin backoffice.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -927,7 +936,7 @@ export default function VendorPortal({
             <Sparkles className="w-4.5 h-4.5" /> Merchant Registration & Onboarding
           </h3>
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            Submit your corporate and representative credentials to request secondary vendor directory catalog privileges on SuuqHub Omnichannel. Accounts will require manual administrative authorization by the platform Superadmin backoffice.
+            Submit your corporate and representative credentials to request secondary vendor directory catalog privileges on SuuqHub (Smart Market Place). Accounts will require manual administrative authorization by the platform Superadmin backoffice.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1018,7 +1027,7 @@ export default function VendorPortal({
                 { id: 'coupons', label: 'Coupon Vouchers', desc: 'Promotional discount campaigns', count: coupons.filter(c => c.vendorId === selectedVendor?.id).length },
                 { id: 'finance', label: 'Logistics & Remittances', desc: 'Earnings & financial ledger', count: 0 },
                 { id: 'settings', label: 'Merchant Payment Details', desc: 'Mobile wallets config', count: 0 }
-              ].map((subTab) => {
+              ].filter(subTab => userRole !== 'order_manager' || subTab.id === 'orders').map((subTab) => {
                 const isActive = activeTab === subTab.id;
                 return (
                   <button

@@ -18,7 +18,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { ShieldCheck, Mail, Lock, User, Sparkles, Loader2, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface LoginViewProps {
-  onLoginSuccess: (userId: string, email: string, name: string, role: 'customer' | 'vendor' | 'admin' | 'superadmin') => void;
+  onLoginSuccess: (userId: string, email: string, name: string, role: 'customer' | 'vendor' | 'admin' | 'superadmin' | 'delivery_manager' | 'order_manager' | 'general_vendor_user') => void;
   lang: 'en' | 'ar' | 'es';
 }
 
@@ -93,7 +93,12 @@ export default function LoginView({
       const userRef = doc(db, 'users', uid);
       const userSnap = await getDoc(userRef);
 
-      const actualRole = userEmail.toLowerCase() === 'boqorapps@gmail.com' ? 'superadmin' : chosenRole;
+      let actualRole: string = chosenRole;
+      if (userEmail.toLowerCase() === 'boqorapps@gmail.com') {
+        actualRole = 'superadmin';
+      } else if (userEmail.toLowerCase() === 'delivery@suuqhub.com') {
+        actualRole = 'delivery_manager';
+      }
 
       if (!userSnap.exists()) {
         const payload = {
@@ -137,6 +142,9 @@ export default function LoginView({
         if (userEmail.toLowerCase() === 'boqorapps@gmail.com' && existingData.role !== 'superadmin') {
           await setDoc(userRef, { role: 'superadmin' }, { merge: true });
           return 'superadmin';
+        } else if (userEmail.toLowerCase() === 'delivery@suuqhub.com' && existingData.role !== 'delivery_manager') {
+          await setDoc(userRef, { role: 'delivery_manager' }, { merge: true });
+          return 'delivery_manager';
         }
         return existingData.role || actualRole;
       }
@@ -273,7 +281,12 @@ export default function LoginView({
 
       // 2. Perform authentication based on availability of the Custom Token
       let user;
-      const assignedRole = email.toLowerCase() === 'boqorapps@gmail.com' ? 'superadmin' : role;
+      let assignedRole: any = role;
+      if (email.toLowerCase() === 'boqorapps@gmail.com') {
+        assignedRole = 'superadmin';
+      } else if (email.toLowerCase() === 'delivery@suuqhub.com') {
+        assignedRole = 'delivery_manager';
+      }
 
       if (customToken) {
         const { signInWithCustomToken } = await import('firebase/auth');
@@ -292,6 +305,56 @@ export default function LoginView({
           user = result.user;
           await syncUserToFirestore(user.uid, email, name, assignedRole);
         } else {
+          // Intercept Delivery Manager credentials login (local bypass detection)
+          let matchingDM = null;
+          try {
+            const dmRes = await fetch('/api/delivery-managers');
+            if (dmRes.ok) {
+              const dmList = await dmRes.json();
+              matchingDM = dmList.find((x: any) => x.email.toLowerCase() === email.toLowerCase() && x.password === password);
+            }
+          } catch (err) {
+            console.warn("Could not lookup delivery managers database:", err);
+          }
+
+          if (matchingDM) {
+            setSuccessMessage(`Welcome back, Courier Partner ${matchingDM.representativeName}!`);
+            setTimeout(() => {
+              onLoginSuccess(`usr-dm-${matchingDM.id || 'dm'}`, email, matchingDM.representativeName, 'delivery_manager');
+            }, 800);
+            return;
+          }
+
+          // Intercept Vendor sub-users credentials login (local bypass detection)
+          let matchingVendorSubUser = null;
+          let matchingSubVendorOwner = null;
+          try {
+            const vRes = await fetch('/api/vendors');
+            if (vRes.ok) {
+              const vList = await vRes.json();
+              for (const v of vList) {
+                if (v.subUsers) {
+                  const su = v.subUsers.find((x: any) => x.email.toLowerCase() === email.toLowerCase() && x.password === password);
+                  if (su) {
+                    matchingVendorSubUser = su;
+                    matchingSubVendorOwner = v;
+                    break;
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("Could not lookup vendor subusers database:", err);
+          }
+
+          if (matchingVendorSubUser && matchingSubVendorOwner) {
+            setSuccessMessage(`Logged in as team member: ${matchingVendorSubUser.name}.`);
+            setTimeout(() => {
+              onLoginSuccess(`usr-sub-${matchingVendorSubUser.email}`, email, matchingVendorSubUser.name, matchingVendorSubUser.role);
+            }, 800);
+            return;
+          }
+
           // Intercept Vendor managed credentials login (local bypass detection)
           let matchingVendor = null;
           try {
@@ -430,10 +493,10 @@ export default function LoginView({
         {/* Branding header block */}
         <div className="text-center space-y-1">
           <div className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-[10px] uppercase font-mono px-2 py-0.5 rounded border border-indigo-100 tracking-wider font-extrabold mx-auto">
-            <ShieldCheck className="w-4 h-4 text-indigo-600" /> Firebase Auth System
+            <ShieldCheck className="w-4 h-4 text-indigo-600" /> Secure Portal Gateway
           </div>
-          <h2 className="text-xl font-extrabold text-slate-850 tracking-tight font-display">
-            {isSignUp ? 'Onboard SuuqHub Omnichannel Account' : 'Security Portal Authorization'}
+          <h2 className="text-xl font-extrabold text-slate-855 tracking-tight font-display">
+            {isSignUp ? 'Onboard SuuqHub (Smart Market Place) Account' : 'Security Portal Authorization'}
           </h2>
           <p className="text-xs text-slate-450 leading-relaxed max-w-sm mx-auto">
             Authorized multi-vendor dashboard gateway with real-time Firestore database synchronization.
@@ -493,13 +556,13 @@ export default function LoginView({
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22c-.87-2.6-2.87-4.53-5.84-4.53z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
             </svg>
-            Google SSO via Popup
+            Google Single Sign-On
           </button>
           
           <button
             onClick={handleGoogleRedirectLogin}
             disabled={loading}
-            className="w-full py-3 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100/80 text-indigo-700 font-bold text-xs uppercase tracking-wider rounded transition flex items-center justify-center gap-2.5 cursor-pointer shadow-xs focus:ring-1 focus:ring-indigo-500"
+            className="hidden"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -510,7 +573,7 @@ export default function LoginView({
             Google SSO via Redirect (Recommended)
           </button>
           
-          <p className="text-[10px] text-slate-400 text-center leading-relaxed font-sans">
+          <p className="hidden text-[10px] text-slate-400 text-center leading-relaxed font-sans">
             * Use **Redirect Mode** if you are on mobile, using an iframe, or have pop-up blockers active.
           </p>
         </div>
@@ -628,7 +691,7 @@ export default function LoginView({
               onClick={() => { setIsSignUp(!isSignUp); setErrorMessage(''); setSuccessMessage(''); }}
               className="text-indigo-600 hover:underline font-bold ml-1 text-xs cursor-pointer focus:outline-none"
             >
-              {isSignUp ? 'Login to Existing Profile' : 'Onboard New Profile'}
+              {isSignUp ? 'Login to Existing Profile' : 'Sign up'}
             </button>
           </p>
         </div>

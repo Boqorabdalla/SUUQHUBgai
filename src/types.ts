@@ -124,7 +124,7 @@ export interface Order {
   };
 }
 
-export type UserRole = 'customer' | 'vendor' | 'admin' | 'superadmin' | 'support' | 'warehouse';
+export type UserRole = 'customer' | 'vendor' | 'admin' | 'superadmin' | 'support' | 'warehouse' | 'delivery_manager' | 'order_manager' | 'general_vendor_user';
 
 export interface User {
   id: string;
@@ -152,6 +152,14 @@ export interface User {
   vendorEarnings?: number;
 }
 
+export interface VendorSubUser {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  role: 'order_manager' | 'general_vendor_user';
+}
+
 export interface Vendor {
   id: string;
   vendorName: string;
@@ -166,6 +174,7 @@ export interface Vendor {
   password?: string;
   zaadNumber?: string;
   edahabNumber?: string;
+  subUsers?: VendorSubUser[];
 }
 
 export interface Coupon {

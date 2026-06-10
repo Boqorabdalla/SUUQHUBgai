@@ -682,7 +682,7 @@ export default function CheckoutView({
                         ))}
                       </div>
                       <p className="text-[10px] text-slate-400 italic">
-                        🔒 Omnichannel escrow system. Funds will stay pending until delivery verification by the SuuqHub courier.
+                        🔒 Secure escrow system. Funds will stay pending until delivery verification by the SuuqHub courier.
                       </p>
                     </div>
 
@@ -840,7 +840,7 @@ export default function CheckoutView({
           <div className="bg-slate-50 p-4 rounded border border-slate-200 space-y-2.5 text-[11px] text-slate-500 text-left shadow-xs">
             <div className="flex items-center gap-2.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              <span>Full compliance PCI-DSS level sandbox encryption.</span>
+              <span>Full compliance SSL standard sandbox encryption.</span>
             </div>
             <div className="flex items-center gap-2.5">
               <Truck className="w-4 h-4 text-indigo-600 flex-shrink-0" />

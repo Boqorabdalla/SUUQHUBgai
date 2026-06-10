@@ -61,7 +61,7 @@ export default function CustomerDashboard({
       const prodData = await prodRes.json();
       const vendData = await vendRes.json();
 
-      setOrders(ordData.filter((o: Order) => o.customerId === userId || o.id.startsWith('ord-')));
+      setOrders(ordData.filter((o: Order) => o.customerId === userId));
       setTickets(tktData.filter((t: SupportTicket) => t.userId === userId));
       setProducts(prodData || []);
       setVendors(vendData || []);
@@ -443,7 +443,7 @@ export default function CustomerDashboard({
                       </div>
                       <div>
                         <span className="font-display font-black text-lg tracking-tight uppercase block text-slate-900 leading-none">SUUQHUB</span>
-                        <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-indigo-600 block mt-0.5">OMNICHANNEL MARKETPLACE</span>
+                        <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-indigo-600 block mt-0.5">SMART MARKET PLACE</span>
                       </div>
                     </div>
                     
@@ -515,7 +515,7 @@ export default function CustomerDashboard({
                         🛡️ PAID & SECURED IN FULL
                       </span>
                     </div>
-                    <p className="text-[9px] text-slate-400 italic">Omnichannel transaction settled under Abu Dhabi logistics & gateway codes.</p>
+                    <p className="text-[9px] text-slate-400 italic">SuuqHub transaction settled under Abu Dhabi logistics & gateway codes.</p>
                   </div>
                 </div>
 

@@ -14,6 +14,7 @@ import VendorPortal from './components/VendorPortal';
 import AdminPortal from './components/AdminPortal';
 import AIChatAgent from './components/AIChatAgent';
 import LoginView from './components/LoginView';
+import PwaInstallModal from './components/PwaInstallModal';
 
 import { Product, CartItem, Coupon, UserRole, HeroCampaign } from './types';
 import { initialProducts } from './initialData';
@@ -74,7 +75,17 @@ export default function App() {
           const docSnap = await getDoc(doc(db, 'users', user.uid));
           if (docSnap.exists()) {
             const data = docSnap.data();
-            const resolvedRole = data.role || 'customer';
+            let resolvedRole = data.role || 'customer';
+            
+            // Administrative & Logistics escalation check
+            if (user.email?.toLowerCase() === 'boqorapps@gmail.com' && resolvedRole !== 'superadmin') {
+              resolvedRole = 'superadmin';
+              await setDoc(doc(db, 'users', user.uid), { role: 'superadmin' }, { merge: true });
+            } else if (user.email?.toLowerCase() === 'delivery@suuqhub.com' && resolvedRole !== 'delivery_manager') {
+              resolvedRole = 'delivery_manager';
+              await setDoc(doc(db, 'users', user.uid), { role: 'delivery_manager' }, { merge: true });
+            }
+
             setFirebaseUser({
               id: user.uid,
               email: user.email || '',
@@ -82,8 +93,19 @@ export default function App() {
               role: resolvedRole
             });
             setSelectedRole(resolvedRole);
+            if (resolvedRole === 'delivery_manager' || resolvedRole === 'superadmin') {
+              setActiveTab('admin');
+            } else if (resolvedRole === 'vendor') {
+              setActiveTab('vendor');
+            }
           } else {
-            const actualRole = (user.email || '').toLowerCase() === 'boqorapps@gmail.com' ? 'superadmin' : 'customer';
+            let actualRole = 'customer';
+            const emailLower = (user.email || '').toLowerCase();
+            if (emailLower === 'boqorapps@gmail.com') {
+              actualRole = 'superadmin';
+            } else if (emailLower === 'delivery@suuqhub.com') {
+              actualRole = 'delivery_manager';
+            }
             const payload = {
               id: user.uid,
               email: user.email || '',
@@ -222,13 +244,9 @@ export default function App() {
   };
 
   // Direct mock install criteria prompt
-  const [installPromptTriggered, setInstallPromptTriggered] = useState(false);
+  const [pwaModalOpen, setPwaModalOpen] = useState(false);
   const handleSimulateInstall = () => {
-    setInstallPromptTriggered(true);
-    setTimeout(() => {
-      alert("PWA installed successfully! OmniChannel E-Store icon added to your device terminal dashboard.");
-      setInstallPromptTriggered(false);
-    }, 1200);
+    setPwaModalOpen(true);
   };
 
   // Filtering + Sorting mapping logic
@@ -276,7 +294,7 @@ export default function App() {
           
           <div className="space-y-2 text-left">
             <h2 className="text-center font-display font-extrabold text-lg text-slate-900">Purchase Fulfilled Successfully!</h2>
-            <p className="text-center text-xs text-slate-500">Order securely registered to omnichannel dispatch pipeline center.</p>
+            <p className="text-center text-xs text-slate-500">Order securely registered to secure platform dispatch pipeline center.</p>
           </div>
 
           <div className="bg-slate-50 p-4.5 rounded-xl border border-slate-200 text-left text-xs font-mono">
@@ -326,45 +344,37 @@ export default function App() {
                 <Download className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-slate-800">Download OmniChannel Storefront Web-App</h3>
+                <h3 className="text-xs font-bold text-slate-800">Download SuuqHub (Smart Market Place) Web-App</h3>
                 <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Works beautifully offline! Pin to your desktop dashboard with instantaneous launch speeds.</p>
               </div>
             </div>
             <button
               onClick={handleSimulateInstall}
-              disabled={installPromptTriggered}
               className="px-5 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition active:scale-95 cursor-pointer flex items-center gap-1.5"
             >
-              {installPromptTriggered ? 'Installing WebApp...' : 'Simulate PWA Install'}
+              Simulate PWA Install
             </button>
           </div>
 
-          {/* Beautiful Dynamic Carousel Slider / Fallback Showcase Hero banner */}
+          {/* Premium Redesigned Split-Screen Advertisement Slideshow */}
           {heroCampaigns.filter(c => c.status === 'approved').length > 0 ? (
-            <div className="relative rounded-2xl overflow-hidden shadow-lg h-[260px] sm:h-[320px] bg-indigo-950 border border-slate-700/30 group">
-              {/* Slide background */}
-              <img
-                src={heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.image}
-                alt={heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.title}
-                className="absolute inset-0 w-full h-full object-cover opacity-40 transition-opacity duration-700 select-nonepointer"
-                referrerPolicy="no-referrer"
-              />
-              {/* Subtle shadows layer overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-indigo-950/80 to-transparent" />
-
-              {/* Slider metadata attributes content */}
-              <div className="absolute inset-0 p-8 sm:p-12 flex flex-col justify-center items-start text-left z-10">
-                <span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest font-black mb-2.5 flex items-center gap-1.5 bg-amber-950/60 px-2.5 py-1 rounded border border-amber-500/20 animate-pulse">
-                  <Sparkles className="w-4 h-4 text-amber-500" /> Merchant Spotlight Showcase Slot
+            <div className="grid grid-cols-1 md:grid-cols-12 overflow-hidden rounded-2xl bg-white border border-slate-200/80 shadow-md h-auto md:h-[360px] group transition-all relative">
+              
+              {/* Left Column: Frosted/Dark Content Spotlight Panel */}
+              <div className="col-span-12 md:col-span-5 p-6 sm:p-10 bg-slate-900 bg-gradient-to-br from-indigo-950 to-slate-900 text-white flex flex-col justify-center items-start text-left h-full relative z-10 border-r border-slate-850">
+                <span className="text-[9px] text-amber-400 font-mono uppercase tracking-widest font-black mb-3 flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded border border-white/10 animate-pulse">
+                  <Sparkles className="w-3.5 h-3.5" /> Merchant Advert Spot
                 </span>
-                <h1 className="font-display font-extrabold text-2xl sm:text-4xl text-white max-w-xl leading-snug mb-3">
+                
+                <h1 className="font-display font-extrabold text-xl sm:text-2xl lg:text-3xl text-white leading-tight mb-3">
                   {heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.title}
                 </h1>
-                <p className="text-slate-300 text-xs sm:text-sm max-w-lg leading-relaxed mb-6 font-medium">
-                  {heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.subtitle || "Special custom selected products for SuuqHub clients."}
+                
+                <p className="text-slate-300 text-xs sm:text-sm leading-relaxed mb-6 font-medium line-clamp-3">
+                  {heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.subtitle || "Special customer selected products from SuuqHub verified partners."}
                 </p>
 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <button 
                     onClick={() => {
                       const productElement = document.getElementById('storefront-category-sections');
@@ -372,67 +382,96 @@ export default function App() {
                         productElement.scrollIntoView({ behavior: 'smooth' });
                       }
                     }} 
-                    className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-indigo-950 font-black text-xs uppercase rounded shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 cursor-pointer"
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase rounded-lg shadow transition-all duration-200 active:scale-95 cursor-pointer text-center"
                   >
                     Claim Custom Offer
                   </button>
-                  <span className="self-center px-3 py-1 text-[10px] bg-white/10 text-slate-300 rounded border border-white/15 shrink-0 font-mono">
-                    Partner Brand: <b className="text-amber-400">{heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.vendorName}</b>
+                  <span className="self-center px-3 py-1 text-[9.5px] bg-white/10 text-slate-300 rounded border border-white/15 shrink-0 font-mono">
+                    Merchant: <b className="text-amber-400">{heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.vendorName}</b>
                   </span>
                 </div>
               </div>
 
-              {/* Sliding controls toggles */}
-              {heroCampaigns.filter(c => c.status === 'approved').length > 1 && (
-                <>
-                  <button
-                    onClick={() => setCurrentSlide(prev => (prev === 0 ? heroCampaigns.filter(c => c.status === 'approved').length - 1 : prev - 1))}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-slate-900/40 hover:bg-indigo-600 text-white opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentSlide(prev => (prev === heroCampaigns.filter(c => c.status === 'approved').length - 1 ? 0 : prev + 1))}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-slate-900/40 hover:bg-indigo-600 text-white opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+              {/* Right Column: 100% Shadowless Clear Crisp Full-Resolution Image */}
+              <div className="col-span-12 md:col-span-7 bg-slate-50 relative h-[220px] sm:h-[280px] md:h-full overflow-hidden select-none">
+                <img
+                  src={heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.image}
+                  alt={heroCampaigns.filter(c => c.status === 'approved')[currentSlide]?.title}
+                  className="w-full h-full object-cover opacity-100 transition-all duration-700 block select-none"
+                  referrerPolicy="no-referrer"
+                />
 
-                  {/* Dot indicators */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
-                    {heroCampaigns.filter(c => c.status === 'approved').map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setCurrentSlide(idx)}
-                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${currentSlide === idx ? 'w-4 bg-amber-500' : 'w-1.5 bg-white/30'}`}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
+                {/* Sliding controls toggles inside image panel with high contrast */}
+                {heroCampaigns.filter(c => c.status === 'approved').length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentSlide(prev => (prev === 0 ? heroCampaigns.filter(c => c.status === 'approved').length - 1 : prev - 1))}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/90 hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-800 shadow-md transition duration-200 cursor-pointer"
+                      title="Previous Advert"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentSlide(prev => (prev === heroCampaigns.filter(c => c.status === 'approved').length - 1 ? 0 : prev + 1))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/90 hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-800 shadow-md transition duration-200 cursor-pointer"
+                      title="Next Advert"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    {/* Dot indicators positioned beautifully at the bottom center */}
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                      {heroCampaigns.filter(c => c.status === 'approved').map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentSlide(idx)}
+                          className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${currentSlide === idx ? 'w-5 bg-indigo-600 border border-white' : 'w-1.5 bg-white shadow-xs border border-slate-350'}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              
             </div>
           ) : (
-            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 border border-indigo-700/40 p-8 sm:p-12 text-left flex flex-col justify-center min-h-[230px] shadow-lg">
-              <div className="absolute right-12 bottom-0 top-0 w-1/3 opacity-15 hidden md:block select-none pointer-events-none">
-                <img src="https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=500&q=80" className="w-full h-full object-contain rotate-12 scale-110" referrerPolicy="no-referrer" />
+            /* Premium Redesigned Split-Screen Fallback Hero Showcase banner */
+            <div className="grid grid-cols-1 md:grid-cols-12 overflow-hidden rounded-2xl bg-white border border-slate-200/80 shadow-md h-auto md:h-[360px] relative">
+              
+              {/* Left Column Content Spot */}
+              <div className="col-span-12 md:col-span-5 p-6 sm:p-10 bg-slate-900 bg-gradient-to-br from-indigo-950 to-slate-900 text-white flex flex-col justify-center items-start text-left h-full relative z-10 border-r border-slate-850">
+                <span className="text-[9px] text-amber-400 font-mono uppercase tracking-widest font-black mb-3 flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded border border-white/10">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" /> Authorized SuuqHub Platform
+                </span>
+                
+                <h1 className="font-display font-extrabold text-xl sm:text-2xl lg:text-3xl text-white leading-tight mb-3">
+                  Sleek. Performance. <span className="text-amber-400">Smart Market Place</span> Ecosystem.
+                </h1>
+                
+                <p className="text-slate-300 text-xs sm:text-sm leading-relaxed mb-6 font-medium">
+                  Save instantly up to 10% utilizing voucher <span className="font-mono text-amber-400 font-extrabold bg-white/10 px-2 py-0.5 rounded border border-amber-500/30">SUUQ10</span> on checkouts. Premium multi-vendor catalogs.
+                </p>
+
+                <div>
+                  <button 
+                    onClick={() => setSelectedCategory('Electronics')} 
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase rounded-lg shadow transition-all duration-200 active:scale-95 cursor-pointer"
+                  >
+                    Explore Electronics Catalog
+                  </button>
+                </div>
               </div>
-              <span className="text-[10px] text-amber-500 font-mono uppercase tracking-widest font-black mb-2.5 flex items-center gap-1.5 animate-pulse">
-                <ShieldCheck className="w-4 h-4 text-amber-500" /> Authorized SuuqHub Platform Merchant
-              </span>
-              <h1 className="font-display font-extrabold text-2xl sm:text-4xl text-white max-w-xl leading-snug mb-3">
-                Sleek. Performance. <span className="text-amber-500">Multi-Vendor</span> Hub Marketplace.
-              </h1>
-              <p className="text-slate-300 text-xs sm:text-sm max-w-lg leading-relaxed mb-6">
-                Save instantly up to 10% utilizing voucher <span className="font-mono text-amber-500 font-black bg-white/10 px-2 py-0.5 rounded border border-amber-500/30">SUUQ10</span> on checkouts. Premium listings.
-              </p>
-              <div>
-                <button 
-                  onClick={() => setSelectedCategory('Electronics')} 
-                  className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-indigo-950 font-black text-xs uppercase rounded shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 cursor-pointer"
-                >
-                  Explore Electronics Catalog
-                </button>
+
+              {/* Right Column: Beautiful, 100% Shadowless High Resolution Showcase Image */}
+              <div className="col-span-12 md:col-span-7 bg-slate-100 relative h-[220px] sm:h-[280px] md:h-full overflow-hidden select-none">
+                <img 
+                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80" 
+                  alt="Premium Retail Experience"
+                  className="w-full h-full object-cover opacity-100 block select-none" 
+                  referrerPolicy="no-referrer"
+                />
               </div>
+
             </div>
           )}
 
@@ -747,6 +786,9 @@ export default function App() {
               onLoginSuccess={(uid, email, displayName, role) => {
                 setFirebaseUser({ id: uid, email, name: displayName, role });
                 setSelectedRole(role);
+                if (role === 'delivery_manager' || role === 'superadmin') {
+                  setActiveTab('admin');
+                }
               }} 
             />
           </motion.div>
@@ -794,6 +836,9 @@ export default function App() {
               onLoginSuccess={(uid, email, displayName, role) => {
                 setFirebaseUser({ id: uid, email, name: displayName, role });
                 setSelectedRole(role);
+                if (role === 'delivery_manager' || role === 'superadmin') {
+                  setActiveTab('admin');
+                }
               }} 
             />
           </motion.div>
@@ -802,7 +847,7 @@ export default function App() {
     }
 
     if (activeTab === 'vendor') {
-      if (firebaseUser && firebaseUser.role === 'vendor') {
+      if (firebaseUser && (firebaseUser.role === 'vendor' || firebaseUser.role === 'order_manager' || firebaseUser.role === 'general_vendor_user')) {
         return (
           <motion.div
             key="vendor-portal"
@@ -870,7 +915,7 @@ export default function App() {
     }
 
     if (activeTab === 'admin') {
-      if (firebaseUser) {
+      if (firebaseUser && (firebaseUser.role === 'superadmin' || firebaseUser.role === 'delivery_manager')) {
         return (
           <motion.div
             key="admin"
@@ -880,6 +925,7 @@ export default function App() {
           >
             <AdminPortal
               userId={firebaseUser?.id || "usr-customer-01"}
+              userRole={firebaseUser?.role}
               lang={lang}
               currency={currency}
             />
@@ -899,8 +945,8 @@ export default function App() {
               <AlertCircle className="w-4.5 h-4.5 mt-0.5 shrink-0 text-indigo-600 animate-pulse" />
               <div>
                 <p className="font-bold text-slate-855">Authorization Verification Required</p>
-                <p className="text-slate-505 mt-1 leading-relaxed">
-                  Please authorize access utilizing your secure email credentials or the fast sandbox shortcuts below to load this professional portal view.
+                <p className="text-slate-550 mt-1 leading-relaxed text-xs">
+                  Administrative & Logistics operations are strictly credential-guarded. Please authorize access below using authorized credentials.
                 </p>
               </div>
             </div>
@@ -909,8 +955,43 @@ export default function App() {
               onLoginSuccess={(uid, email, displayName, role) => {
                 setFirebaseUser({ id: uid, email, name: displayName, role });
                 setSelectedRole(role);
+                if (role === 'delivery_manager' || role === 'superadmin') {
+                  setActiveTab('admin');
+                }
               }} 
             />
+            <div className="bg-indigo-50/50 border border-indigo-100 rounded-lg p-4 text-[11px] text-slate-655 space-y-2.5 animate-fadeIn">
+              <span className="font-bold text-indigo-955 block uppercase tracking-wide text-[10px]">Logistics & Admin Sandbox Presets</span>
+              <p className="leading-relaxed font-sans">For instant validation without running a manual SuperAdmin registration, utilize these authorized profiles:</p>
+              <div className="bg-white p-3 rounded border border-indigo-105 space-y-2 font-mono text-slate-700">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-indigo-600 tracking-wider">🔒 Courier & Delivery Partner:</span>
+                  <div className="flex justify-between text-xs">
+                    <span>Email Address:</span>
+                    <span className="font-bold text-slate-900 select-all">delivery@suuqhub.com</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span>Password Token:</span>
+                    <span className="font-bold text-slate-900 select-all">123abc123</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-400 font-sans mt-0.5">
+                    <span>Alternative Preset:</span>
+                    <span className="select-all">manaal@gmail.com</span>
+                  </div>
+                </div>
+                <div className="border-t border-slate-100 pt-2 space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-[#7ebd24] tracking-wider">👑 Platform Superadmin:</span>
+                  <div className="flex justify-between text-xs">
+                    <span>Email Address:</span>
+                    <span className="font-bold text-slate-900 select-all">boqorapps@gmail.com</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span>Password Token:</span>
+                    <span className="font-bold text-slate-900 select-all">tripleA@123</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         );
       }
@@ -946,7 +1027,7 @@ export default function App() {
               onLoginSuccess={(uid, email, displayName, role) => {
                 setFirebaseUser({ id: uid, email, name: displayName, role });
                 setSelectedRole(role);
-                setActiveTab(role === 'vendor' ? 'vendor' : role === 'superadmin' ? 'admin' : 'catalog');
+                setActiveTab(role === 'vendor' ? 'vendor' : (role === 'superadmin' || role === 'delivery_manager') ? 'admin' : 'catalog');
               }} 
             />
           )}
@@ -1045,12 +1126,19 @@ export default function App() {
         />
       )}
 
+      {/* PWA Simulation installer popup wrapper */}
+      <PwaInstallModal
+        isOpen={pwaModalOpen}
+        onClose={() => setPwaModalOpen(false)}
+        appName="SuuqHub (Smart Market Place)"
+      />
+
       {/* Humble Footer, architectural compliance */}
       <footer className="bg-white border-t border-slate-200 py-6 text-xs text-slate-500 text-center select-none shrink-0 font-sans">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 SuuqHub OmniChannel Smart Market Ecosystem & Admin Terminal. All credit actions authorized.</p>
+          <p>© 2026 SuuqHub (Smart Market Place) Smart Market Ecosystem & Admin Terminal. All credit actions authorized.</p>
           <div className="flex gap-4">
-            <span className="hover:text-indigo-600 cursor-pointer transition">PCI-DSS Secure</span>
+            <span className="hover:text-indigo-600 cursor-pointer transition">SSL Secured Connection</span>
             <span>|</span>
             <span className="hover:text-indigo-600 cursor-pointer transition">W3C PWA Installable</span>
           </div>

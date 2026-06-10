@@ -108,7 +108,7 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
         const emailLower = currentUser.email?.toLowerCase();
         
         // High-trust sandbox presets bypass to avoid firestore document replication delays
-        if (emailLower === 'boqorapps@gmail.com' || emailLower === 'manaal@gmail.com' || emailLower === 'sarah@globaltrader.com') {
+        if (emailLower === 'boqorapps@gmail.com' || emailLower === 'manaal@gmail.com' || emailLower === 'sarah@globaltrader.com' || emailLower === 'delivery@suuqhub.com') {
           isPrivileged = true;
         } else {
           try {
@@ -177,7 +177,7 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
         if (currentUser) {
           customerIdAfter = currentUser.uid;
           const emailLower = currentUser.email?.toLowerCase();
-          if (emailLower === 'boqorapps@gmail.com' || emailLower === 'manaal@gmail.com' || emailLower === 'sarah@globaltrader.com') {
+          if (emailLower === 'boqorapps@gmail.com' || emailLower === 'manaal@gmail.com' || emailLower === 'sarah@globaltrader.com' || emailLower === 'delivery@suuqhub.com') {
             isPrivilegedAfter = true;
           } else {
             try {

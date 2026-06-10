@@ -373,7 +373,7 @@ let dbHeroCampaigns: HeroCampaign[] = [
     id: "camp-01",
     vendorId: "usr-vendor-02",
     vendorName: "Global Trader Store",
-    image: "https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80",
     title: "SuuqHub Smart Wearables",
     subtitle: "Up to 30% Off on Premium Smart Accessories. Verified Multi-Vendor Deals.",
     pricingTier: "Frontpage Premium Hero",
@@ -536,6 +536,7 @@ let dbTickets: SupportTicket[] = [
 
 // Persistent state engine for the mock databases to survive container/rebuild reboots
 const STATE_FILE = path.join(process.cwd(), "store-state.json");
+let dbDeliveryManagers: any[] = [];
 
 function saveDbToFile() {
   try {
@@ -548,7 +549,8 @@ function saveDbToFile() {
       dbHeroCampaigns,
       deliveryFee,
       enableCard,
-      enableCod
+      enableCod,
+      dbDeliveryManagers
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(backupState, null, 2), "utf-8");
   } catch (err) {
@@ -570,6 +572,7 @@ function loadDbFromFile() {
       if (typeof state.deliveryFee === "number") deliveryFee = state.deliveryFee;
       if (typeof state.enableCard === "boolean") enableCard = state.enableCard;
       if (typeof state.enableCod === "boolean") enableCod = state.enableCod;
+      if (state.dbDeliveryManagers) dbDeliveryManagers = state.dbDeliveryManagers;
       console.log("MOCK STORE-STATE.JSON LOADED SUCCESSFULLY");
     } else {
       // Ensure default vendor has an initial password
@@ -577,6 +580,31 @@ function loadDbFromFile() {
       if (val && !val.password) {
         val.password = "sarahPass123";
       }
+      saveDbToFile();
+    }
+    if (dbDeliveryManagers.length === 0) {
+      dbDeliveryManagers = [
+        {
+          id: "dm-01",
+          representativeName: "Manaal Al-Shabaab",
+          email: "manaal@gmail.com",
+          password: "123abc123",
+          role: "Delivery Manager",
+          createdAt: new Date().toISOString()
+        }
+      ];
+      saveDbToFile();
+    }
+    const hasDeliveryDM = dbDeliveryManagers.some((dm: any) => dm.email?.toLowerCase() === 'delivery@suuqhub.com');
+    if (!hasDeliveryDM) {
+      dbDeliveryManagers.push({
+        id: "dm-02",
+        representativeName: "SuuqHub Central Courier",
+        email: "delivery@suuqhub.com",
+        password: "123abc123",
+        role: "Delivery Manager",
+        createdAt: new Date().toISOString()
+      });
       saveDbToFile();
     }
   } catch (err) {
@@ -1056,6 +1084,72 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
   res.json(vendor);
 });
 
+// Create separate sub-accounts for Order Managers and general vendor users under a specific merchant vendor
+app.post("/api/vendors/:id/sub-users", (req, res) => {
+  const { id } = req.params;
+  const { name, email, password, role } = req.body;
+  const vendor = dbVendors.find(v => v.id === id);
+
+  if (!vendor) {
+    return res.status(404).json({ error: "Vendor account not found" });
+  }
+  if (!name || !email || !password || !role) {
+    return res.status(400).json({ error: "Missing required fields (name, email, password, role)" });
+  }
+
+  if (!vendor.subUsers) {
+    vendor.subUsers = [];
+  }
+
+  const exists = vendor.subUsers.find(su => su.email.toLowerCase() === email.toLowerCase());
+  if (exists) {
+    return res.status(400).json({ error: "A team sub-account with this email is already registered." });
+  }
+
+  const newSubUser = {
+    id: `su-${Math.floor(1000 + Math.random() * 9000)}`,
+    name,
+    email,
+    password,
+    role
+  };
+
+  vendor.subUsers.push(newSubUser);
+  saveDbToFile();
+  saveVendorToFirestore(vendor);
+  res.status(201).json(newSubUser);
+});
+
+// Admin-created logistics staff & couriers endpoints
+app.get("/api/delivery-managers", (req, res) => {
+  res.json(dbDeliveryManagers);
+});
+
+app.post("/api/delivery-managers", (req, res) => {
+  const { name, email, password, role } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "Missing required fields (name, email, password)" });
+  }
+
+  const exists = dbDeliveryManagers.find(dm => dm.email.toLowerCase() === email.toLowerCase());
+  if (exists) {
+    return res.status(400).json({ error: "A delivery manager account with this email is already registered." });
+  }
+
+  const newDM = {
+    id: `dm-${Math.floor(100 + Math.random() * 900)}`,
+    representativeName: name,
+    email,
+    password,
+    role: role || "Delivery Manager",
+    createdAt: new Date().toISOString()
+  };
+
+  dbDeliveryManagers.push(newDM);
+  saveDbToFile();
+  res.status(201).json(newDM);
+});
+
 // Tickets API
 app.get("/api/tickets", (req, res) => {
   res.json(dbTickets);
@@ -1237,7 +1331,7 @@ app.post("/api/gemini/chat", async (req, res) => {
       `- Code: "${c.code}", Discount: ${c.value} (${c.discountType}), Min Spend: $${c.minSpend}`
     ).join("\n");
 
-    const systemPrompt = `You are a helpful, professional, and sophisticated AI Sales Assistant & Shopping Expert at Apex Omnichannel E-commerce Store.
+    const systemPrompt = `You are a helpful, professional, and sophisticated AI Sales Assistant & Shopping Expert at SuuqHub (Smart Market Place) Store.
     Your mission is to welcome users, understand their shopping goals, and advise them based on the true real-time inventory below.
     
     AVAILABLE INVENTORY (Direct Recommendations available):

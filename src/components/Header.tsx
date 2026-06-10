@@ -147,7 +147,7 @@ export default function Header({
           </div>
 
           {/* Nav Icons and Portal links */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-nowrap shrink-0">
             
             {/* Language dropdown */}
             <div className="relative">
@@ -219,26 +219,26 @@ export default function Header({
                 </button>
               )}
 
-              {/* Super Admin Dashboard button */}
-              {selectedRole === 'superadmin' && (
+              {/* Super Admin Dashboard / Delivery Console button */}
+              {(selectedRole === 'superadmin' || selectedRole === 'delivery_manager') && (
                 <button
                   onClick={() => setActiveTab('admin')}
                   className={`cursor-pointer px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition ${activeTab === 'admin' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/50' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  {t.adminConsole}
+                  {selectedRole === 'delivery_manager' ? 'Delivery Console' : t.adminConsole}
                 </button>
               )}
             </div>
 
             {/* Alerts Center with Live notification tracking */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 onClick={() => setShowNotificationPopup(!showNotificationPopup)}
-                className="p-2 text-slate-500 hover:text-slate-900 rounded hover:bg-slate-100 transition cursor-pointer relative"
+                className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-slate-900 rounded hover:bg-slate-100 transition cursor-pointer relative shrink-0"
               >
                 <Bell className="w-5 h-5 text-slate-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-indigo-600"></span>
+                <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
               </button>
 
               {showNotificationPopup && (
@@ -260,98 +260,98 @@ export default function Header({
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Shopping Cart Button */}
+                        {/* Shopping Cart Button */}
             <button
               onClick={openCart}
-              className="p-2 hover:bg-slate-100 rounded hover:text-slate-900 text-slate-600 relative transition cursor-pointer flex items-center"
+              className="w-9 h-9 flex items-center justify-center hover:bg-slate-100 rounded hover:text-slate-900 text-slate-600 relative transition cursor-pointer shrink-0"
               id="header-cart-btn"
             >
               <ShoppingBag className="w-5 h-5" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 h-5 w-5 bg-indigo-600 text-white font-extrabold text-[10px] rounded-full flex items-center justify-center animate-bounce shadow">
+                <span className="absolute -top-1 -right-1 h-4.5 w-4.5 bg-indigo-600 text-white font-extrabold text-[9px] rounded-full flex items-center justify-center animate-bounce shadow">
                   {cartCount}
                 </span>
               )}
             </button>
 
-            {/* Profile Dropdown */}
-            <div className="relative">
+            {/* Profile Dropdown or Dedicated Login Button */}
+            {!onSignOut ? (
               <button
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition cursor-pointer"
+                onClick={() => setActiveTab('login')}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3.5 py-2 rounded-lg font-bold cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95 whitespace-nowrap shrink-0"
+                id="header-login-mobile-btn"
               >
-                <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center text-xs font-bold ring-1 ring-slate-200 overflow-hidden">
-                  <User className="w-4 h-4 text-indigo-600" />
-                </div>
-                <span className="hidden md:inline font-medium text-xs max-w-[90px] truncate">{userName}</span>
+                <User className="w-4 h-4 shrink-0" />
+                <span>Log In</span>
               </button>
-
-              {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded bg-white border border-slate-200 shadow-lg py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
-                  <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                    <span className="block text-xs text-slate-400">Signed In</span>
-                    <span className="block text-xs font-bold text-indigo-600 truncate">{userName}</span>
+            ) : (
+              <div className="relative">
+                <button
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center text-xs font-bold ring-1 ring-slate-200 overflow-hidden">
+                    <User className="w-4 h-4 text-indigo-600" />
                   </div>
-                  
-                  <button
-                    onClick={() => { setActiveTab('dashboard'); setUserDropdownOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-55 bg-white hover:bg-slate-50 hover:text-slate-900 cursor-pointer transition flex items-center gap-2"
-                  >
-                    <User className="w-3.5 h-3.5 text-slate-400" /> {t.customerDashboard}
-                  </button>
+                  <span className="hidden md:inline font-medium text-xs max-w-[90px] truncate">{userName}</span>
+                </button>
 
-                  <div className="block lg:hidden border-t border-slate-100 my-1"></div>
-                  
-                  {/* Local switcher on mobile */}
-                  <button
-                    onClick={() => { setActiveTab('catalog'); setUserDropdownOpen(false); }}
-                    className="block lg:hidden w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 cursor-pointer transition flex items-center gap-2"
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5 text-slate-400" /> Storefront
-                  </button>
-
-                  {(selectedRole === 'vendor' || selectedRole === 'superadmin') && (
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded bg-white border border-slate-200 shadow-lg py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+                    <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                      <span className="block text-xs text-slate-400">Signed In</span>
+                      <span className="block text-xs font-bold text-indigo-600 truncate">{userName}</span>
+                    </div>
+                    
                     <button
-                      onClick={() => { setActiveTab('vendor'); setUserDropdownOpen(false); }}
-                      className="block lg:hidden w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer transition flex items-center gap-2"
+                      onClick={() => { setActiveTab('dashboard'); setUserDropdownOpen(false); }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-55 bg-white hover:bg-slate-50 hover:text-slate-900 cursor-pointer transition flex items-center gap-2"
                     >
-                      <Briefcase className="w-3.5 h-3.5 text-slate-400" /> {t.vendorPortal}
+                      <User className="w-3.5 h-3.5 text-slate-400" /> {t.customerDashboard}
                     </button>
-                  )}
 
-                  {selectedRole === 'superadmin' && (
+                    <div className="block lg:hidden border-t border-slate-100 my-1"></div>
+                    
+                    {/* Local switcher on mobile */}
                     <button
-                      onClick={() => { setActiveTab('admin'); setUserDropdownOpen(false); }}
-                      className="block lg:hidden w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer transition flex items-center gap-2"
+                      onClick={() => { setActiveTab('catalog'); setUserDropdownOpen(false); }}
+                      className="block lg:hidden w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 cursor-pointer transition flex items-center gap-2"
                     >
-                      <Shield className="w-3.5 h-3.5 text-slate-400" /> {t.adminConsole}
+                      <ShoppingBag className="w-3.5 h-3.5 text-slate-400" /> Storefront
                     </button>
-                  )}
 
-                  <div className="border-t border-slate-100 my-1.5"></div>
+                    {(selectedRole === 'vendor' || selectedRole === 'superadmin') && (
+                      <button
+                        onClick={() => { setActiveTab('vendor'); setUserDropdownOpen(false); }}
+                        className="block lg:hidden w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer transition flex items-center gap-2"
+                      >
+                        <Briefcase className="w-3.5 h-3.5 text-slate-400" /> {t.vendorPortal}
+                      </button>
+                    )}
 
-                  {onSignOut && (
-                    <button
-                      onClick={() => { onSignOut(); setUserDropdownOpen(false); }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-red-650 hover:bg-red-50 text-red-600 cursor-pointer transition flex items-center gap-2 font-semibold"
-                    >
-                      <Database className="w-3.5 h-3.5" /> Sign Out Session
-                    </button>
-                  )}
-                  
-                  {!onSignOut && (
-                    <button
-                      onClick={() => { setActiveTab('login'); setUserDropdownOpen(false); }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-indigo-700 hover:bg-indigo-50 font-bold cursor-pointer transition flex items-center gap-2"
-                    >
-                      <User className="w-3.5 h-3.5 text-indigo-600" /> Log In / Sign Up
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+                    {(selectedRole === 'superadmin' || selectedRole === 'delivery_manager') && (
+                      <button
+                        onClick={() => { setActiveTab('admin'); setUserDropdownOpen(false); }}
+                        className="block lg:hidden w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer transition flex items-center gap-2"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-slate-400" /> {selectedRole === 'delivery_manager' ? 'Delivery Console' : t.adminConsole}
+                      </button>
+                    )}
+
+                    <div className="border-t border-slate-100 my-1.5"></div>
+
+                    {onSignOut && (
+                      <button
+                        onClick={() => { onSignOut(); setUserDropdownOpen(false); }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-red-650 hover:bg-red-50 text-red-600 cursor-pointer transition flex items-center gap-2 font-semibold"
+                      >
+                        <Database className="w-3.5 h-3.5" /> Sign Out Session
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}  </div>
 
           </div>
         </div>
