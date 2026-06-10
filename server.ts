@@ -1286,6 +1286,9 @@ app.get("/api/reports/sales", (req, res) => {
   res.json(report);
 });
 
+// Track the health status of the primary model to adapt and bypass it dynamically
+let primaryModelUnhealthyUntil = 0;
+
 // Smart AI Personal Shopper & Product Recommender powered by Gemini
 app.post("/api/gemini/chat", async (req, res) => {
   const { message, chatHistory } = req.body;
@@ -1363,14 +1366,39 @@ app.post("/api/gemini/chat", async (req, res) => {
       parts: [{ text: message }]
     });
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.7,
+    let modelToUse = "gemini-3.5-flash";
+    const now = Date.now();
+    if (now < primaryModelUnhealthyUntil) {
+      modelToUse = "gemini-3.1-flash-lite";
+      console.log(`[AI Safe Route] Fast-switching directly to gemini-3.1-flash-lite (primary model in cooling state)`);
+    }
+
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: modelToUse,
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: 0.7,
+        }
+      });
+    } catch (primaryErr: any) {
+      if (modelToUse === "gemini-3.5-flash") {
+        console.warn("Primary model gemini-3.5-flash is temporarily unavailable or overloaded. Marking as unhealthy for 5 mins and falling back instantly:", primaryErr.message || primaryErr);
+        primaryModelUnhealthyUntil = Date.now() + 5 * 60 * 1000; // 5 minutes block
+        response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: 0.7,
+          }
+        });
+      } else {
+        throw primaryErr;
       }
-    });
+    }
 
     const rawText = response.text || "I am currently unable to analyze catalog items. Please review our main catalog options above!";
     
