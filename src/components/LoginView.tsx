@@ -428,11 +428,17 @@ export default function LoginView({
       }
 
       // 3. Post-Auth Sync & Success Callback
-      let finalRole: 'customer' | 'vendor' | 'admin' | 'superadmin' = email.toLowerCase() === 'boqorapps@gmail.com' ? 'superadmin' : 'customer';
+      let finalRole: any = email.toLowerCase() === 'boqorapps@gmail.com' ? 'superadmin' : (email.toLowerCase() === 'delivery@suuqhub.com' ? 'delivery_manager' : 'customer');
       try {
         const docSnap = await getDoc(doc(db, 'users', user.uid));
         if (docSnap.exists()) {
-          finalRole = docSnap.data().role || 'customer';
+          const fetchedRole = docSnap.data().role || 'customer';
+          if (email.toLowerCase() === 'delivery@suuqhub.com' && fetchedRole !== 'delivery_manager') {
+            await setDoc(doc(db, 'users', user.uid), { role: 'delivery_manager' }, { merge: true });
+            finalRole = 'delivery_manager';
+          } else {
+            finalRole = fetchedRole;
+          }
         } else {
           // Make sure user data is replicated to firestore database
           finalRole = await syncUserToFirestore(user.uid, email, name || email.split('@')[0], assignedRole) as any;
@@ -443,6 +449,8 @@ export default function LoginView({
 
       if (email.toLowerCase() === 'boqorapps@gmail.com') {
         finalRole = 'superadmin';
+      } else if (email.toLowerCase() === 'delivery@suuqhub.com') {
+        finalRole = 'delivery_manager';
       }
 
       if (isSignUp) {

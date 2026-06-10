@@ -260,6 +260,7 @@ export default function Header({
                   </div>
                 </div>
               )}
+            </div>
                         {/* Shopping Cart Button */}
             <button
               onClick={openCart}
@@ -351,9 +352,9 @@ export default function Header({
                   </div>
                 )}
               </div>
-            )}  </div>
-
+            )}
           </div>
+
         </div>
       </div>
     </header>
