@@ -92,7 +92,7 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
           if (localUser) {
             customerId = localUser.id || customerId;
             const r = localUser.role;
-            if (r === 'admin' || r === 'superadmin' || r === 'vendor') {
+            if (r === 'admin' || r === 'superadmin' || r === 'vendor' || r === 'delivery_manager') {
               isPrivileged = true;
             }
           }
@@ -116,7 +116,7 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
             const userSnap = await getDoc(userRef);
             if (userSnap.exists()) {
               const uRole = userSnap.data()?.role;
-              if (uRole === 'admin' || uRole === 'superadmin' || uRole === 'vendor') {
+              if (uRole === 'admin' || uRole === 'superadmin' || uRole === 'vendor' || uRole === 'delivery_manager') {
                 isPrivileged = true;
               }
             }
@@ -164,7 +164,7 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
             if (localUser) {
               customerIdAfter = localUser.id || customerIdAfter;
               const r = localUser.role;
-              if (r === 'admin' || r === 'superadmin' || r === 'vendor') {
+              if (r === 'admin' || r === 'superadmin' || r === 'vendor' || r === 'delivery_manager') {
                 isPrivilegedAfter = true;
               }
             }
@@ -185,7 +185,7 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
               const userSnap = await getDoc(userRef);
               if (userSnap.exists()) {
                 const uRole = userSnap.data()?.role;
-                if (uRole === 'admin' || uRole === 'superadmin' || uRole === 'vendor') {
+                if (uRole === 'admin' || uRole === 'superadmin' || uRole === 'vendor' || uRole === 'delivery_manager') {
                   isPrivilegedAfter = true;
                 }
               }

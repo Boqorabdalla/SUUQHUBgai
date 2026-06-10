@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Package, ShieldAlert, DollarSign, Users, Award, TrendingUp, Check, Play, Trash2, Edit, Save, Plus, Loader2, Lock, Key, Eye, EyeOff, ShieldCheck, RefreshCw, Search, SlidersHorizontal, Store, Clock, ArrowRight, AlertCircle, MapPin, User, CreditCard, Copy, Sparkles, Truck } from 'lucide-react';
+import { Package, ShieldAlert, DollarSign, Users, Award, TrendingUp, Check, Play, Trash2, Edit, Save, Plus, Loader2, Lock, Key, Eye, EyeOff, ShieldCheck, RefreshCw, Search, SlidersHorizontal, Store, Clock, ArrowRight, AlertCircle, MapPin, User, CreditCard, Copy, Sparkles, Truck, ChevronDown, ChevronUp } from 'lucide-react';
 import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign } from '../types';
 import { formatPrice } from '../utils';
 
@@ -38,10 +38,13 @@ export default function AdminPortal({
   const [dmError, setDmError] = useState('');
   const [dmLoading, setDmLoading] = useState(false);
 
+  // Expanded state for delivery orders row redesign
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
+
   const [loading, setLoading] = useState(true);
 
   // Active sub tab
-  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'vendors' | 'orders' | 'coupons' | 'tickets' | 'campaigns' | 'delivery'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'vendors' | 'orders' | 'coupons' | 'tickets' | 'campaigns' | 'delivery' | 'ledger'>('analytics');
 
   useEffect(() => {
     if (userRole === 'delivery_manager') {
@@ -547,12 +550,13 @@ export default function AdminPortal({
                 { id: 'analytics', label: 'Executive Analytics', count: 0, desc: 'Gross revenue tracking' },
                 { id: 'products', label: 'Inventory & Approvals', count: pendingSubmissions, desc: 'Vendor product audit' },
                 { id: 'vendors', label: 'Vendor Approvals', count: pendingVendorsCount, desc: 'Staff & Seller profiles' },
-                { id: 'delivery', label: 'Home Delivery Logistics', count: orders.filter(o => o.deliveryMethod === 'delivery' && o.status !== 'delivered').length, desc: 'Deliveries, flat rates & remittances ledger' },
+                { id: 'delivery', label: 'Home Delivery Logistics', count: orders.filter(o => o.deliveryMethod === 'delivery' && o.status !== 'delivered').length, desc: 'Sortable deliveries, flat rates & packing checklists' },
+                { id: 'ledger', label: 'Merchant Payout Ledger', count: orders.filter(o => o.deliveryMethod === 'delivery' && o.deliveryFeeRemittanceStatus === 'submitted').length, desc: 'Approve cellular mobile remittance receipts' },
                 { id: 'orders', label: 'Store Self-Pickup Clearance', count: orders.filter(o => o.deliveryMethod === 'pickup' && o.status !== 'delivered').length, desc: 'Customer storefront handover' },
                 { id: 'campaigns', label: 'Store Slider Showcase', count: heroCampaigns.filter(c => c.status === 'pending').length, desc: 'Hero slider banners' },
                 { id: 'coupons', label: 'Vouchers & Coupons', count: coupons.length, desc: 'Store-wide active promotions' },
                 { id: 'tickets', label: 'CRM Help Tickets', count: tickets.filter(t => t.status === 'open').length, desc: 'Consumer support threads' }
-              ].filter(subTab => userRole !== 'delivery_manager' || subTab.id === 'delivery').map((subTab) => {
+              ].filter(subTab => userRole !== 'delivery_manager' || subTab.id === 'delivery' || subTab.id === 'ledger').map((subTab) => {
                 const isActive = activeTab === subTab.id;
                 return (
                   <button
@@ -1988,7 +1992,7 @@ export default function AdminPortal({
               </div>
             </div>
 
-            {/* Beautiful, High-End Deliveries Logistics Board & Split-Vendor approval indicators */}
+            {/* Beautiful, High-End Deliveries Logistics Board */}
             <div className="space-y-4">
               {orders.filter(o => {
                 if (o.deliveryMethod !== 'delivery') return false;
@@ -2000,234 +2004,290 @@ export default function AdminPortal({
                   📦 No Home Delivery orders matching selected filters are currently logged in system indices.
                 </div>
               ) : (
-                orders.filter(o => {
-                  if (o.deliveryMethod !== 'delivery') return false;
-                  const matchQ = !orderQuery.trim() || o.customerName.toLowerCase().includes(orderQuery.toLowerCase()) || o.id.includes(orderQuery);
-                  const matchStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
-                  return matchQ && matchStatus;
-                }).map((ord) => {
-                  const oBreakdown = (() => {
-                    const itemsWithVendorInfo = ord.items.map(item => {
-                      const prod = products.find(p => p.id === (item.productId || (item as any).id));
-                      const vendor = prod ? vendors.find(v => v.id === prod.vendorId) : null;
-                      const vendorStatus = (ord.vendorStatuses && vendor && ord.vendorStatuses[vendor.id]) || ord.status || 'pending';
-                      return { ...item, vendor, vendorStatus };
-                    });
-
-                    const uniqueVendorsInvolved = Array.from(new Set(
-                      itemsWithVendorInfo.map(item => item.vendor?.id).filter(Boolean) as string[]
-                    )).map(vId => {
-                      const vMeta = vendors.find(v => v.id === vId);
-                      const vStatus = ord.vendorStatuses?.[vId] || (ord.status === 'delivered' ? 'delivered' : ord.status === 'shipped' ? 'shipped' : 'pending');
-                      return {
-                        id: vId,
-                        name: vMeta?.vendorName || `Store Outlet`,
-                        status: vStatus
-                      };
-                    });
-
-                    const isMultiVendor = uniqueVendorsInvolved.length > 1;
-                    const approvedVendors = uniqueVendorsInvolved.filter(v => v.status !== 'pending');
-                    const pendingVendors = uniqueVendorsInvolved.filter(v => v.status === 'pending');
-                    const totalVendorsCount = uniqueVendorsInvolved.length;
-                    const approvedCount = approvedVendors.length;
-                    const isPartiallyApproved = isMultiVendor && approvedCount > 0 && approvedCount < totalVendorsCount;
-                    const allSellersApproved = totalVendorsCount > 0 && approvedCount === totalVendorsCount;
-
-                    return {
-                      itemsWithVendorInfo,
-                      uniqueVendorsInvolved,
-                      isMultiVendor,
-                      approvedVendors,
-                      pendingVendors,
-                      isPartiallyApproved,
-                      allSellersApproved
+                orders
+                  .filter(o => {
+                    if (o.deliveryMethod !== 'delivery') return false;
+                    const matchQ = !orderQuery.trim() || o.customerName.toLowerCase().includes(orderQuery.toLowerCase()) || o.id.includes(orderQuery);
+                    const matchStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
+                    return matchQ && matchStatus;
+                  })
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map((ord) => {
+                    const isExpanded = !!expandedOrders[ord.id];
+                    const toggleExpand = () => {
+                      setExpandedOrders(prev => ({ ...prev, [ord.id]: !prev[ord.id] }));
                     };
-                  })();
 
-                  // Styling helper variables
-                  let borderStyle = 'border-l-4 border-l-amber-500';
-                  if (ord.status === 'delivered') borderStyle = 'border-l-4 border-l-emerald-500';
-                  else if (ord.status === 'shipped') borderStyle = 'border-l-4 border-l-indigo-600';
-                  else if (oBreakdown.isPartiallyApproved) borderStyle = 'border-l-4 border-l-rose-400';
+                    const oBreakdown = (() => {
+                      const itemsWithVendorInfo = ord.items.map(item => {
+                        const prod = products.find(p => p.id === (item.productId || (item as any).id));
+                        const vendor = prod ? vendors.find(v => v.id === prod.vendorId) : null;
+                        const vendorStatus = (ord.vendorStatuses && vendor && ord.vendorStatuses[vendor.id]) || ord.status || 'pending';
+                        return { ...item, vendor, vendorStatus };
+                      });
 
-                  return (
-                    <div key={ord.id} className={`bg-white border border-slate-200 rounded-2xl shadow-3xs hover:shadow-2xs transition overflow-hidden text-xs text-slate-705 ${borderStyle}`}>
-                      
-                      {/* Top ribbon bar */}
-                      <div className="bg-slate-50 border-b border-slate-150 px-5 py-3 flex flex-wrap items-center justify-between text-slate-500 text-[11px]">
-                        <span className="font-mono font-black text-slate-800 tracking-wider">
-                          📦 ID: #{ord.id.substring(0, 10).toUpperCase()}
-                        </span>
-                        <div className="flex items-center gap-2 font-semibold">
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {new Date(ord.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
-                          </span>
-                          <span className="bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-indigo-700 font-mono uppercase text-[9.5px]">Home Delivery</span>
-                        </div>
-                      </div>
+                      const uniqueVendorsInvolved = Array.from(new Set(
+                        itemsWithVendorInfo.map(item => item.vendor?.id).filter(Boolean) as string[]
+                      )).map(vId => {
+                        const vMeta = vendors.find(v => v.id === vId);
+                        const vStatus = ord.vendorStatuses?.[vId] || (ord.status === 'delivered' ? 'delivered' : ord.status === 'shipped' ? 'shipped' : 'pending');
+                        return {
+                          id: vId,
+                          name: vMeta?.vendorName || `Store Outlet`,
+                          status: vStatus
+                        };
+                      });
 
-                      {/* Content panel */}
-                      <div className="p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 leading-normal">
-                        
-                        {/* Profile & Location Column */}
-                        <div className="lg:col-span-3 pb-4 lg:pb-0 lg:border-r border-slate-100 pr-4 space-y-2 text-left">
-                          <span className="text-[8.5px] uppercase tracking-wider text-slate-400 font-black font-mono">Consumer Address</span>
-                          <div className="flex gap-2 items-center">
-                            <div className="w-7 h-7 bg-indigo-50 text-indigo-600 font-bold rounded-full flex items-center justify-center font-display text-xs">
+                      const isMultiVendor = uniqueVendorsInvolved.length > 1;
+                      const approvedVendors = uniqueVendorsInvolved.filter(v => v.status !== 'pending');
+                      const pendingVendors = uniqueVendorsInvolved.filter(v => v.status === 'pending');
+                      const totalVendorsCount = uniqueVendorsInvolved.length;
+                      const approvedCount = approvedVendors.length;
+                      const isPartiallyApproved = isMultiVendor && approvedCount > 0 && approvedCount < totalVendorsCount;
+                      const allSellersApproved = totalVendorsCount > 0 && approvedCount === totalVendorsCount;
+
+                      return {
+                        itemsWithVendorInfo,
+                        uniqueVendorsInvolved,
+                        isMultiVendor,
+                        approvedVendors,
+                        pendingVendors,
+                        isPartiallyApproved,
+                        allSellersApproved
+                      };
+                    })();
+
+                    // Styling helper variables
+                    let borderStyle = 'border-l-4 border-l-amber-500';
+                    if (ord.status === 'delivered') borderStyle = 'border-l-4 border-l-emerald-500';
+                    else if (ord.status === 'shipped') borderStyle = 'border-l-4 border-l-indigo-600';
+                    else if (oBreakdown.isPartiallyApproved) borderStyle = 'border-l-4 border-l-rose-450';
+
+                    return (
+                      <div key={ord.id} className={`bg-white border border-slate-200 rounded-2xl shadow-3xs overflow-hidden text-xs text-slate-705 ${borderStyle}`}>
+                        {/* Single-Row Summary card */}
+                        <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          {/* Profile & Name */}
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-50 text-indigo-750 flex items-center justify-center font-bold text-xs font-sans">
                               {ord.customerName?.[0] || 'U'}
                             </div>
-                            <div className="truncate">
-                              <span className="block font-semibold text-slate-800 truncate">{ord.customerName}</span>
-                              <span className="text-[10px] font-mono text-slate-400 truncate">{ord.customerEmail}</span>
-                            </div>
-                          </div>
-                          {ord.shippingAddress && (
-                            <div className="bg-slate-50/80 border border-slate-150 p-3 rounded-lg text-[10.5px] text-slate-650 space-y-1 mt-1">
-                              <p className="font-bold flex items-center gap-1 text-slate-800 text-xs">
-                                <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {ord.shippingAddress.region}, {ord.shippingAddress.city}
-                              </p>
-                              <p className="pl-4.5">{ord.shippingAddress.district}, {ord.shippingAddress.streetAddress}</p>
-                              {ord.shippingAddress.phone && <p className="font-mono mt-0.5 text-slate-800 pl-4.5 font-bold">Tel: {ord.shippingAddress.phone}</p>}
-                              {ord.shippingAddress.homeInstructions && (
-                                <p className="bg-amber-50 text-amber-900 border border-amber-100 rounded p-1.5 mt-1 text-[9px] italic">
-                                  💡 Instruction: "{ord.shippingAddress.homeInstructions}"
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Bill details */}
-                        <div className="lg:col-span-3 pb-4 lg:pb-0 lg:border-r border-slate-100 px-2 text-left space-y-3.5">
-                          <div>
-                            <span className="text-[8.5px] uppercase tracking-wider text-slate-400 font-black font-mono block mb-1">Fee & Payment Gateway</span>
-                            <div className="space-y-1 font-sans text-slate-600 text-[11px]">
-                              <div className="flex justify-between">
-                                <span>Cart Basket:</span>
-                                <span className="font-mono">${(ord.total - (ord.shippingCost || 0)).toFixed(2)}</span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 font-sans text-left">
+                                <span className="font-mono font-black text-slate-800 tracking-wider text-xs">#{ord.id.substring(0, 10).toUpperCase()}</span>
+                                <span className="text-[10px] text-slate-450 font-mono">
+                                  {new Date(ord.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
                               </div>
-                              <div className="flex justify-between font-bold text-indigo-700">
-                                <span>Flat Courier Fee:</span>
-                                <span className="font-mono">${ord.shippingCost ?? 15}</span>
-                              </div>
-                              <div className="flex justify-between text-xs font-black text-slate-800 border-t border-slate-100 pt-1.5 mt-1">
-                                <span>Grand Total:</span>
-                                <span className="font-mono text-indigo-700 font-extrabold">${ord.total.toFixed(2)}</span>
+                              <div className="text-slate-650 font-semibold text-xs mt-0.5 truncate font-sans text-left">
+                                {ord.customerName} {ord.shippingAddress?.phone ? `• Tel: ${ord.shippingAddress.phone}` : ''}
                               </div>
                             </div>
                           </div>
 
-                          <div className="space-y-1 pt-1 border-t border-slate-100">
-                            <span className="block text-[8.5px] font-mono uppercase text-slate-400 font-bold">Channel Provider</span>
-                            <span className="inline-block bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5 rounded text-[10px] font-mono leading-none font-bold">{ord.paymentMethod || 'Sandbox Portal'}</span>
-                          </div>
-                        </div>
-
-                        {/* Multi-Vendor Ready Checklists (Requested Feature) */}
-                        <div className="lg:col-span-4 pb-4 lg:pb-0 lg:border-r border-slate-100 px-2 text-left space-y-3">
-                          <div>
-                            <span className="text-[8.5px] uppercase tracking-wider text-indigo-600 font-black font-mono block mb-1">Split-Vendor Checklists</span>
-                            
-                            <div className="space-y-1 max-h-[140px] overflow-y-auto mt-1.5 pr-1">
-                              {oBreakdown.itemsWithVendorInfo.map((itm, index) => (
-                                <div key={index} className="flex gap-2 items-center p-1 px-2 border border-slate-100 rounded-lg bg-slate-50/50 text-[10.5px]">
-                                  <span className="font-bold text-slate-700 flex-1 truncate">{itm.title} (x{itm.quantity})</span>
-                                  {itm.vendor && (
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      <span className="text-slate-450 text-[9.5px]">🏪 {itm.vendor.vendorName}</span>
-                                      <span className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-bold ${itm.vendorStatus !== 'pending' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-100 animate-pulse'}`}>
-                                        {itm.vendorStatus !== 'pending' ? '✓ READY' : '⏳ PENDING'}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Prominent Superadmin Split Notice Indicator */}
-                            {oBreakdown.isPartiallyApproved ? (
-                              <div className="p-2.5 bg-rose-50 border border-rose-220 rounded-xl mt-3 text-[10.5px] leading-relaxed text-rose-800 space-y-0.5 border-l-4 border-l-rose-500 shadow-2xs">
-                                <div className="flex items-center gap-1 font-extrabold text-[10px] text-rose-900 tracking-wide uppercase">
-                                  <AlertCircle className="w-3.5 h-3.5 shrink-0 animate-ping" /> Split Dispatch Blocked
-                                </div>
-                                <p className="font-sans leading-normal text-slate-650">
-                                  Some merchant orders approved, but we are <span className="font-black decoration-rose-500 underline">waiting for {oBreakdown.pendingVendors.map(v => v.name).join(', ')}</span>'s storefront approval to prepare courier logistics!
-                                </p>
-                              </div>
-                            ) : oBreakdown.isMultiVendor && oBreakdown.allSellersApproved && ord.status === 'pending' ? (
-                              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl mt-3 text-[10.5px] leading-relaxed text-emerald-800 border-l-4 border-l-emerald-500 shadow-3xs">
-                                <div className="flex items-center gap-1 font-extrabold text-[10px] text-emerald-900 uppercase">
-                                  <Check className="w-3.5 h-3.5 shrink-0" /> Unified Package Cleared!
-                                </div>
-                                <p className="text-slate-600 leading-normal">
-                                  All partner sellers approved. Package is fully assembled and safe for courier dispatch.
-                                </p>
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        {/* Courier Delivery update controls & Timeline */}
-                        <div className="lg:col-span-2 flex flex-col justify-between items-stretch pl-2 py-0.5">
-                          <div className="space-y-1.5 text-center lg:text-right text-xs">
-                            <span className="text-[8.5px] font-mono uppercase tracking-widest text-slate-400 block font-bold text-center">Courier Status</span>
-                            <span className={`text-[10px] font-black uppercase px-2.5 py-1.5 rounded-full border block text-center tracking-wider font-mono ${
-                              ord.status === 'delivered' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
-                              ord.status === 'shipped' ? 'bg-indigo-55 bg-indigo-50 border-indigo-250 text-indigo-800 font-extrabold animate-pulse' :
-                              ord.status === 'processing' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-                              'bg-slate-150 border-slate-200 text-slate-600'
-                            }`}>
-                              {ord.status === 'shipped' ? '🚚 Out For Delivery' : ord.status === 'processing' ? '📦 Packed & Ready' : ord.status}
+                          {/* Destination */}
+                          <div className="min-w-0 flex-1 text-left text-xs text-slate-550">
+                            <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold font-mono">Destination</span>
+                            <span className="font-bold text-slate-700 truncate block font-sans">
+                              {ord.shippingAddress?.city}, {ord.shippingAddress?.region}
+                            </span>
+                            <span className="text-[10px] truncate block text-slate-500 font-sans">
+                              {ord.shippingAddress?.district}, {ord.shippingAddress?.streetAddress}
                             </span>
                           </div>
 
-                          <div className="pt-4 border-t border-dashed border-slate-100 flex justify-end gap-1.5">
-                            {ord.status === 'pending' && (
-                              <button
-                                onClick={() => handleTransitionOrderStatus(ord.id, 'processing')}
-                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-lg shadow-3xs transition cursor-pointer"
-                              >
-                                Assemble & Pack
-                              </button>
-                            )}
-                            {ord.status === 'processing' && (
-                              <button
-                                onClick={() => handleTransitionOrderStatus(ord.id, 'shipped')}
-                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-lg shadow-3xs transition cursor-pointer"
-                              >
-                                Handover Courier
-                              </button>
-                            )}
-                            {ord.status === 'shipped' && (
-                              <button
-                                onClick={() => handleTransitionOrderStatus(ord.id, 'delivered')}
-                                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase rounded-lg shadow-3xs transition cursor-pointer"
-                              >
-                                Confirm Arrived
-                              </button>
-                            )}
-                            {ord.status === 'delivered' && (
-                              <span className="text-emerald-700 bg-emerald-50 border border-emerald-150 font-black font-mono text-[9px] uppercase tracking-wider rounded-lg px-2 py-1 text-center w-full">
-                                Handed Over ✓
+                          {/* Price & Method */}
+                          <div className="text-left md:text-right text-xs">
+                            <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold font-mono">Amount & Method</span>
+                            <span className="font-mono font-black text-indigo-600 text-xs block">${ord.total.toFixed(2)}</span>
+                            <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded font-mono font-bold uppercase inline-block mt-0.5">
+                              {ord.paymentMethod || 'Wallet'}
+                            </span>
+                          </div>
+
+                          {/* Controls & Action trigger */}
+                          <div className="flex items-center gap-3 justify-between md:justify-end">
+                            <div className="text-left md:text-right">
+                              <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold font-mono text-left md:text-right">Courier Status</span>
+                              <span className={`inline-block text-[9.5px] font-black uppercase px-2.5 py-0.5 rounded-full border tracking-wider font-mono mt-0.5 ${
+                                ord.status === 'delivered' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+                                ord.status === 'shipped' ? 'bg-indigo-50 border-indigo-200 text-indigo-800 font-extrabold animate-pulse' :
+                                ord.status === 'processing' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                                'bg-slate-105 border-slate-205 text-slate-600'
+                              }`}>
+                                {ord.status === 'shipped' ? '🚚 Out For Delivery' : ord.status === 'processing' ? '📦 Packed' : ord.status}
                               </span>
-                            )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={toggleExpand}
+                              className="p-1 px-2.5 py-1.5 rounded-lg border border-slate-250 bg-white hover:bg-slate-50 text-slate-750 font-bold text-xs flex items-center gap-1 cursor-pointer shadow-3xs transition h-8 hover:text-indigo-650"
+                            >
+                              <span className="font-semibold text-[10.5px]">{isExpanded ? 'View Less' : 'View More'}</span>
+                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-550" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-555" />}
+                            </button>
                           </div>
                         </div>
 
-                      </div>
+                        {/* Dropdown containing complete log details and status transitions */}
+                        {isExpanded && (
+                          <div className="p-5 bg-slate-50/75 border-t border-slate-150 grid grid-cols-1 lg:grid-cols-12 gap-6 leading-normal animate-fadeIn border-l-4 border-l-transparent">
+                            {/* Col 1: Shipping Profile */}
+                            <div className="lg:col-span-3 space-y-3 text-left pr-4 lg:border-r border-slate-102">
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 font-black font-mono block">Recipients Shipping Address</span>
+                              <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-[11px] text-slate-650 space-y-1.5 shadow-3xs font-sans">
+                                <p className="font-bold flex items-center gap-1.5 text-slate-805 text-xs">
+                                  <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {ord.shippingAddress?.region}, {ord.shippingAddress?.city}
+                                </p>
+                                <p className="pl-5 text-slate-550 leading-relaxed">{ord.shippingAddress?.district}, {ord.shippingAddress?.streetAddress}</p>
+                                {ord.shippingAddress?.phone && <p className="font-mono mt-1 text-slate-800 pl-5 font-extrabold text-xs">Tel: {ord.shippingAddress.phone}</p>}
+                                {ord.shippingAddress?.homeInstructions && (
+                                  <p className="bg-amber-50 text-amber-900 border border-amber-100 rounded-lg p-2 mt-2 text-[9.5px] italic leading-normal col-span-2">
+                                    💡 Instruction: "{ord.shippingAddress.homeInstructions}"
+                                  </p>
+                                )}
+                              </div>
+                            </div>
 
-                    </div>
-                  );
-                })
+                            {/* Col 2: Multi-Vendor checklists */}
+                            <div className="lg:col-span-4 space-y-3 text-left px-2 lg:border-r border-slate-102">
+                              <span className="text-[9px] uppercase tracking-wider text-indigo-650 font-black font-mono block">Split-Vendor Packaging Checklist</span>
+                              <div className="space-y-1.5 max-h-[150px] overflow-y-auto mt-1 pr-1">
+                                {oBreakdown.itemsWithVendorInfo.map((itm, idx) => (
+                                  <div key={idx} className="flex gap-2 items-center p-2 border border-slate-150 rounded-xl bg-white text-[10.5px] shadow-3xs">
+                                    <span className="font-bold text-slate-700 flex-1 truncate">{itm.title} (x{itm.quantity})</span>
+                                    {itm.vendor && (
+                                      <div className="flex items-center gap-1.5 shrink-0 font-sans">
+                                        <span className="text-slate-500 text-[10px]">🏪 {itm.vendor.vendorName}</span>
+                                        <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-bold ${itm.vendorStatus !== 'pending' ? 'bg-emerald-50 text-emerald-700 border border-emerald-250' : 'bg-rose-50 text-rose-700 border border-rose-100 animate-pulse'}`}>
+                                          {itm.vendorStatus !== 'pending' ? '✓ READY' : '⏳ PENDING'}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+
+                              {oBreakdown.isPartiallyApproved ? (
+                                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl mt-3 text-[10.5px] leading-relaxed text-rose-800 space-y-0.5 border-l-4 border-l-rose-500 shadow-3xs">
+                                  <div className="flex items-center gap-1 font-extrabold text-[10px] text-rose-900 tracking-wide uppercase">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 animate-pulse" /> Split Dispatch Blocked
+                                  </div>
+                                  <p className="font-sans leading-normal text-slate-600">
+                                    Waiting for storefront approval on pending items to assemble the complete unified shipment list.
+                                  </p>
+                                </div>
+                              ) : oBreakdown.isMultiVendor && oBreakdown.allSellersApproved && ord.status === 'pending' ? (
+                                <div className="p-2.5 bg-emerald-50 border border-emerald-250 rounded-xl mt-3 text-[10.5px] leading-relaxed text-emerald-800 border-l-4 border-l-emerald-500 shadow-3xs">
+                                  <div className="flex items-center gap-1 font-extrabold text-[10px] text-emerald-950 uppercase">
+                                    <Check className="w-3.5 h-3.5 shrink-0" /> Unified Package Cleared!
+                                  </div>
+                                  <p className="text-slate-600 leading-normal font-sans">
+                                    All partner vendors of this split order have approved the item release. Secure shipment can be compiled.
+                                  </p>
+                                </div>
+                              ) : null}
+                            </div>
+
+                            {/* Col 3: Ordered Summary list */}
+                            <div className="lg:col-span-3 space-y-3 text-left px-2 lg:border-r border-slate-102">
+                              <span className="text-[9px] uppercase tracking-wider text-slate-400 font-black font-mono block">Order Summary Basket</span>
+                              <div className="space-y-1.5 text-[10.5px] max-h-[140px] overflow-y-auto pr-1">
+                                {ord.items.map((it, i) => (
+                                  <div key={i} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-150 shadow-3xs">
+                                    <span className="text-slate-705 truncate max-w-[135px] font-semibold">{it.title} <b className="text-indigo-650 font-mono">x{it.quantity}</b></span>
+                                    <span className="font-mono font-bold text-slate-800">${(it.price * (it.quantity || 1)).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="pt-2 border-t border-slate-200 space-y-1 font-sans text-slate-650 text-[10.5px]">
+                                <div className="flex justify-between">
+                                  <span>Items Subtotal:</span>
+                                  <span className="font-mono">${(ord.total - (ord.shippingCost || 0)).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-indigo-700">
+                                  <span>Courier Delivery fee:</span>
+                                  <span className="font-mono">${ord.shippingCost ?? 15}</span>
+                                </div>
+                                <div className="flex justify-between text-xs font-black text-slate-850 pt-1 border-t border-slate-155">
+                                  <span>Grand Total Price:</span>
+                                  <span className="font-mono text-indigo-755 font-black">${ord.total.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Col 4: Operations button */}
+                            <div className="lg:col-span-2 flex flex-col justify-between pl-4 py-1 text-center lg:text-right space-y-5">
+                              <div className="space-y-2">
+                                <span className="text-[9.5px] font-mono uppercase tracking-widest text-slate-450 block font-bold text-center lg:text-right font-bold">Logistics Terminal</span>
+                                <p className="text-[10px] text-slate-450 leading-relaxed text-center lg:text-right hidden sm:block">
+                                  Control order fulfillment milestone stages dynamically below.
+                                </p>
+                              </div>
+
+                              <div className="space-y-2">
+                                {ord.status === 'pending' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTransitionOrderStatus(ord.id, 'processing')}
+                                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10.5px] uppercase rounded-xl shadow-3xs transition cursor-pointer active:scale-95 text-center"
+                                  >
+                                    Assemble & Pack
+                                  </button>
+                                )}
+                                {ord.status === 'processing' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTransitionOrderStatus(ord.id, 'shipped')}
+                                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10.5px] uppercase rounded-xl shadow-3xs transition cursor-pointer active:scale-95 text-center"
+                                  >
+                                    Courier Handover
+                                  </button>
+                                )}
+                                {ord.status === 'shipped' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTransitionOrderStatus(ord.id, 'delivered')}
+                                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10.5px] uppercase rounded-xl shadow-3xs transition cursor-pointer active:scale-95 text-center"
+                                  >
+                                    Confirm Arrived
+                                  </button>
+                                )}
+                                {ord.status === 'delivered' && (
+                                  <div className="text-emerald-700 bg-emerald-50 border border-emerald-250 font-black font-mono text-[10px] uppercase tracking-wider rounded-xl py-2.5 text-center w-full shadow-3xs">
+                                    Handed Over ✓
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
               )}
             </div>
 
-            {/* Merchant Logistics Remittances & Auditing Table */}
+          </div>
+        )}
+
+        {/* Dedicated Merchant Payout Ledger sub-menu tab as requested */}
+        {activeTab === 'ledger' && (
+          <div className="space-y-6 animate-fadeIn text-left font-sans">
+            <div className="border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                💼 Merchant Payouts Ledger
+              </h3>
+              <p className="text-[11.5px] text-slate-555 mt-1">
+                Approve or reject cellular mobile wallet transfer receipts sent by merchant partners to reimburse the centralized delivery couriers fee.
+              </p>
+            </div>
+
             <div className="bg-white p-5 rounded-xl border border-slate-205 mt-8 space-y-4 text-left shadow-xs">
-              <div className="flex border-b border-slate-100 pb-3 items-center justify-between gap-4 flex-wrap">
+              <div className="flex border-b border-slate-100 pb-3 items-center justify-between gap-4 flex-wrap font-sans">
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5 font-sans mb-0.5 font-black">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5 mb-0.5 font-black font-sans">
                     🚚 Merchant Payouts Ledger
                   </h4>
                   <p className="text-[11.5px] text-slate-500 mt-0.5 leading-relaxed">
@@ -2241,7 +2301,7 @@ export default function AdminPortal({
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 font-sans">
                 <table className="w-full text-left font-sans text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-mono uppercase tracking-wider">
@@ -2257,65 +2317,69 @@ export default function AdminPortal({
                         <td colSpan={4} className="p-5 text-center text-slate-400 italic font-mono">No delivery ledger records currently synced.</td>
                       </tr>
                     ) : (
-                      orders.filter(o => o.deliveryMethod === 'delivery').map((ord) => {
-                        const remStatus = ord.deliveryFeeRemittanceStatus || 'owed';
-                        return (
-                          <tr key={ord.id} className="hover:bg-slate-50/45 transition">
-                            <td className="p-3 font-mono">
-                              <span className="font-bold text-slate-800 block">#{ord.id.substring(0, 8)}</span>
-                              <span className="text-[10px] text-slate-400 block">{new Date(ord.createdAt).toLocaleDateString()}</span>
-                            </td>
-                            <td className="p-3">
-                              <span className="font-bold text-slate-800 block">{ord.customerName}</span>
-                              <span className="text-[10px] font-mono text-slate-450">Payable amount: ${ord.total}</span>
-                            </td>
-                            <td className="p-3">
-                              {ord.deliveryFeeRemittanceDetails ? (
-                                <div className="space-y-0.5 text-xs text-left">
-                                  <p className="text-slate-800 font-bold font-sans">Provider: <b className="uppercase text-indigo-600">{ord.deliveryFeeRemittanceDetails.provider}</b> (No: {ord.deliveryFeeRemittanceDetails.senderNumber})</p>
-                                  <p className="font-mono text-[10px] text-slate-600">Trans ID: <span className="bg-slate-100 select-all font-black px-1 rounded">{ord.deliveryFeeRemittanceDetails.transactionNumber}</span> ({ord.deliveryFeeRemittanceDetails.dateRemitted})</p>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400 italic">No mobile receipt logged</span>
-                              )}
-                            </td>
-                            <td className="p-3 text-right">
-                              {remStatus === 'submitted' && (
-                                <div className="flex gap-1.5 justify-end">
-                                  <button
-                                    onClick={() => handleAuditRemittance(ord.id, 'confirmed')}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded transition cursor-pointer"
-                                  >
-                                    Accept
-                                  </button>
-                                  <button
-                                    onClick={() => handleAuditRemittance(ord.id, 'owed')}
-                                    className="bg-slate-50 border border-slate-200 text-rose-500 hover:bg-rose-50 text-[10px] px-2.5 py-1 rounded transition cursor-pointer font-semibold"
-                                  >
-                                    Reject
-                                  </button>
-                                </div>
-                              )}
-                              {remStatus === 'confirmed' && (
-                                <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5 text-[10px] uppercase font-mono">
-                                  Verified ✓
-                                </span>
-                              )}
-                              {remStatus === 'owed' && (
-                                <span className="text-slate-400 italic font-mono text-[10.5px]">
-                                  Awaiting remittance
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
+                      orders
+                        .filter(o => o.deliveryMethod === 'delivery')
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .map((ord) => {
+                          const remStatus = ord.deliveryFeeRemittanceStatus || 'owed';
+                          return (
+                            <tr key={ord.id} className="hover:bg-slate-50/45 transition">
+                              <td className="p-3 font-mono">
+                                <span className="font-bold text-slate-800 block">#{ord.id.substring(0, 8).toUpperCase()}</span>
+                                <span className="text-[10px] text-slate-400 block">{new Date(ord.createdAt).toLocaleDateString()}</span>
+                              </td>
+                              <td className="p-3">
+                                <span className="font-bold text-slate-800 block">{ord.customerName}</span>
+                                <span className="text-[10px] font-mono text-slate-450 font-sans block mt-0.5">Payable amount: ${ord.total}</span>
+                              </td>
+                              <td className="p-3">
+                                {ord.deliveryFeeRemittanceDetails ? (
+                                  <div className="space-y-0.5 text-xs text-left font-sans text-[11px]">
+                                    <p className="text-slate-800 font-bold">Provider: <b className="uppercase text-indigo-600">{ord.deliveryFeeRemittanceDetails.provider}</b> (No: {ord.deliveryFeeRemittanceDetails.senderNumber})</p>
+                                    <p className="font-mono text-[10px] text-slate-600">Trans ID: <span className="bg-slate-100 select-all font-black px-1 rounded">{ord.deliveryFeeRemittanceDetails.transactionNumber}</span> ({ord.deliveryFeeRemittanceDetails.dateRemitted})</p>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic font-sans text-[10.5px]">No mobile receipt logged</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right">
+                                {remStatus === 'submitted' && (
+                                  <div className="flex gap-1.5 justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAuditRemittance(ord.id, 'confirmed')}
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded transition cursor-pointer font-sans"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAuditRemittance(ord.id, 'owed')}
+                                      className="bg-slate-50 border border-slate-200 text-rose-500 hover:bg-rose-50 text-[10px] px-2.5 py-1 rounded transition cursor-pointer font-semibold font-sans"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                )}
+                                {remStatus === 'confirmed' && (
+                                  <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5 text-[10px] uppercase font-mono">
+                                    Verified ✓
+                                  </span>
+                                )}
+                                {remStatus === 'owed' && (
+                                  <span className="text-slate-400 italic font-mono text-[10.5px]">
+                                    Awaiting remittance
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
-
           </div>
         )}
 

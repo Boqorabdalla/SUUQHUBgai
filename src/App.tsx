@@ -149,6 +149,19 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Sync apex_local_user credentials in localStorage with firebaseUser state
+  useEffect(() => {
+    if (firebaseUser) {
+      localStorage.setItem('apex_local_user', JSON.stringify({
+        id: firebaseUser.id,
+        role: firebaseUser.role,
+        email: firebaseUser.email
+      }));
+    } else {
+      localStorage.removeItem('apex_local_user');
+    }
+  }, [firebaseUser]);
+
   // Load backend catalog lists on component mount
   useEffect(() => {
     fetchLiveCatalog();
