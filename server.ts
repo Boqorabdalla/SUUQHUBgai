@@ -180,11 +180,11 @@ async function saveSupportTicketToFirestore(ticket: SupportTicket) {
 }
 
 // Persist delivery config to Cloud Firestore helper
-async function saveDeliveryConfigToFirestore(fee: number, card: boolean = true, cod: boolean = true) {
+async function saveDeliveryConfigToFirestore(fee: number, card: boolean = true, cod: boolean = true, geminiKey: string = "") {
   if (!fbDbAdmin) return;
   try {
     const docRef = fbDbAdmin.collection("config").doc("delivery");
-    await docRef.set({ deliveryFee: fee, enableCard: card, enableCod: cod });
+    await docRef.set({ deliveryFee: fee, enableCard: card, enableCod: cod, geminiApiKey: geminiKey });
     console.log(`Successfully persisted delivery config: $${fee}, enableCard: ${card}, enableCod: ${cod} to Cloud Firestore.`);
   } catch (err) {
     console.error(`Failed to persist delivery config to Firestore:`, err);
@@ -202,7 +202,8 @@ async function syncDeliveryConfigFromFirestore() {
       deliveryFee = data.deliveryFee || 15;
       enableCard = data.enableCard !== false;
       enableCod = data.enableCod !== false;
-      console.log(`Synced delivery fee from Firestore: $${deliveryFee}, enableCard: ${enableCard}, enableCod: ${enableCod}`);
+      fallbackGeminiKey = data.geminiApiKey || "";
+      console.log(`Synced delivery fee from Firestore: $${deliveryFee}, enableCard: ${enableCard}, enableCod: ${enableCod}, hasFallbackGeminiKey: ${!!fallbackGeminiKey}`);
     }
   } catch (err) {
     console.error("Error syncing delivery fee from Firestore:", err);
@@ -366,6 +367,7 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 let deliveryFee = 15; // default delivery fee set onetime by SuuqHub
 let enableCard = true;
 let enableCod = true;
+let fallbackGeminiKey = "";
 let dbProducts: Product[] = [...initialProducts];
 let dbCoupons: Coupon[] = [...initialCoupons];
 let dbHeroCampaigns: HeroCampaign[] = [
@@ -617,19 +619,26 @@ loadDbFromFile();
 
 // Initialize Gemini SDK lazily, with strict validation
 let aiClient: GoogleGenAI | null = null;
+let lastUsedApiKey = "";
+
 function getGeminiClient(): GoogleGenAI | null {
-  if (!aiClient) {
-    const key = process.env.GEMINI_API_KEY;
-    if (key && key !== "MY_GEMINI_API_KEY") {
-      aiClient = new GoogleGenAI({
-        apiKey: key,
-        httpOptions: {
-          headers: {
-            "User-Agent": "aistudio-build",
-          },
+  let key = process.env.GEMINI_API_KEY;
+  if (!key || key === "MY_GEMINI_API_KEY" || key.trim() === "") {
+    key = fallbackGeminiKey;
+  }
+  if (!key || key === "MY_GEMINI_API_KEY" || key.trim() === "") {
+    return null;
+  }
+  if (!aiClient || lastUsedApiKey !== key) {
+    lastUsedApiKey = key;
+    aiClient = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
         },
-      });
-    }
+      },
+    });
   }
   return aiClient;
 }
@@ -844,11 +853,11 @@ app.post("/api/coupons", (req, res) => {
 
 // Delivery Price & Configuration API
 app.get("/api/delivery-config", (req, res) => {
-  res.json({ deliveryFee, enableCard, enableCod });
+  res.json({ deliveryFee, enableCard, enableCod, geminiApiKey: fallbackGeminiKey });
 });
 
 app.post("/api/delivery-config", (req, res) => {
-  const { fee, enableCard: cardVal, enableCod: codVal } = req.body;
+  const { fee, enableCard: cardVal, enableCod: codVal, geminiApiKey: apiK } = req.body;
   if (fee !== undefined) {
     if (typeof fee !== 'number' || fee < 0) {
       return res.status(400).json({ error: "Invalid delivery fee value" });
@@ -861,9 +870,12 @@ app.post("/api/delivery-config", (req, res) => {
   if (codVal !== undefined) {
     enableCod = !!codVal;
   }
+  if (apiK !== undefined) {
+    fallbackGeminiKey = apiK;
+  }
   saveDbToFile();
-  saveDeliveryConfigToFirestore(deliveryFee, enableCard, enableCod);
-  res.json({ success: true, deliveryFee, enableCard, enableCod });
+  saveDeliveryConfigToFirestore(deliveryFee, enableCard, enableCod, fallbackGeminiKey);
+  res.json({ success: true, deliveryFee, enableCard, enableCod, geminiApiKey: fallbackGeminiKey });
 });
 
 // Orders API

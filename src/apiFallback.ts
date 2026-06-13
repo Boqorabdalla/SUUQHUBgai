@@ -779,9 +779,132 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
       return jsonResponse(report);
     }
 
-    // 9. CHAT ENDPOINT (GEMINI Fallback Support)
+    // 9. CHAT ENDPOINT (GEMINI Fallback Support with real REST Client)
     if (pathname === '/api/gemini/chat') {
-      const { message } = bodyObj;
+      const { message, chatHistory } = bodyObj || {};
+      
+      // Look for a user's API key to trigger real Gemini endpoints directly from the browser
+      let clientApiKey = '';
+      try {
+        // First try the Vite environment variable
+        clientApiKey = (import.meta as any)?.env?.VITE_GEMINI_API_KEY || '';
+      } catch (e) {}
+
+      try {
+        // Also query the custom config document in Firestore
+        const docRef = doc(db, 'config', 'delivery');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.geminiApiKey) {
+            clientApiKey = data.geminiApiKey;
+          }
+        }
+      } catch (errKey) {
+        console.warn("Could not retrieve client-side geminiApiKey from Config collection:", errKey);
+      }
+
+      if (clientApiKey && clientApiKey !== "MY_GEMINI_API_KEY" && clientApiKey.trim() !== '') {
+        console.log("Client-side fallback detected active Gemini credentials. Starting live request...");
+        try {
+          const dbProducts = await getCollectionDocs('products', initialProducts);
+          const dbCoupons = await getCollectionDocs('coupons', initialCoupons);
+
+          const productCatalogBrief = dbProducts.map(p => 
+            `- ID: "${p.id}", Name: "${p.title}", Price: $${p.price}, Rating: ${p.rating}/5, Stock: ${p.stock}, Brand: "${p.brand}", Category: "${p.category}", Desc: "${p.description.substring(0, 140)}..."`
+          ).join("\n");
+
+          const activeCouponsBrief = dbCoupons.map(c => 
+            `- Code: "${c.code}", Discount: ${c.value} (${c.discountType}), Min Spend: $${c.minSpend}`
+          ).join("\n");
+
+          const systemPrompt = `You are a helpful, professional, and sophisticated AI Sales Assistant & Shopping Expert at SuuqHub (Smart Market Place) Store.
+Your mission is to welcome users, understand their shopping goals, and advise them based on the true real-time inventory below.
+
+AVAILABLE INVENTORY (Direct Recommendations available):
+${productCatalogBrief}
+
+ACTIVE PROMO COUPONS:
+${activeCouponsBrief}
+
+CRITICAL COGNITIVE GUIDELINE:
+- Never recommend products that do not exist above.
+- If a user asks for something we do not carry, explain politely and suggest our closest alternative.
+- Keep your tone elegant, concise, and helpful. Use bold text for product names.
+- At the end of your response, ALWAYS output a structured JSON array on its own line prefixed with ###REC_IDS### containing the IDs of products that match their current search, or empty array if none. For example: "###REC_IDS###[\\\"prod-headphones\\\", \\\"prod-watch\\\"]"
+`;
+
+          const contents: any[] = [];
+          if (chatHistory && Array.isArray(chatHistory)) {
+            chatHistory.forEach(item => {
+              contents.push({
+                role: item.sender === "user" ? "user" : "model",
+                parts: [{ text: item.text }]
+              });
+            });
+          }
+          contents.push({
+            role: "user",
+            parts: [{ text: message }]
+          });
+
+          let responseText = "";
+          let success = false;
+
+          // Try gemini-3.5-flash first, fallback to lite if congested
+          for (const model of ["gemini-3.5-flash", "gemini-3.1-flash-lite"]) {
+            try {
+              const res = await originalFetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${clientApiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents,
+                  systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                  },
+                  generationConfig: {
+                    temperature: 0.7
+                  }
+                })
+              });
+              if (res.ok) {
+                const resData = await res.json();
+                responseText = resData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                if (responseText) {
+                  success = true;
+                  break;
+                }
+              } else {
+                console.warn(`Browser fallback direct query to ${model} failed: style status code ${res.status}`);
+              }
+            } catch (errQuery) {
+              console.warn(`Browser fallback query error for model ${model}:`, errQuery);
+            }
+          }
+
+          if (success) {
+            let generatedRecommendations: string[] = [];
+            if (responseText.includes("###REC_IDS###")) {
+              try {
+                const parts = responseText.split("###REC_IDS###");
+                const jsonStr = parts[parts.length - 1].trim();
+                const parsed = JSON.parse(jsonStr);
+                if (Array.isArray(parsed)) {
+                  generatedRecommendations = parsed;
+                }
+              } catch (err) {
+                console.warn("Failed to parse recommended product IDs on client-side browser execution:", err);
+              }
+            }
+            const reply = responseText.split("###REC_IDS###")[0].trim();
+            return jsonResponse({ reply, generatedRecommendations });
+          }
+        } catch (errLiveCall) {
+          console.error("Direct browser-based Gemini API REST call failed, initiating keyboard fallback:", errLiveCall);
+        }
+      }
+
+      // 100% Client-side static keyword matching fallback (triggered if no API key is set or Google servers are unreachable)
       let reply = "Hello! I am your Apex AI Personal Assistant. What can I help you find?";
       const normalized = message?.toLowerCase() || '';
       

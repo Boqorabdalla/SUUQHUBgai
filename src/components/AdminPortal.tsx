@@ -85,6 +85,7 @@ export default function AdminPortal({
   const [enableCod, setEnableCod] = useState<boolean>(true);
   const [enableZaad, setEnableZaad] = useState<boolean>(true);
   const [enableEdahab, setEnableEdahab] = useState<boolean>(true);
+  const [geminiApiKey, setGeminiApiKey] = useState<string>('');
   const [updatingLogistics, setUpdatingLogistics] = useState<boolean>(false);
 
   // Search and filtered orders
@@ -133,6 +134,7 @@ export default function AdminPortal({
       setEnableCod(dData.enableCod !== false);
       setEnableZaad(dData.enableZaad !== false);
       setEnableEdahab(dData.enableEdahab !== false);
+      setGeminiApiKey(dData.geminiApiKey ?? '');
 
       await fetchHeroCampaigns();
     } catch (err) {
@@ -197,6 +199,29 @@ export default function AdminPortal({
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingLogistics(false);
+    }
+  };
+
+  const handleSaveGeminiApiKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUpdatingLogistics(true);
+    try {
+      const res = await fetch('/api/delivery-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ geminiApiKey })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGeminiApiKey(data.geminiApiKey ?? '');
+        alert("Client-Side Gemini API Key for Hostinger saved successfully!");
+      } else {
+        alert("Failed to save Gemini key.");
+      }
+    } catch (err) {
+      console.error('Error saving Gemini API key:', err);
     } finally {
       setUpdatingLogistics(false);
     }
@@ -1954,6 +1979,34 @@ export default function AdminPortal({
                 </div>
               </div>
 
+            </div>
+
+            {/* Client-side Gemini Config Card for hostinger or serverless environment */}
+            <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl text-left shadow-3xs space-y-3 font-sans">
+              <div>
+                <span className="text-[10px] font-mono text-indigo-700 uppercase tracking-widest font-extrabold flex items-center gap-1.5">
+                  🤖 Hostinger &amp; Static Fallback Gemini AI Key
+                </span>
+                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                  When deployed on purely static hosting platforms like Hostinger (without a persistent Node.js background process), the multi-vendor shopping assistant executes direct browser-based REST queries. Save your Gemini API key below to enable live Sales suggestions &amp; item recommendations on your live Hostinger project!
+                </p>
+              </div>
+              <form onSubmit={handleSaveGeminiApiKey} className="flex flex-col sm:flex-row gap-3 pt-1">
+                <input
+                  type="password"
+                  placeholder="Enter fallback gemini API key (e.g. AIzaSy...)"
+                  className="w-full text-xs font-mono px-3.5 py-1.5 border rounded-lg bg-white border-slate-250 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  disabled={updatingLogistics}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10.5px] px-5 py-1.5 rounded-lg font-bold cursor-pointer transition whitespace-nowrap active:scale-95"
+                >
+                  {updatingLogistics ? 'Saving...' : 'Save Gemini Key'}
+                </button>
+              </form>
             </div>
 
             {/* Status Filter buttons & search bar */}
