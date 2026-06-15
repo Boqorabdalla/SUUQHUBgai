@@ -258,6 +258,12 @@ export default function LoginView({
     setErrorMessage('');
     setSuccessMessage('');
 
+    if (isSignUp) {
+      sessionStorage.setItem('pendingSignUpRole', role);
+      sessionStorage.setItem('pendingSignUpName', name);
+      sessionStorage.setItem('pendingSignUpPassword', password);
+    }
+
     try {
       // 1. Attempt to synchronize credentials and fetch high-trust custom token from the backend
       let customToken = '';

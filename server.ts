@@ -410,6 +410,55 @@ async function syncAllFromFirestore() {
     console.error("Failed syncing categories from Firestore:", err);
   }
 
+  // 10. Automated merchant registration repair for Dabiicicompany@gmail.com
+  try {
+    const targetEmail = "dabiicicompany@gmail.com";
+    console.log(`[REPAIR SYSTEM] Processing check for ${targetEmail}...`);
+    const userSnapshot = await fbDbAdmin.collection("users").where("email", "==", targetEmail).get();
+    let foundUserId: string | null = null;
+    let foundUserName = "Dabiicicompany";
+    
+    userSnapshot.forEach((docSnap: any) => {
+      foundUserId = docSnap.id;
+      const data = docSnap.data();
+      foundUserName = data.name || data.displayName || "Dabiicicompany";
+      if (data.role !== "vendor") {
+        console.log(`[REPAIR SYSTEM] Found user matching ${targetEmail} with role "${data.role}". Migrating role to vendor...`);
+        docSnap.ref.update({ role: "vendor" });
+      }
+    });
+
+    const vendorExists = dbVendors.some(v => v.email.toLowerCase() === targetEmail);
+    if (!vendorExists) {
+      console.log(`[REPAIR SYSTEM] Storefront request missing for ${targetEmail}. Instantly spawning a pending store registration...`);
+      const newVendorId = foundUserId ? `usr-vendor-${foundUserId.substring(0, 5)}` : `usr-vendor-${Math.floor(100 + Math.random() * 900)}`;
+      const newVendor: Vendor = {
+        id: newVendorId,
+        vendorName: `${foundUserName}'s Storefront`,
+        representativeName: foundUserName,
+        email: targetEmail,
+        category: "General",
+        status: "pending",
+        earnings: 0.00,
+        description: "Pending manual administrative verification for third-party seller account.",
+        taxId: "PENDING-TRN",
+        createdAt: new Date().toISOString()
+      };
+      dbVendors.push(newVendor);
+      await saveVendorToFirestore(newVendor);
+      console.log(`[REPAIR SYSTEM] Seeding successful! Storefront request registered.`);
+    } else {
+      const currentVendor = dbVendors.find(v => v.email.toLowerCase() === targetEmail);
+      if (currentVendor && currentVendor.status !== "pending" && currentVendor.status !== "approved") {
+        console.log(`[REPAIR SYSTEM] Resetting merchant status to "pending" for verification visibility.`);
+        currentVendor.status = "pending";
+        await saveVendorToFirestore(currentVendor);
+      }
+    }
+  } catch (err) {
+    console.error("[REPAIR SYSTEM] Diagnostic error setting up vendor fallback hooks:", err);
+  }
+
   console.log("CLOUD FIRESTORE INITIAL SYNCHRONIZATION WORKFLOW COMPLETED!");
   saveDbToFile();
 }

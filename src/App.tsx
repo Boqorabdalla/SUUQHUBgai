@@ -108,11 +108,21 @@ export default function App() {
               actualRole = 'superadmin';
             } else if (emailLower === 'delivery@suuqhub.com') {
               actualRole = 'delivery_manager';
+            } else {
+              const savedRole = sessionStorage.getItem('pendingSignUpRole');
+              if (savedRole) {
+                actualRole = savedRole;
+              }
             }
+
+            const savedName = sessionStorage.getItem('pendingSignUpName');
+            const userName = savedName || user.displayName || user.email?.split('@')[0] || 'Guest User';
+            const savedPassword = sessionStorage.getItem('pendingSignUpPassword');
+
             const payload = {
               id: user.uid,
               email: user.email || '',
-              name: user.displayName || user.email?.split('@')[0] || 'Guest User',
+              name: userName,
               role: actualRole,
               language: lang,
               currency: currency,
@@ -121,17 +131,48 @@ export default function App() {
             };
             try {
               await setDoc(doc(db, 'users', user.uid), payload);
+              
+              // If the chosen role is 'vendor', auto-register as a pending merchant request in the backend API
+              if (actualRole === 'vendor') {
+                try {
+                  await fetch('/api/vendors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      vendorName: `${userName}'s Storefront`,
+                      representativeName: userName,
+                      email: user.email || '',
+                      category: "General",
+                      description: "Pending manual administrative verification for third-party seller account.",
+                      taxId: "PENDING-TRN",
+                      status: "pending",
+                      password: savedPassword || undefined
+                    })
+                  });
+                  console.log("onAuthStateChanged: Successfully spawned pending vendor storefront for:", user.email);
+                } catch (postErr) {
+                  console.error("onAuthStateChanged: Vendor post registration error:", postErr);
+                }
+              }
             } catch (err) {
               console.warn("Could not auto-register redirect session in firestore database:", err);
             }
 
+            // Cleanup session storage keys
+            sessionStorage.removeItem('pendingSignUpRole');
+            sessionStorage.removeItem('pendingSignUpName');
+            sessionStorage.removeItem('pendingSignUpPassword');
+
             setFirebaseUser({
               id: user.uid,
               email: user.email || '',
-              name: user.displayName || user.email?.split('@')[0] || 'Guest User',
+              name: userName,
               role: actualRole as any
             });
             setSelectedRole(actualRole as any);
+            if (actualRole === 'vendor') {
+              setActiveTab('vendor');
+            }
           }
         } catch (dbErr) {
           console.warn("Could not retrieve user document (permissions or rules issue):", dbErr);
