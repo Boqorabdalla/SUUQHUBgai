@@ -8,6 +8,7 @@ export interface ProductVariant {
   name: string; // e.g., "S", "M", "L" or "Black", "Silver"
   priceModifier: number; // e.g., +0, +50
   stock: number;
+  image?: string; // specific image for this variant/size
 }
 
 export interface Review {

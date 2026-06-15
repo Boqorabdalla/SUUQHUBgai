@@ -274,7 +274,45 @@ export default function VendorPortal({
   const [sizeName, setSizeName] = useState('');
   const [sizePrice, setSizePrice] = useState('');
   const [sizeStock, setSizeStock] = useState('20');
+  const [sizeImage, setSizeImage] = useState('');
   const [variantsSizes, setVariantsSizes] = useState<ProductVariant[]>([]);
+
+  // Gallery/Alternative angles images state (up to 4 images)
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+
+  const handleSizeImageFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload a valid image file for this size (PNG, JPG, WEBP).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      if (typeof reader.result === 'string') {
+        const compressed = await compressBase64Image(reader.result, 600, 600, 0.75);
+        setSizeImage(compressed);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGalleryImageFile = (file: File) => {
+    if (galleryImages.length >= 4) {
+      alert('You can upload up to 4 showcase images only.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload a valid image file for the gallery (PNG, JPG, WEBP).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      if (typeof reader.result === 'string') {
+        const compressed = await compressBase64Image(reader.result, 800, 800, 0.75);
+        setGalleryImages(prev => [...prev, compressed].slice(0, 4));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Specifications states
   const [specKey, setSpecKey] = useState('');
@@ -355,12 +393,14 @@ export default function VendorPortal({
       id: `sz-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       name: sizeName.trim(),
       priceModifier: Number(sizePrice || 0),
-      stock: Number(sizeStock || 0)
+      stock: Number(sizeStock || 0),
+      image: sizeImage || undefined
     };
     setVariantsSizes([...variantsSizes, newSz]);
     setSizeName('');
     setSizePrice('');
     setSizeStock('20');
+    setSizeImage('');
   };
 
   const handleRemoveSizeVariant = (id: string) => {
@@ -911,6 +951,7 @@ export default function VendorPortal({
       stock: Number(stock),
       sku: sku || `SKU-VEN-${Math.floor(1000 + Math.random() * 9000)}`,
       image: image || 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=600&q=80',
+      images: galleryImages, // multi-image gallery
       vendorId: selectedVendor.id,
       vendorName: selectedVendor.vendorName,
       variants: {
@@ -943,6 +984,7 @@ export default function VendorPortal({
         setSku('');
         setStock('10');
         setImage('');
+        setGalleryImages([]);
         setDescription('');
         setDiscountPrice('');
         setProductStory('');
@@ -1054,6 +1096,7 @@ export default function VendorPortal({
     setSku(p.sku || '');
     setStock(String(p.stock));
     setImage(p.image || '');
+    setGalleryImages(p.images || []);
     setDescription(p.description || '');
     setDiscountPrice(p.discountPrice ? String(p.discountPrice) : '');
     setProductStory(p.productStory || '');
@@ -1074,6 +1117,7 @@ export default function VendorPortal({
     setSku('');
     setStock('10');
     setImage('');
+    setGalleryImages([]);
     setDescription('');
     setDiscountPrice('');
     setProductStory('');
@@ -3343,6 +3387,69 @@ export default function VendorPortal({
                   )}
                 </div>
 
+                {/* Showcase Product Album / Gallery Section (Up to 4 alternative angles/sides) */}
+                <div className="border border-slate-150 p-4 rounded-lg bg-slate-50/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-indigo-700 uppercase font-bold">
+                      <Image className="w-3.5 h-3.5 text-indigo-600" /> Showcase Gallery / Angles ({galleryImages.length}/4)
+                    </div>
+                    {galleryImages.length > 0 && (
+                      <button 
+                        type="button" 
+                        onClick={() => setGalleryImages([])} 
+                        className="text-[9px] font-mono font-bold text-rose-600 hover:underline uppercase cursor-pointer"
+                      >
+                        Reset Gallery
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400">Add up to 4 additional images to display different sides, close-ups, or angles of your product to customers.</p>
+                  
+                  <div className="grid grid-cols-4 gap-2">
+                    {[0, 1, 2, 3].map((index) => {
+                      const img = galleryImages[index];
+                      return (
+                        <div key={index} className="relative aspect-square rounded-lg border border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden hover:border-indigo-400 transition group shadow-3xs">
+                          {img ? (
+                            <>
+                              <img src={img} className="w-full h-full object-cover" alt={`Gallery angle ${index + 1}`} referrerPolicy="no-referrer" />
+                              <button
+                                type="button"
+                                onClick={() => setGalleryImages(prev => prev.filter((_, idx) => idx !== index))}
+                                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition rounded-lg cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4 text-rose-400" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                id={`gallery-uploader-${index}`}
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    handleGalleryImageFile(e.target.files[0]);
+                                  }
+                                }}
+                                className="hidden"
+                                disabled={galleryImages.length > index}
+                              />
+                              <label
+                                htmlFor={`gallery-uploader-${index}`}
+                                className={`w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-slate-50 ${galleryImages.length !== index ? 'opacity-30 cursor-not-allowed text-slate-305' : ''}`}
+                              >
+                                <Upload className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Slot {index + 1}</span>
+                              </label>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-[10px] text-slate-500 uppercase font-mono mb-1 tracking-wider">detailed listing description</label>
                   <textarea required rows={3} placeholder="Technical details, dimensions, warranties..." value={description} onChange={(e) => setDescription(e.target.value)} className="w-full text-xs bg-slate-50 border border-slate-200 rounded px-4 py-3 text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-600"></textarea>
@@ -3482,6 +3589,59 @@ export default function VendorPortal({
                       />
                     </div>
                   </div>
+
+                  {/* Size Image Uploader */}
+                  <div className="bg-white border border-slate-150 rounded-lg p-2.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      {sizeImage ? (
+                        <div className="w-8 h-8 rounded border border-indigo-150 overflow-hidden bg-slate-50 flex-shrink-0">
+                          <img src={sizeImage} className="w-full h-full object-cover" alt="Size Specific" />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded border border-dashed border-slate-200 flex items-center justify-center bg-slate-50 text-slate-400 flex-shrink-0">
+                          <Upload className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                      <div className="text-left overflow-hidden">
+                        <span className="block text-[9px] uppercase font-mono font-bold text-slate-500">Size Variant Image</span>
+                        <span className="block text-[10px] text-slate-400 truncate max-w-[200px]">
+                          {sizeImage ? "Image uploaded successfully" : "Upload custom photo for this sized product"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-1">
+                      {sizeImage ? (
+                        <button
+                          type="button"
+                          onClick={() => setSizeImage('')}
+                          className="px-2.5 py-1 text-[9px] font-mono font-bold uppercase tracking-wider bg-rose-50 hover:bg-rose-100 text-rose-600 rounded transition cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      ) : (
+                        <>
+                          <input
+                            id="size-variant-image-uploader"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files.length > 0) {
+                                handleSizeImageFile(e.target.files[0]);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          <label
+                            htmlFor="size-variant-image-uploader"
+                            className="px-2.5 py-1 text-[9px] font-mono font-bold uppercase tracking-wider bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition cursor-pointer"
+                          >
+                            Browse
+                          </label>
+                        </>
+                      )}
+                    </div>
+                  </div>
                   
                   <button 
                     type="button" 
@@ -3495,10 +3655,17 @@ export default function VendorPortal({
                   {variantsSizes.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {variantsSizes.map((sv) => (
-                        <span key={sv.id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 rounded-md font-mono text-[9px] text-slate-700 shadow-3xs">
-                          <span className="font-semibold text-slate-800">{sv.name}</span>
-                          <span className="text-slate-400 font-normal">({sv.priceModifier >= 0 ? `+$${sv.priceModifier}` : `-$${Math.abs(sv.priceModifier)}`} / Qty: {sv.stock})</span>
-                          <button type="button" onClick={() => handleRemoveSizeVariant(sv.id)} className="text-rose-500 hover:text-rose-700 font-bold ml-1 text-xs">×</button>
+                        <span key={sv.id} className="inline-flex items-center gap-1.5 px-2 bg-white border border-slate-200 rounded-md font-mono text-[9px] text-slate-700 shadow-3xs p-1">
+                          {sv.image ? (
+                            <img src={sv.image} className="w-6 h-6 rounded object-cover border border-slate-200 flex-shrink-0" alt="Size Specific" />
+                          ) : (
+                            <div className="w-6 h-6 rounded border border-dashed border-slate-200 flex items-center justify-center bg-slate-50 text-[8px] text-slate-400 font-sans flex-shrink-0">No Img</div>
+                          )}
+                          <div className="flex flex-col text-left">
+                            <span className="font-semibold text-slate-800">{sv.name}</span>
+                            <span className="text-slate-400 font-normal">({sv.priceModifier >= 0 ? `+$${sv.priceModifier}` : `-$${Math.abs(sv.priceModifier)}`} / Qty: {sv.stock})</span>
+                          </div>
+                          <button type="button" onClick={() => handleRemoveSizeVariant(sv.id)} className="text-rose-500 hover:text-rose-700 font-bold ml-1.5 text-xs">×</button>
                         </span>
                       ))}
                     </div>

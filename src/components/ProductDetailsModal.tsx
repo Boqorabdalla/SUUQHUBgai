@@ -34,10 +34,38 @@ export default function ProductDetailsModal({
   // Gallery view state
   const [selectedImage, setSelectedImage] = useState(product.image);
 
+  // Combine all possible images (primary, additional images, variant-specific images) safely
+  const allImages = React.useMemo(() => {
+    const list = [product.image];
+    if (product.images && Array.isArray(product.images)) {
+      list.push(...product.images);
+    }
+    if (product.variants?.sizes) {
+      product.variants.sizes.forEach(sz => {
+        if (sz.image) list.push(sz.image);
+      });
+    }
+    return Array.from(new Set(list.filter(img => typeof img === 'string' && img.trim() !== '')));
+  }, [product]);
+
   // Selections state
   const [selectedColor, setSelectedColor] = useState(product.variants?.colors?.[0]?.name || '');
   const [selectedSize, setSelectedSize] = useState(product.variants?.sizes?.[0]?.name || '');
   const [quantity, setQuantity] = useState(1);
+
+  // Sync initial image if product changes
+  React.useEffect(() => {
+    setSelectedImage(product.image);
+    setSelectedSize(product.variants?.sizes?.[0]?.name || '');
+  }, [product]);
+
+  const handleSizeClick = (sizeName: string) => {
+    setSelectedSize(sizeName);
+    const szObj = product.variants?.sizes?.find(s => s.name === sizeName);
+    if (szObj?.image) {
+      setSelectedImage(szObj.image);
+    }
+  };
 
   // Interactive tab control
   const [activeTab, setActiveTab] = useState<'desc' | 'specs' | 'reviews'>('desc');
@@ -96,9 +124,9 @@ export default function ProductDetailsModal({
             </div>
             
             {/* Gallery Thumbnails */}
-            {product.images && product.images.length > 1 && (
+            {allImages.length > 1 && (
               <div className="flex gap-2.5 overflow-x-auto pb-1">
-                {product.images.map((img, i) => (
+                {allImages.map((img, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedImage(img)}
@@ -179,7 +207,7 @@ export default function ProductDetailsModal({
                   {product.variants.sizes.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => setSelectedSize(s.name)}
+                      onClick={() => handleSizeClick(s.name)}
                       className={`cursor-pointer px-3 py-1.5 rounded-xl text-xs font-medium border transition ${selectedSize === s.name ? 'border-amber-400 bg-amber-400/10 text-white' : 'border-[#242933] bg-[#14171d] text-gray-400 hover:border-gray-500'}`}
                     >
                       {s.name} {s.priceModifier !== 0 && <span className="text-[10px] text-amber-400">({s.priceModifier > 0 ? '+' : ''}{s.priceModifier}$)</span>}
