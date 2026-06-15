@@ -79,6 +79,24 @@ try {
   console.error("Failed to initialize server-side Firebase Admin SDK:", fbErr);
 }
 
+// Helper to sanitise Firestore payloads and strip out any enormous base64 values (>300KB) to enforce the Firestore 1MB document size limit
+function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): any {
+  if (obj === null || typeof obj !== "object") return obj;
+  const sanitized: any = Array.isArray(obj) ? [] : {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (typeof val === "string" && val.startsWith("data:image/") && val.length > 300000) {
+      console.log(`[Firestore Sanitizer] Truncating gigantic image string under field "${key}" (${val.length} chars) to protect Firestore document bounds.`);
+      sanitized[key] = val.substring(0, 100) + "...[TRUNCATED_DUE_TO_SIZE_LIMIT]";
+    } else if (val !== null && typeof val === "object") {
+      sanitized[key] = sanitizeFirestorePayload(val);
+    } else {
+      sanitized[key] = val;
+    }
+  }
+  return sanitized;
+}
+
 // Persist vendor to Cloud Firestore helper via Admin SDK
 async function saveVendorToFirestore(vendor: Vendor) {
   if (!fbDbAdmin) return;
@@ -108,7 +126,7 @@ async function saveVendorToFirestore(vendor: Vendor) {
     if (vendor.logo !== undefined) payload.logo = vendor.logo;
     if (vendor.isClosed !== undefined) payload.isClosed = !!vendor.isClosed;
 
-    await docRef.set(payload);
+    await docRef.set(sanitizeFirestorePayload(payload));
     console.log(`Successfully persisted vendor ${vendor.vendorName} (${vendor.id}) to Cloud Firestore.`);
   } catch (err) {
     console.error(`Failed to persist vendor ${vendor.id} to Firestore:`, err);
@@ -120,7 +138,7 @@ async function saveProductToFirestore(prod: Product) {
   if (!fbDbAdmin) return;
   try {
     const docRef = fbDbAdmin.collection("products").doc(prod.id);
-    await docRef.set(prod);
+    await docRef.set(sanitizeFirestorePayload(prod));
     console.log(`Successfully persisted product ${prod.title} (${prod.id}) to Cloud Firestore.`);
   } catch (err) {
     console.error(`Failed to persist product ${prod.id} to Firestore:`, err);
@@ -144,7 +162,7 @@ async function saveHeroCampaignToFirestore(camp: HeroCampaign) {
   if (!fbDbAdmin) return;
   try {
     const docRef = fbDbAdmin.collection("hero-campaigns").doc(camp.id);
-    await docRef.set(camp);
+    await docRef.set(sanitizeFirestorePayload(camp));
     console.log(`Successfully persisted campaign ${camp.title} (${camp.id}) to Cloud Firestore.`);
   } catch (err) {
     console.error(`Failed to persist campaign ${camp.id} to Firestore:`, err);

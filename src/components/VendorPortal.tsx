@@ -24,6 +24,49 @@ const safeParseError = async (res: Response, defaultMsg: string): Promise<string
   return defaultMsg;
 };
 
+const compressBase64Image = (base64Str: string, maxWidth: number, maxHeight: number, quality: number = 0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith('data:image/') || base64Str.length < 40000) {
+      resolve(base64Str);
+      return;
+    }
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.src = base64Str;
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      if (height > maxHeight) {
+        width = Math.round((width * maxHeight) / height);
+        height = maxHeight;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(base64Str);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      try {
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      } catch (e) {
+        console.warn('Canvas toDataURL failed or security exception:', e);
+        resolve(base64Str);
+      }
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
+
 interface VendorPortalProps {
   userId: string;
   userEmail: string;
@@ -256,9 +299,10 @@ export default function VendorPortal({
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        setImage(reader.result);
+        const compressed = await compressBase64Image(reader.result, 600, 600, 0.75);
+        setImage(compressed);
         setFormMsg(''); // reset message
       }
     };
@@ -545,9 +589,10 @@ export default function VendorPortal({
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        setBanner(reader.result);
+        const compressed = await compressBase64Image(reader.result, 1000, 400, 0.655);
+        setBanner(compressed);
         setSettingsMsg('');
       }
     };
@@ -787,9 +832,10 @@ export default function VendorPortal({
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        setCampImage(reader.result);
+        const compressed = await compressBase64Image(reader.result, 1000, 400, 0.655);
+        setCampImage(compressed);
         setCampMsg(''); // reset message
       }
     };
