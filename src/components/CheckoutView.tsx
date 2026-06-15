@@ -218,6 +218,19 @@ export default function CheckoutView({
     e.preventDefault();
     setLoading(true);
 
+    // Verify none of the items belong to a closed vendor
+    for (const item of cartItems) {
+      const prod = products.find(p => p.id === item.productId);
+      if (prod) {
+        const vInfo = vendors.find(v => v.id === prod.vendorId);
+        if (vInfo && vInfo.isClosed) {
+          setValidationError(`Cannot place order: '${prod.title}' belongs to '${vInfo.vendorName}' which is temporarily closed.`);
+          setLoading(false);
+          return;
+        }
+      }
+    }
+
     const shippingAddress = {
       fullName,
       addressLine1,

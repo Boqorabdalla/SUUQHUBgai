@@ -17,6 +17,8 @@ interface CartDrawerProps {
   currency: 'USD' | 'EUR' | 'AED';
   lang: 'en' | 'ar' | 'es';
   onCheckout: (appliedCoupon?: Coupon) => void;
+  products?: any[];
+  vendors?: any[];
 }
 
 export default function CartDrawer({
@@ -27,7 +29,9 @@ export default function CartDrawer({
   onRemoveItem,
   currency,
   lang,
-  onCheckout
+  onCheckout,
+  products = [],
+  vendors = []
 }: CartDrawerProps) {
   if (!isOpen) return null;
 
@@ -143,20 +147,37 @@ export default function CartDrawer({
                 <p className="text-xs text-gray-500 max-w-xs">{t.cartEmpty}</p>
               </div>
             ) : (
-              cartItems.map((item) => (
-                <div key={item.id} className="py-4 flex gap-4 text-left">
-                  <div className="w-16 h-16 rounded-xl bg-gray-900 border border-[#242934] overflow-hidden flex-shrink-0">
-                    <img src={item.image} alt="" className="w-full h-full object-cover" />
-                  </div>
+              cartItems.map((item) => {
+                const prod = products.find(p => p.id === item.productId);
+                const vendorOfItem = prod ? vendors.find(v => v.id === prod.vendorId) : null;
+                const isClosed = vendorOfItem ? !!vendorOfItem.isClosed : false;
 
-                  <div className="flex-grow flex flex-col justify-between">
-                    <div>
-                      <h4 className="text-xs font-semibold text-gray-200 line-clamp-1">{item.title}</h4>
-                      <p className="text-[10px] text-gray-500 font-serif mt-0.5">
-                        {item.selectedColor ? `${item.selectedColor}` : ''}
-                        {item.selectedSize ? ` / ${item.selectedSize}` : ''}
-                      </p>
+                return (
+                  <div key={item.id} className={`py-4 flex gap-4 text-left ${isClosed ? 'opacity-60 bg-red-950/5 p-2 rounded-xl border border-red-500/10' : ''}`}>
+                    <div className="w-16 h-16 rounded-xl bg-gray-900 border border-[#242934] overflow-hidden flex-shrink-0 relative">
+                      <img src={item.image} alt="" className="w-full h-full object-cover" />
+                      {isClosed && (
+                        <div className="absolute inset-0 bg-red-950/60 flex items-center justify-center">
+                          <span className="text-[8px] bg-rose-600 text-white font-mono font-black uppercase px-1 rounded animate-pulse">CLOSED</span>
+                        </div>
+                      )}
                     </div>
+
+                    <div className="flex-grow flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-xs font-semibold text-gray-200 line-clamp-1">{item.title}</h4>
+                          {isClosed && (
+                            <span className="bg-rose-500/10 text-rose-400 font-mono text-[8px] tracking-wider px-1 rounded border border-rose-500/20">
+                              STORE CLOSED
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-500 font-serif mt-0.5">
+                          {item.selectedColor ? `${item.selectedColor}` : ''}
+                          {item.selectedSize ? ` / ${item.selectedSize}` : ''}
+                        </p>
+                      </div>
 
                     <div className="flex items-center justify-between gap-2 mt-2">
                       {/* Qty Up/Down */}
@@ -191,7 +212,8 @@ export default function CartDrawer({
                     </div>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 

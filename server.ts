@@ -16,7 +16,7 @@ import { getAuth as getAdminAuth } from "firebase-admin/auth";
 // Load environment variables
 dotenv.config();
 
-import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign } from "./src/types";
+import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign, ProductCategory } from "./src/types";
 import { initialProducts, initialCoupons } from "./src/initialData";
 
 const app = express();
@@ -99,6 +99,14 @@ async function saveVendorToFirestore(vendor: Vendor) {
     if (vendor.password) payload.password = vendor.password;
     if (vendor.zaadNumber !== undefined) payload.zaadNumber = vendor.zaadNumber;
     if (vendor.edahabNumber !== undefined) payload.edahabNumber = vendor.edahabNumber;
+    if (vendor.subUsers !== undefined) payload.subUsers = vendor.subUsers;
+    if (vendor.rating !== undefined) payload.rating = Number(vendor.rating);
+    if (vendor.reviewsCount !== undefined) payload.reviewsCount = Number(vendor.reviewsCount);
+    if (vendor.productsCount !== undefined) payload.productsCount = Number(vendor.productsCount);
+    if (vendor.ordersCount !== undefined) payload.ordersCount = Number(vendor.ordersCount);
+    if (vendor.banner !== undefined) payload.banner = vendor.banner;
+    if (vendor.logo !== undefined) payload.logo = vendor.logo;
+    if (vendor.isClosed !== undefined) payload.isClosed = !!vendor.isClosed;
 
     await docRef.set(payload);
     console.log(`Successfully persisted vendor ${vendor.vendorName} (${vendor.id}) to Cloud Firestore.`);
@@ -188,6 +196,30 @@ async function saveDeliveryConfigToFirestore(fee: number, card: boolean = true, 
     console.log(`Successfully persisted delivery config: $${fee}, enableCard: ${card}, enableCod: ${cod} to Cloud Firestore.`);
   } catch (err) {
     console.error(`Failed to persist delivery config to Firestore:`, err);
+  }
+}
+
+// Persist category to Cloud Firestore helper
+async function saveCategoryToFirestore(cat: ProductCategory) {
+  if (!fbDbAdmin) return;
+  try {
+    const docRef = fbDbAdmin.collection("categories").doc(cat.id);
+    await docRef.set(cat);
+    console.log(`Successfully persisted category ${cat.name} (${cat.id}) to Cloud Firestore.`);
+  } catch (err) {
+    console.error(`Failed to persist category ${cat.id} to Firestore:`, err);
+  }
+}
+
+// Delete category from Cloud Firestore helper
+async function deleteCategoryFromFirestore(id: string) {
+  if (!fbDbAdmin) return;
+  try {
+    const docRef = fbDbAdmin.collection("categories").doc(id);
+    await docRef.delete();
+    console.log(`Successfully deleted category ${id} from Cloud Firestore.`);
+  } catch (err) {
+    console.error(`Failed to delete category ${id} from Firestore:`, err);
   }
 }
 
@@ -353,6 +385,29 @@ async function syncAllFromFirestore() {
     }
   } catch (err) {
     console.error("Failed syncing support tickets from Firestore:", err);
+  }
+
+  // 7. Sync Categories
+  try {
+    console.log("Syncing categories...");
+    const snapshot = await fbDbAdmin.collection("categories").get();
+    const loadedCategories: ProductCategory[] = [];
+    snapshot.forEach((docSnap: any) => {
+      const data = docSnap.data() as ProductCategory;
+      loadedCategories.push({ ...data, id: docSnap.id });
+    });
+
+    if (loadedCategories.length > 0) {
+      dbCategories = loadedCategories;
+      console.log(`Successfully synced ${loadedCategories.length} categories from Firestore.`);
+    } else {
+      console.log("Firestore categories collection is empty. Seeding initial categories...");
+      for (const cat of dbCategories) {
+        await saveCategoryToFirestore(cat);
+      }
+    }
+  } catch (err) {
+    console.error("Failed syncing categories from Firestore:", err);
   }
 
   console.log("CLOUD FIRESTORE INITIAL SYNCHRONIZATION WORKFLOW COMPLETED!");
@@ -539,6 +594,12 @@ let dbTickets: SupportTicket[] = [
 // Persistent state engine for the mock databases to survive container/rebuild reboots
 const STATE_FILE = path.join(process.cwd(), "store-state.json");
 let dbDeliveryManagers: any[] = [];
+let dbCategories: ProductCategory[] = [
+  { id: "electronics", name: "Electronics", subcategories: ["Audio", "Wearables", "Accessories"] },
+  { id: "fashion", name: "Fashion", subcategories: ["Bags", "Apparel", "Footwear"] },
+  { id: "living", name: "Living", subcategories: ["Hydration", "Office Furniture"] },
+  { id: "beauty", name: "Beauty", subcategories: ["Wellness"] }
+];
 
 function saveDbToFile() {
   try {
@@ -552,7 +613,8 @@ function saveDbToFile() {
       deliveryFee,
       enableCard,
       enableCod,
-      dbDeliveryManagers
+      dbDeliveryManagers,
+      dbCategories
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(backupState, null, 2), "utf-8");
   } catch (err) {
@@ -575,6 +637,7 @@ function loadDbFromFile() {
       if (typeof state.enableCard === "boolean") enableCard = state.enableCard;
       if (typeof state.enableCod === "boolean") enableCod = state.enableCod;
       if (state.dbDeliveryManagers) dbDeliveryManagers = state.dbDeliveryManagers;
+      if (state.dbCategories) dbCategories = state.dbCategories;
       console.log("MOCK STORE-STATE.JSON LOADED SUCCESSFULLY");
     } else {
       // Ensure default vendor has an initial password
@@ -644,6 +707,62 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 // REST API Definition
+
+// Categories API
+app.get("/api/categories", (req, res) => {
+  res.json(dbCategories);
+});
+
+app.post("/api/categories", async (req, res) => {
+  const { name, subcategories } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: "Category name is required" });
+  }
+  const idValue = name.toLowerCase().trim().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
+  const newCat: ProductCategory = {
+    id: idValue || "cat-" + Date.now(),
+    name: name.trim(),
+    subcategories: Array.isArray(subcategories) ? subcategories : []
+  };
+
+  // Prevent duplicates
+  if (dbCategories.some(c => c.id === newCat.id)) {
+    newCat.id = `${newCat.id}-${Date.now().toString().slice(-4)}`;
+  }
+
+  dbCategories.push(newCat);
+  saveDbToFile();
+  await saveCategoryToFirestore(newCat);
+  res.status(201).json(newCat);
+});
+
+app.put("/api/categories/:id", async (req, res) => {
+  const { name, subcategories } = req.body;
+  const idx = dbCategories.findIndex(c => c.id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Category not found" });
+  }
+
+  if (name) dbCategories[idx].name = name.trim();
+  if (Array.isArray(subcategories)) dbCategories[idx].subcategories = subcategories;
+
+  saveDbToFile();
+  await saveCategoryToFirestore(dbCategories[idx]);
+  res.json(dbCategories[idx]);
+});
+
+app.delete("/api/categories/:id", async (req, res) => {
+  const id = req.params.id;
+  const idx = dbCategories.findIndex(c => c.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Category not found" });
+  }
+
+  dbCategories.splice(idx, 1);
+  saveDbToFile();
+  await deleteCategoryFromFirestore(id);
+  res.json({ success: true, message: "Category deleted successfully" });
+});
 
 // Products API
 app.get("/api/products", (req, res) => {
@@ -1068,7 +1187,17 @@ app.put("/api/vendors/:id/status", (req, res) => {
 
 // Manage Vendor owner credentials
 app.put("/api/vendors/:id/credentials", (req, res) => {
-  const { email, password, representativeName, zaadNumber, edahabNumber } = req.body;
+  const { 
+    email, 
+    password, 
+    representativeName, 
+    zaadNumber, 
+    edahabNumber,
+    banner,
+    logo,
+    isClosed,
+    description
+  } = req.body;
   const vendor = dbVendors.find(v => v.id === req.params.id);
 
   if (!vendor) {
@@ -1089,6 +1218,18 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
   }
   if (edahabNumber !== undefined) {
     vendor.edahabNumber = edahabNumber;
+  }
+  if (banner !== undefined) {
+    vendor.banner = banner;
+  }
+  if (logo !== undefined) {
+    vendor.logo = logo;
+  }
+  if (isClosed !== undefined) {
+    vendor.isClosed = !!isClosed;
+  }
+  if (description !== undefined) {
+    vendor.description = description;
   }
 
   saveDbToFile();

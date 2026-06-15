@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Package, ShieldAlert, DollarSign, Users, Award, TrendingUp, Check, Play, Trash2, Edit, Save, Plus, Loader2, Lock, Key, Eye, EyeOff, ShieldCheck, RefreshCw, Search, SlidersHorizontal, Store, Clock, ArrowRight, AlertCircle, MapPin, User, CreditCard, Copy, Sparkles, Truck, ChevronDown, ChevronUp } from 'lucide-react';
-import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign } from '../types';
+import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign, ProductCategory } from '../types';
 import { formatPrice } from '../utils';
 
 interface AdminPortalProps {
@@ -44,7 +44,16 @@ export default function AdminPortal({
   const [loading, setLoading] = useState(true);
 
   // Active sub tab
-  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'vendors' | 'orders' | 'coupons' | 'tickets' | 'campaigns' | 'delivery' | 'ledger'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'vendors' | 'orders' | 'coupons' | 'tickets' | 'campaigns' | 'delivery' | 'ledger' | 'categories'>('analytics');
+
+  // Categories & Subcategories Administration States
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newSubcategoriesText, setNewSubcategoriesText] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [editingSubcategoriesText, setEditingSubcategoriesText] = useState('');
 
   useEffect(() => {
     if (userRole === 'delivery_manager') {
@@ -135,6 +144,16 @@ export default function AdminPortal({
       setEnableZaad(dData.enableZaad !== false);
       setEnableEdahab(dData.enableEdahab !== false);
       setGeminiApiKey(dData.geminiApiKey ?? '');
+
+      try {
+        const catRes = await fetch('/api/categories');
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          setCategories(catData);
+        }
+      } catch (catErr) {
+        console.warn("Could not sync categories inside admin view:", catErr);
+      }
 
       await fetchHeroCampaigns();
     } catch (err) {
@@ -489,6 +508,82 @@ export default function AdminPortal({
     }
   };
 
+  // Categories administration actions
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    try {
+      setCategoriesLoading(true);
+      const subs = newSubcategoriesText
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCategoryName.trim(), subcategories: subs })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(prev => [...prev, data]);
+        setNewCategoryName('');
+        setNewSubcategoriesText('');
+      }
+    } catch (err) {
+      console.error("Failed creating category:", err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleUpdateCategory = async (catId: string) => {
+    if (!editingCategoryName.trim()) return;
+    try {
+      setCategoriesLoading(true);
+      const subs = editingSubcategoriesText
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const res = await fetch(`/api/categories/${catId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editingCategoryName.trim(), subcategories: subs })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(prev => prev.map(c => c.id === catId ? data : c));
+        setEditingCategoryId(null);
+        setEditingCategoryName('');
+        setEditingSubcategoriesText('');
+      }
+    } catch (err) {
+      console.error("Failed updating category:", err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    if (!confirm("Are you sure you want to delete this category?")) return;
+    try {
+      setCategoriesLoading(true);
+      const res = await fetch(`/api/categories/${catId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setCategories(prev => prev.filter(c => c.id !== catId));
+      }
+    } catch (err) {
+      console.error("Failed deleting category:", err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   // File support thread replies
   const handleSupportTicketReply = async (e: React.FormEvent, ticketId: string) => {
     e.preventDefault();
@@ -567,14 +662,15 @@ export default function AdminPortal({
         <div className="lg:col-span-3 space-y-5 lg:sticky lg:top-8">
           
           {/* Quick Menu */}
-          <div className="bg-slate-50/60 border border-slate-200 rounded-2xl p-4.5 space-y-2.5">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-widest font-mono">Control Terminals</span>
+          <div className="bg-emerald-950 border border-emerald-900 rounded-2xl p-4.5 space-y-2.5 text-emerald-100/90 shadow-md animate-in fade-in duration-200">
+            <span className="text-[10px] uppercase font-bold text-emerald-500/80 block tracking-widest font-mono">Control Terminals</span>
             
             <div className="flex flex-col gap-1.5">
               {[
                 { id: 'analytics', label: 'Executive Analytics', count: 0, desc: 'Gross revenue tracking' },
                 { id: 'products', label: 'Inventory & Approvals', count: pendingSubmissions, desc: 'Vendor product audit' },
                 { id: 'vendors', label: 'Vendor Approvals', count: pendingVendorsCount, desc: 'Staff & Seller profiles' },
+                { id: 'categories', label: 'Product Categories', count: categories.length, desc: 'CRUD Categories/Subcategories' },
                 { id: 'delivery', label: 'Home Delivery Logistics', count: orders.filter(o => o.deliveryMethod === 'delivery' && o.status !== 'delivered').length, desc: 'Sortable deliveries, flat rates & packing checklists' },
                 { id: 'ledger', label: 'Merchant Payout Ledger', count: orders.filter(o => o.deliveryMethod === 'delivery' && o.deliveryFeeRemittanceStatus === 'submitted').length, desc: 'Approve cellular mobile remittance receipts' },
                 { id: 'orders', label: 'Store Self-Pickup Clearance', count: orders.filter(o => o.deliveryMethod === 'pickup' && o.status !== 'delivered').length, desc: 'Customer storefront handover' },
@@ -587,14 +683,18 @@ export default function AdminPortal({
                   <button
                     key={subTab.id}
                     onClick={() => { setActiveTab(subTab.id as any); setReplyTicketId(null); }}
-                    className={`w-full text-left cursor-pointer px-3.5 py-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-between border ${isActive ? 'bg-indigo-600 text-white font-bold border-indigo-600 shadow-sm' : 'bg-white text-slate-650 border-slate-200/60 hover:bg-slate-50 hover:text-slate-900 shadow-3xs'}`}
+                    className={`w-full text-left cursor-pointer px-3.5 py-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-between border ${
+                      isActive 
+                        ? 'bg-emerald-800 text-white font-bold border-emerald-700 shadow-sm' 
+                        : 'bg-emerald-900/40 text-emerald-250 border-emerald-900/50 hover:bg-emerald-900/70 hover:text-white'
+                    }`}
                   >
                     <div className="flex flex-col text-left">
                       <span className="text-xs font-extrabold leading-tight">{subTab.label}</span>
-                      <span className={`text-[9.5px] font-normal leading-tight mt-0.5 ${isActive ? 'text-indigo-200' : 'text-slate-400 font-mono'}`}>{subTab.desc}</span>
+                      <span className={`text-[9.5px] font-normal leading-tight mt-0.5 ${isActive ? 'text-emerald-300/80' : 'text-emerald-400/60 font-mono'}`}>{subTab.desc}</span>
                     </div>
                     {subTab.count > 0 && (
-                      <span className={`font-mono text-[9px] px-2 py-0.5 rounded font-black ${isActive ? 'bg-white text-indigo-700' : 'bg-rose-600 text-white animate-pulse'}`}>
+                      <span className={`font-mono text-[9px] px-2 py-0.5 rounded font-black ${isActive ? 'bg-white text-emerald-950' : 'bg-rose-600 text-white animate-pulse'}`}>
                         {subTab.count}
                       </span>
                     )}
@@ -605,23 +705,23 @@ export default function AdminPortal({
           </div>
 
           {/* Quick Stats Summary Card on the Sidebar */}
-          <div className="bg-slate-50/40 border border-slate-200 rounded-2xl p-4.5 space-y-3.5">
+          <div className="bg-emerald-950 border border-emerald-900 rounded-2xl p-4.5 space-y-3.5 text-emerald-100/95 shadow-md">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[10px] text-slate-550 font-extrabold uppercase tracking-wider font-mono">Marketplace Health</span>
+              <span className="text-[10px] text-emerald-500/80 font-extrabold uppercase tracking-wider font-mono">Marketplace Health</span>
             </div>
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between border-b border-slate-200/45 pb-1.5">
-                <span className="text-slate-500">Service Status:</span>
-                <span className="font-bold text-slate-800">Operational</span>
+              <div className="flex justify-between border-b border-emerald-900/60 pb-1.5">
+                <span className="text-emerald-400/80">Service Status:</span>
+                <span className="font-bold text-white">Operational</span>
               </div>
-              <div className="flex justify-between border-b border-slate-200/45 pb-1.5">
-                <span className="text-slate-500">Administered Shops:</span>
-                <span className="font-bold text-indigo-800 font-mono">{vendors.length} Shops</span>
+              <div className="flex justify-between border-b border-emerald-900/60 pb-1.5">
+                <span className="text-emerald-400/80">Administered Shops:</span>
+                <span className="font-bold text-emerald-300 font-mono">{vendors.length} Shops</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Payment Gateways:</span>
-                <span className="font-mono text-[10px] text-emerald-700 font-extrabold">ONLINE (SECURE)</span>
+                <span className="text-emerald-400/80">Payment Gateways:</span>
+                <span className="font-mono text-[10px] text-emerald-400 font-extrabold">ONLINE (SECURE)</span>
               </div>
             </div>
           </div>
@@ -2719,6 +2819,154 @@ export default function AdminPortal({
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Module 7: Product Categories Manager */}
+        {activeTab === 'categories' && (
+          <div className="space-y-6 text-left animate-in fade-in duration-200" id="admin-categories-section">
+            <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="space-y-1 text-left">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-5 h-5 text-indigo-600 animate-pulse" /> Categories & Subcategories Administration
+                </h3>
+                <p className="text-[11.5px] text-slate-500 leading-relaxed max-w-2xl text-left">
+                  Configure store product categories and sub-category namespaces dynamically. Ensure your inventory classification rules remain highly tailored.
+                </p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded px-4 py-2.5 shrink-0 shadow-3xs font-mono text-center">
+                <span className="block text-[8.5px] uppercase text-slate-400 font-bold tracking-wider">Active Category Nodes</span>
+                <span className="text-sm font-black text-slate-850">{categories.length} Primary Classes</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Create or Edit Category Node */}
+              <div className="lg:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                  {editingCategoryId ? 'Modify Categorization Group' : 'Develop Classification Node'}
+                </h4>
+                
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (editingCategoryId) {
+                    handleUpdateCategory(editingCategoryId);
+                  } else {
+                    handleCreateCategory(e);
+                  }
+                }} className="space-y-4">
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Category Name</label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="e.g. Health & Care"
+                      value={editingCategoryId ? editingCategoryName : newCategoryName}
+                      onChange={(e) => editingCategoryId ? setEditingCategoryName(e.target.value) : setNewCategoryName(e.target.value)}
+                      className="w-full text-xs bg-slate-50 border border-slate-250 rounded px-3.5 py-2.5 text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-600 font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Subcategories (Comma separated)</label>
+                    <textarea
+                      placeholder="e.g. Skincare, Aromatherapy, Supplements"
+                      rows={4}
+                      value={editingCategoryId ? editingSubcategoriesText : newSubcategoriesText}
+                      onChange={(e) => editingCategoryId ? setEditingSubcategoriesText(e.target.value) : setNewSubcategoriesText(e.target.value)}
+                      className="w-full text-xs bg-slate-50 border border-slate-250 rounded px-3.5 py-2.5 text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-600 font-mono"
+                    />
+                    <p className="text-[9.5px] text-slate-400 leading-snug">Divide child namespaces with commas. Values are fully synced across multi-merchant select parameters.</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {editingCategoryId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCategoryId(null);
+                          setEditingCategoryName('');
+                          setEditingSubcategoriesText('');
+                        }}
+                        className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded text-xs font-black transition cursor-pointer text-center font-sans border border-slate-200"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={categoriesLoading}
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 font-sans"
+                    >
+                      {categoriesLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        editingCategoryId ? 'Save Changes' : 'Create Node'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Right Column: Interactive Category Hierarchy List */}
+              <div className="lg:col-span-8 space-y-4">
+                {categories.length === 0 ? (
+                  <div className="p-12 text-center rounded bg-slate-50 border border-dashed border-slate-200">
+                    <span className="text-xs font-mono text-slate-500 block">No Custom Category Nodes exist.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {categories.map((cat) => (
+                      <div key={cat.id} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between shadow-3xs hover:border-slate-350 transition">
+                        <div className="space-y-2 text-left">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-[9px] font-mono text-slate-400 uppercase">ID: {cat.id}</span>
+                              <h4 className="font-extrabold text-slate-800 text-sm leading-tight">{cat.name}</h4>
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingCategoryId(cat.id);
+                                  setEditingCategoryName(cat.name);
+                                  setEditingSubcategoriesText(cat.subcategories.join(', '));
+                                }}
+                                title="Edit Category"
+                                className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-indigo-600 transition cursor-pointer"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCategory(cat.id)}
+                                title="Delete Category"
+                                className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-rose-600 transition cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="pt-2">
+                            <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Subcategories</span>
+                            {cat.subcategories.length === 0 ? (
+                              <span className="text-[10px] text-slate-400 italic font-mono">No subcategories defined.</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {cat.subcategories.map((sub, sIdx) => (
+                                  <span key={sIdx} className="text-[9.5px] font-semibold bg-slate-100 text-slate-650 px-2 py-0.5 rounded-full border border-slate-200/50">
+                                    {sub}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

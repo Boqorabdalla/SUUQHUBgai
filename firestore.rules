@@ -117,6 +117,12 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    // 7.5. Categories Collection (fixing Hostinger / direct client-side CRUD)
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
     // 8. Support Tickets
     match /support-tickets/{ticketId} {
       allow read, write: if isSignedIn();

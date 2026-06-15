@@ -15,6 +15,7 @@ import AdminPortal from './components/AdminPortal';
 import AIChatAgent from './components/AIChatAgent';
 import LoginView from './components/LoginView';
 import PwaInstallModal from './components/PwaInstallModal';
+import AllVendorsView from './components/AllVendorsView';
 
 import { Product, CartItem, Coupon, UserRole, HeroCampaign } from './types';
 import { initialProducts } from './initialData';
@@ -32,6 +33,7 @@ export default function App() {
 
   // Slider interactive showcase state
   const [heroCampaigns, setHeroCampaigns] = useState<HeroCampaign[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Remaining catalog "View All" section filters modal state
@@ -51,6 +53,7 @@ export default function App() {
   const [selectedTag, setSelectedTag] = useState<string>('All');
   const [sortOption, setSortOption] = useState<string>('default');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [categoriesList, setCategoriesList] = useState<string[]>(['All', 'Electronics', 'Fashion', 'Living', 'Beauty']);
 
   // Routing navigation control states
   // 'catalog' | 'checkout' | 'dashboard' | 'vendor' | 'admin'
@@ -169,11 +172,26 @@ export default function App() {
 
   const fetchLiveCatalog = async () => {
     try {
+      // Fetch categories dynamically
+      try {
+        const catRes = await fetch('/api/categories');
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          if (Array.isArray(catData)) {
+            const rawNames = catData.map((c: any) => c.name);
+            setCategoriesList(['All', ...rawNames]);
+          }
+        }
+      } catch (catErr) {
+        console.warn("Could not load dynamic categories on storefront:", catErr);
+      }
+
       // Fetch only "approved" items for standard catalog, or all if we are on Admin views
       const queryParam = selectedRole === 'superadmin' ? '' : '?approval=approved';
-      const [pRes, campRes] = await Promise.all([
+      const [pRes, campRes, vRes] = await Promise.all([
         fetch(`/api/products${queryParam}`),
-        fetch('/api/hero-campaigns')
+        fetch('/api/hero-campaigns'),
+        fetch('/api/vendors')
       ]);
 
       if (pRes.ok) {
@@ -204,6 +222,16 @@ export default function App() {
           }
         }
       }
+
+      if (vRes.ok) {
+        const contentType = vRes.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const vData = await vRes.json();
+          if (Array.isArray(vData)) {
+            setVendors(vData);
+          }
+        }
+      }
     } catch (err) {
       console.error("Failed fetching products or campaigns catalog:", err);
       setProducts(initialProducts);
@@ -219,6 +247,12 @@ export default function App() {
   };
 
   const handleAddToCart = (product: Product, color?: string, size?: string, qty = 1) => {
+    const vendor = vendors.find(v => v.id === product.vendorId);
+    if (vendor && vendor.isClosed) {
+      alert(`Cannot add to cart: '${product.title}' is from '${vendor.vendorName}', which is temporarily closed.`);
+      return;
+    }
+
     const itemUniqueId = `${product.id}-${color || ''}-${size || ''}`;
     
     setCart(prev => {
@@ -286,8 +320,7 @@ export default function App() {
     filteredProducts.sort((a, b) => b.rating - a.rating);
   }
 
-  // Categories lists config
-  const categoriesList = ['All', 'Electronics', 'Fashion', 'Living', 'Beauty'];
+  // Categories lists config (migrated to reactive state hook categoriesList)
 
   const t = translations[lang];
   const isRtl = lang === 'ar';
@@ -567,6 +600,7 @@ export default function App() {
                     onAddToCart={handleAddToCart}
                     isWishlisted={wishlist.includes(p.id)}
                     onToggleWishlist={handleToggleWishlist}
+                    isVendorClosed={vendors.find(v => v.id === p.vendorId)?.isClosed}
                   />
                 ))}
               </div>
@@ -595,6 +629,7 @@ export default function App() {
                       onAddToCart={handleAddToCart}
                       isWishlisted={wishlist.includes(p.id)}
                       onToggleWishlist={handleToggleWishlist}
+                      isVendorClosed={vendors.find(v => v.id === p.vendorId)?.isClosed}
                     />
                   ))}
                 </div>
@@ -625,6 +660,7 @@ export default function App() {
                         onAddToCart={handleAddToCart}
                         isWishlisted={wishlist.includes(p.id)}
                         onToggleWishlist={handleToggleWishlist}
+                        isVendorClosed={vendors.find(v => v.id === p.vendorId)?.isClosed}
                       />
                     ))}
                   </div>
@@ -653,6 +689,7 @@ export default function App() {
                         onAddToCart={handleAddToCart}
                         isWishlisted={wishlist.includes(p.id)}
                         onToggleWishlist={handleToggleWishlist}
+                        isVendorClosed={vendors.find(v => v.id === p.vendorId)?.isClosed}
                       />
                     ))}
                   </div>
@@ -681,6 +718,7 @@ export default function App() {
                         onAddToCart={handleAddToCart}
                         isWishlisted={wishlist.includes(p.id)}
                         onToggleWishlist={handleToggleWishlist}
+                        isVendorClosed={vendors.find(v => v.id === p.vendorId)?.isClosed}
                       />
                     ))}
                   </div>
@@ -709,6 +747,7 @@ export default function App() {
                         onAddToCart={handleAddToCart}
                         isWishlisted={wishlist.includes(p.id)}
                         onToggleWishlist={handleToggleWishlist}
+                        isVendorClosed={vendors.find(v => v.id === p.vendorId)?.isClosed}
                       />
                     ))}
                   </div>
@@ -737,6 +776,7 @@ export default function App() {
                         onAddToCart={handleAddToCart}
                         isWishlisted={wishlist.includes(p.id)}
                         onToggleWishlist={handleToggleWishlist}
+                        isVendorClosed={vendors.find(v => v.id === p.vendorId)?.isClosed}
                       />
                     ))}
                   </div>
@@ -1048,6 +1088,21 @@ export default function App() {
       );
     }
 
+    if (activeTab === 'all-vendors') {
+      return (
+        <AllVendorsView
+          vendors={vendors}
+          products={products}
+          currency={currency}
+          onProductClick={(p) => setDetailedProduct(p)}
+          onAddToCart={handleAddToCart}
+          wishlist={wishlist}
+          onToggleWishlist={handleToggleWishlist}
+          lang={lang}
+        />
+      );
+    }
+
     return null;
   };
 
@@ -1096,6 +1151,95 @@ export default function App() {
         } : undefined}
       />
 
+      {/* Green Sub-navigation ribbon bar - MATCHING IMAGE 1 */}
+      <div className="bg-[#0f5132] text-white select-none whitespace-nowrap border-t border-[#0c3e26]/30 shadow-sm relative z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-12">
+          {/* Left Category Selector dropdown trigger */}
+          <div className="relative group/cat h-full flex items-center">
+            <button className="flex items-center gap-2 px-5 py-3.5 bg-[#0c3e26] hover:bg-[#051e12] font-sans font-extrabold text-[12px] uppercase tracking-wider transition cursor-pointer h-full border-r border-[#0a331f]/40">
+              <LayoutGrid className="w-4 h-4 text-[#7ebd24]" />
+              <span>Categories</span>
+              <ChevronRight className="w-3.5 h-3.5 rotate-90 text-white/70" />
+            </button>
+            {/* Dropdown list */}
+            <div className="absolute top-full left-0 w-52 bg-white text-slate-800 rounded-b-lg border border-slate-200 shadow-xl opacity-0 invisible group-hover/cat:opacity-100 group-hover/cat:visible transition-all duration-150 py-1.5 z-50 text-left font-semibold text-xs divide-y divide-slate-50">
+              {categoriesList.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setSelectedCategory(cat);
+                    setViewAllSection(null);
+                    setActiveTab('catalog');
+                  }}
+                  className="w-full text-left px-5 py-2.5 hover:bg-slate-50 hover:text-slate-900 transition flex justify-between items-center cursor-pointer text-xs"
+                >
+                  <span className="font-sans font-bold text-slate-700">{cat === 'All' ? 'All Collections' : cat}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-350" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Nav links EXACTLY matching Image 1 */}
+          <div className="flex items-center gap-1 sm:gap-2 flex-nowrap shrink-0 overflow-x-auto h-full scrollbar-none font-sans font-extrabold text-[12.5px] tracking-wide">
+            <button 
+              onClick={() => { setActiveTab('catalog'); setSelectedCategory('All'); setViewAllSection(null); setSearchTerm(''); }} 
+              className="px-4 h-full flex items-center hover:bg-white/10 hover:text-[#7ebd24] transition cursor-pointer"
+            >
+              Home
+            </button>
+            <button 
+              onClick={() => { setActiveTab('catalog'); setSearchTerm('Pro'); }} 
+              className="px-4 h-full flex items-center hover:bg-white/10 hover:text-[#7ebd24] transition cursor-pointer"
+            >
+              Brand
+            </button>
+            <button 
+              onClick={() => { setViewAllSection('flash'); setActiveTab('catalog'); }} 
+              className="px-4 h-full flex items-center hover:bg-white/10 hover:text-[#7ebd24] transition cursor-pointer gap-1"
+            >
+              Offers
+              <ChevronRight className="w-3 h-3 rotate-90 text-white/50" />
+            </button>
+            <button 
+              onClick={() => { setSelectedCategory('Literature'); setActiveTab('catalog'); setViewAllSection(null); }} 
+              className="px-4 h-full flex items-center hover:bg-white/10 hover:text-[#7ebd24] transition cursor-pointer"
+            >
+              Publication House
+            </button>
+            <button 
+              onClick={() => { setActiveTab('all-vendors'); }} 
+              className={`px-4.5 h-full flex items-center transition cursor-pointer ${activeTab === 'all-vendors' ? 'bg-[#0c3e26] text-[#7ebd24] border-b-3 border-[#7ebd24]' : 'hover:bg-white/10 hover:text-[#7ebd24]'}`}
+            >
+              All Vendors
+            </button>
+            
+            {/* Vendor Zone dropdown */}
+            <div className="relative group/vz h-full flex items-center">
+              <button className="px-4 h-full flex items-center hover:bg-white/10 hover:text-[#7ebd24] gap-1 transition cursor-pointer">
+                Vendor Zone
+                <ChevronRight className="w-3 h-3 rotate-90 text-white/50" />
+              </button>
+              {/* Dropdown list */}
+              <div className="absolute top-full right-0 w-48 bg-white text-slate-800 rounded-b-lg border border-slate-200 shadow-xl opacity-0 invisible group-hover/vz:opacity-100 group-hover/vz:visible transition-all duration-150 py-1.5 z-50 text-left font-bold text-xs animate-in slide-in-from-top-1">
+                <button 
+                  onClick={() => { setActiveTab('vendor'); }} 
+                  className="w-full text-left px-5 py-2.5 hover:bg-slate-50 hover:text-[#0f5132] transition cursor-pointer flex items-center gap-2 text-slate-705 text-xs font-bold"
+                >
+                  Go to Vendor Portal
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('login'); }} 
+                  className="w-full text-left px-5 py-2.5 hover:bg-slate-50 hover:text-[#0f5132] transition cursor-pointer flex items-center gap-2 text-slate-705 text-xs font-bold"
+                >
+                  Register New Store
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Container contents */}
       <main className="flex-1 w-full relative">
         <AnimatePresence mode="wait">
@@ -1113,10 +1257,23 @@ export default function App() {
         currency={currency}
         lang={lang}
         onCheckout={(coupon) => {
+          // Check if any cart item has a closed vendor
+          for (const item of cart) {
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+              const vendor = vendors.find(v => v.id === prod.vendorId);
+              if (vendor && vendor.isClosed) {
+                alert(`Cannot checkout: '${prod.title}' is from '${vendor.vendorName}', which is temporarily closed.`);
+                return;
+              }
+            }
+          }
           setAppliedCheckoutCoupon(coupon);
           setCartOpen(false);
           setActiveTab('checkout');
         }}
+        products={products}
+        vendors={vendors}
       />
 
       {/* Floating Sparkles Personal AI shopper Bot element */}
@@ -1136,6 +1293,7 @@ export default function App() {
           currency={currency}
           lang={lang}
           onAddToCart={handleAddToCart}
+          isVendorClosed={vendors.find(v => v.id === detailedProduct.vendorId)?.isClosed}
         />
       )}
 

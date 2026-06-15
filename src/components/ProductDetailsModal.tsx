@@ -15,6 +15,7 @@ interface ProductDetailsModalProps {
   currency: 'USD' | 'EUR' | 'AED';
   lang: 'en' | 'ar' | 'es';
   onAddToCart: (product: Product, color?: string, size?: string, qty?: number) => void;
+  isVendorClosed?: boolean;
 }
 
 export default function ProductDetailsModal({
@@ -23,7 +24,8 @@ export default function ProductDetailsModal({
   onClose,
   currency,
   lang,
-  onAddToCart
+  onAddToCart,
+  isVendorClosed = false
 }: ProductDetailsModalProps) {
   if (!isOpen) return null;
 
@@ -133,7 +135,11 @@ export default function ProductDetailsModal({
                   {formatPrice(computedSinglePrice, currency)}
                 </span>
               </div>
-              {product.stock <= 0 ? (
+              {isVendorClosed ? (
+                <span className="text-xs font-bold text-rose-500 bg-rose-500/10 px-3 py-1 rounded-lg border border-rose-500/20 animate-pulse">
+                  Temporarily Closed
+                </span>
+              ) : product.stock <= 0 ? (
                 <span className="text-xs font-bold text-red-500 bg-red-500/10 px-3 py-1 rounded-lg border border-red-500/20">
                   {t.outOfStock}
                 </span>
@@ -203,10 +209,16 @@ export default function ProductDetailsModal({
 
               <button
                 onClick={handleSubAdd}
-                disabled={product.stock <= 0}
-                className={`cursor-pointer flex-1 py-3 px-6 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition duration-300 ${product.stock <= 0 ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:shadow-lg hover:shadow-amber-400/20 active:scale-95'}`}
+                disabled={product.stock <= 0 || isVendorClosed}
+                className={`cursor-pointer flex-1 py-3 px-6 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition duration-300 ${
+                  product.stock <= 0 || isVendorClosed 
+                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:shadow-lg hover:shadow-amber-400/20 active:scale-95'
+                }`}
               >
-                Add {quantity} to Cart ({formatPrice(computedSinglePrice * quantity, currency)})
+                {isVendorClosed 
+                  ? 'Store Temporarily Closed (Actions Paused)' 
+                  : `Add ${quantity} to Cart (${formatPrice(computedSinglePrice * quantity, currency)})`}
               </button>
               
               {/* Share Trigger */}

@@ -72,7 +72,7 @@ export default function PwaInstallModal({ isOpen, onClose, appName }: PwaInstall
         className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden text-left relative animate-in zoom-in-95 duration-200"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#0e75cc] to-indigo-600 px-6 py-5 text-white flex justify-between items-center relative">
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5 text-white flex justify-between items-center relative">
           <div className="flex items-center gap-2.5">
             <Download className="w-5 h-5 animate-pulse text-indigo-100" />
             <div>
@@ -97,9 +97,9 @@ export default function PwaInstallModal({ isOpen, onClose, appName }: PwaInstall
                 {/* Simulated App Icon */}
                 <div className="w-12 h-12 bg-white rounded-xl border border-indigo-150 flex items-center justify-center p-1 shadow-xs shrink-0 select-none">
                   <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                    <path d="M12 20 L23 42 C24 44 21 47 18 47 C15 47 12 44 13 42 L12 20 Z" fill="#0e75cc" />
+                    <path d="M12 20 L23 42 C24 44 21 47 18 47 C15 47 12 44 13 42 L12 20 Z" fill="#0f5132" />
                     <path d="M30 20 L33 42 C34 44 31 47 28 47 C25 47 22 44 23 42 L30 20 Z" fill="#7ebd24" />
-                    <path d="M48 20 L44 42 C43 44 40 47 37 47 C34 47 32 44 33 42 L41 20 Z" fill="#0e75cc" />
+                    <path d="M48 20 L44 42 C43 44 40 47 37 47 C34 47 32 44 33 42 L41 20 Z" fill="#0f5132" />
                     <path d="M50 40 C38 40 33 48 33 58 C33 71 50 87 50 87 C50 87 67 71 67 58 C67 48 62 40 50 40 Z" fill="#7ebd24" />
                     <circle cx="50" cy="54" r="5" fill="#ffffff" />
                   </svg>
@@ -207,7 +207,7 @@ export default function PwaInstallModal({ isOpen, onClose, appName }: PwaInstall
                     <div className="flex gap-4 items-center">
                       <div className="w-9 h-9 bg-white rounded border border-indigo-150 flex items-center justify-center p-0.5 shadow-md">
                         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                          <path d="M12 20 L23 42 C24 44 21 47 18 47 L12 20 Z" fill="#0e75cc" />
+                          <path d="M12 20 L23 42 C24 44 21 47 18 47 L12 20 Z" fill="#0f5132" />
                           <path d="M30 20 L33 42 C34 44 31 47 28 47 L30 20 Z" fill="#7ebd24" />
                           <circle cx="50" cy="54" r="5" fill="#ffffff" />
                         </svg>

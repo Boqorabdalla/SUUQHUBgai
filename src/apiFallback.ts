@@ -18,16 +18,184 @@ import { initialProducts, initialCoupons, initialOrders } from './initialData';
 
 const initialVendors = [
   {
-    id: "usr-vendor-02",
-    vendorName: "Global Trader Store",
-    representativeName: "Sarah Connor",
-    email: "sarah@globaltrader.com",
+    id: "vnd-6valley",
+    vendorName: "6valley CMS",
+    representativeName: "Devon Lane",
+    email: "6valley@suuqhub.com",
+    category: "eCommerce Services",
+    status: "approved",
+    earnings: 3241.50,
+    description: "Sovereign multi-merchant CMS system integrations, bespoke digital solutions and support.",
+    taxId: "TRN-9948212",
+    createdAt: "2026-05-10T11:00:00Z",
+    password: "6valleyPass123",
+    rating: 4.8,
+    reviewsCount: 4,
+    productsCount: 194,
+    ordersCount: 201,
+    banner: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80",
+    logo: "6V",
+    isClosed: false
+  },
+  {
+    id: "vnd-bicycle",
+    vendorName: "Bicycle Shop",
+    representativeName: "Cycle Specialist",
+    email: "bicycle@suuqhub.com",
+    category: "Sports & Fitness",
+    status: "approved",
+    earnings: 450.00,
+    description: "All variety of fitness bicycles, mountain bikes, road gears and repair accessories.",
+    taxId: "TRN-8848123",
+    createdAt: "2026-05-12T09:00:00Z",
+    password: "bicyclePass123",
+    rating: 0.0,
+    reviewsCount: 0,
+    productsCount: 14,
+    ordersCount: 59,
+    banner: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=800&q=80",
+    logo: "BS",
+    isClosed: false
+  },
+  {
+    id: "vnd-book",
+    vendorName: "Book Store",
+    representativeName: "Albert Page",
+    email: "bookstore@suuqhub.com",
+    category: "Literature",
+    status: "approved",
+    earnings: 820.00,
+    description: "Multi-genre academic bookshelves, children's publications and local printing hub.",
+    taxId: "TRN-7742199",
+    createdAt: "2026-05-14T14:30:00Z",
+    password: "bookstorePass123",
+    rating: 4.5,
+    reviewsCount: 2,
+    productsCount: 19,
+    ordersCount: 74,
+    banner: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80",
+    logo: "BK",
+    isClosed: false
+  },
+  {
+    id: "vnd-jewel",
+    vendorName: "Golden Jewellery",
+    representativeName: "Sarah Stone",
+    email: "jewel@suuqhub.com",
+    category: "Fashion Accessories",
+    status: "approved",
+    earnings: 4890.00,
+    description: "Luxury sovereign metal rings, bridal bands and fine jewelry accessories.",
+    taxId: "TRN-1122334",
+    createdAt: "2026-05-15T10:15:00Z",
+    password: "jewelPass123",
+    rating: 3.0,
+    reviewsCount: 1,
+    productsCount: 17,
+    ordersCount: 88,
+    banner: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80",
+    logo: "GJ",
+    isClosed: false
+  },
+  {
+    id: "vnd-foot",
+    vendorName: "FootFinds",
+    representativeName: "Marcus Sole",
+    email: "sneakers@suuqhub.com",
+    category: "Fashion",
+    status: "approved",
+    earnings: 1105.00,
+    description: "Trending athletic footwear, leather casual sets and exclusive sneakers.",
+    taxId: "TRN-5544332",
+    createdAt: "2026-05-18T16:00:00Z",
+    password: "sneakersPass123",
+    rating: 5.0,
+    reviewsCount: 1,
+    productsCount: 13,
+    ordersCount: 42,
+    banner: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80",
+    logo: "FF",
+    isClosed: false
+  },
+  {
+    id: "vnd-phone",
+    vendorName: "Phone Store",
+    representativeName: "David Tech",
+    email: "phonestore@suuqhub.com",
     category: "Electronics",
     status: "approved",
-    earnings: 1845.00,
-    description: "Your local source for fine electronics and high-performance products.",
-    taxId: "TRN-9948212",
-    createdAt: "2026-05-10T11:00:00Z"
+    earnings: 1950.00,
+    description: "Certified smartphones, tablets, high-performance battery replacements and charges.",
+    taxId: "TRN-9988776",
+    createdAt: "2026-5-20T08:00:00Z",
+    password: "phonestorePass123",
+    rating: 0.0,
+    reviewsCount: 0,
+    productsCount: 13,
+    ordersCount: 112,
+    banner: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80",
+    logo: "PS",
+    isClosed: false
+  },
+  {
+    id: "vnd-liceria",
+    vendorName: "Liceria & Co.",
+    representativeName: "Lia Liceria",
+    email: "liceria@suuqhub.com",
+    category: "Bags & Lifestyle",
+    status: "approved",
+    earnings: 0.00,
+    description: "Chic modern handbags, leather duffel bags and luxury fashion statement products.",
+    taxId: "TRN-4455667",
+    createdAt: "2026-05-22T13:45:00Z",
+    password: "liceriaPass123",
+    rating: 0.0,
+    reviewsCount: 0,
+    productsCount: 28,
+    ordersCount: 15,
+    banner: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80",
+    logo: "LC",
+    isClosed: true
+  },
+  {
+    id: "vnd-pets",
+    vendorName: "Pets Store",
+    representativeName: "Bella Fur",
+    email: "pets@suuqhub.com",
+    category: "Pet Care",
+    status: "approved",
+    earnings: 180.00,
+    description: "Premium pet nutrition meals, organic chew items, dynamic scratch cards and toys.",
+    taxId: "TRN-7788990",
+    createdAt: "2026-05-25T11:20:00Z",
+    password: "petsPass123",
+    rating: 0.0,
+    reviewsCount: 0,
+    productsCount: 13,
+    ordersCount: 34,
+    banner: "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=800&q=80",
+    logo: "PT",
+    isClosed: false
+  },
+  {
+    id: "vnd-athletic",
+    vendorName: "Athletic Venture",
+    representativeName: "Coach Alan",
+    email: "athletics@suuqhub.com",
+    category: "Sports & Gym",
+    status: "approved",
+    earnings: 0.00,
+    description: "Performance sportswear, sweat bands, heavyweight dumbells and fitness rigs.",
+    taxId: "TRN-1133557",
+    createdAt: "2026-05-27T15:10:00Z",
+    password: "athleticsPass123",
+    rating: 0.0,
+    reviewsCount: 0,
+    productsCount: 16,
+    ordersCount: 8,
+    banner: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80",
+    logo: "AV",
+    isClosed: true
   },
   {
     id: "usr-vendor-03",
@@ -36,11 +204,18 @@ const initialVendors = [
     email: "Manaal@gmail.com",
     category: "Beauty",
     status: "approved",
-    earnings: 0.00,
-    description: "Premium organic skin care products and dermatological solutions.",
+    earnings: 550.00,
+    description: "Premium organic skin care products, hydration salves and dermatological solutions.",
     taxId: "TRN-3382741",
     createdAt: "2026-06-01T12:00:00Z",
-    password: "123abc123"
+    password: "123abc123",
+    rating: 4.9,
+    reviewsCount: 3,
+    productsCount: 11,
+    ordersCount: 45,
+    banner: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80",
+    logo: "MS",
+    isClosed: false
   }
 ];
 
@@ -75,8 +250,23 @@ const initialHeroCampaigns = [
   }
 ];
 
+const fallbackCache: Record<string, any[]> = {};
+
+export function clearFallbackCache(collectionName?: string) {
+  if (collectionName) {
+    delete fallbackCache[collectionName];
+  } else {
+    for (const key of Object.keys(fallbackCache)) {
+      delete fallbackCache[key];
+    }
+  }
+}
+
 async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
   try {
+    if (collectionName !== 'orders' && fallbackCache[collectionName] && fallbackCache[collectionName].length > 0) {
+      return fallbackCache[collectionName];
+    }
     const colRef = collection(db, collectionName);
     
     let snap;
@@ -218,6 +408,9 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
           return p;
         });
       }
+      if (collectionName !== 'orders') {
+        fallbackCache[collectionName] = docs;
+      }
       return docs;
     }
 
@@ -234,6 +427,9 @@ async function getCollectionDocs(collectionName: string, defaultData?: any[]) {
         }
         return p;
       });
+    }
+    if (collectionName !== 'orders') {
+      fallbackCache[collectionName] = docs;
     }
     return docs;
   } catch (err) {
@@ -337,6 +533,80 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
       }
     }
 
+    // 1.5. CATEGORIES
+    if (pathname.startsWith('/api/categories')) {
+      const id = pathname.replace('/api/categories', '').replace('/', '');
+      const defaultCategories = [
+        { id: "electronics", name: "Electronics", subcategories: ["Audio", "Wearables", "Accessories"] },
+        { id: "fashion", name: "Fashion", subcategories: ["Bags", "Apparel", "Footwear"] },
+        { id: "living", name: "Living", subcategories: ["Hydration", "Office Furniture"] },
+        { id: "beauty", name: "Beauty", subcategories: ["Wellness"] }
+      ];
+
+      if (id) {
+        const docRef = doc(db, 'categories', id);
+        if (method === 'DELETE') {
+          await deleteDoc(docRef);
+          clearFallbackCache('categories');
+          return jsonResponse({ success: true, message: "Category deleted" });
+        } else if (method === 'PUT') {
+          const snap = await getDoc(docRef);
+          const existing = snap.exists() ? snap.data() : { name: '', subcategories: [] };
+          const merged = {
+            ...existing,
+            ...bodyObj,
+            id
+          };
+          await setDoc(docRef, merged);
+          clearFallbackCache('categories');
+          return jsonResponse(merged);
+        }
+      } else {
+        if (method === 'GET') {
+          const list = await getCollectionDocs('categories', defaultCategories);
+          return jsonResponse(list);
+        } else if (method === 'POST') {
+          const name = bodyObj.name || '';
+          const idValue = name.toLowerCase().trim().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-") || `cat-${Date.now()}`;
+          const newCat = {
+            id: idValue,
+            name: name.trim(),
+            subcategories: Array.isArray(bodyObj.subcategories) ? bodyObj.subcategories : []
+          };
+          await setDoc(doc(db, 'categories', idValue), newCat);
+          clearFallbackCache('categories');
+          return jsonResponse(newCat, 201);
+        }
+      }
+    }
+
+const getVendorForProduct = (product: any) => {
+  const cat = (product.category || '').toLowerCase();
+  const sub = (product.subcategory || '').toLowerCase();
+  
+  if (cat.includes('beauty') || cat.includes('skin') || sub.includes('skin')) {
+    return { id: 'usr-vendor-03', name: 'Manaal skin care' };
+  } else if (cat.includes('sport') || cat.includes('gym')) {
+    if (sub.includes('gear') || sub.includes('cycle') || sub.includes('bike') || product.id?.includes('bike') || product.id?.includes('edelbrock') || product.id?.includes('trailer') || product.id?.includes('wheel') || product.id?.includes('ledlights')) {
+      return { id: 'vnd-bicycle', name: 'Bicycle Shop' };
+    }
+    return { id: 'vnd-athletic', name: 'Athletic Venture' };
+  } else if (cat.includes('liter') || cat.includes('book') || sub.includes('fiction')) {
+    return { id: 'vnd-book', name: 'Book Store' };
+  } else if (cat.includes('jewel') || sub.includes('ring') || product.id?.includes('ring')) {
+    return { id: 'vnd-jewel', name: 'Golden Jewellery' };
+  } else if (sub.includes('footwear') || sub.includes('shoe') || product.id?.includes('shoes')) {
+    return { id: 'vnd-foot', name: 'FootFinds' };
+  } else if (cat.includes('pet')) {
+    return { id: 'vnd-pets', name: 'Pets Store' };
+  } else if (sub.includes('audio') || sub.includes('wearable') || product.id?.includes('headphones') || product.id?.includes('watch')) {
+    return { id: 'vnd-phone', name: 'Phone Store' };
+  } else if (cat.includes('fashion') || cat.includes('bag') || product.id?.includes('backpack') || product.id?.includes('sweater')) {
+    return { id: 'vnd-liceria', name: 'Liceria & Co.' };
+  }
+  return { id: 'vnd-6valley', name: '6valley CMS' };
+};
+
     // 2. PRODUCTS
     if (pathname.startsWith('/api/products')) {
       const id = pathname.replace('/api/products', '').replace('/', '');
@@ -347,9 +617,9 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
           if (snap.exists()) {
             const productData = { ...snap.data(), id: snap.id } as any;
             if (!productData.vendorId) {
-              const isBeauty = productData.category === 'Beauty';
-              productData.vendorId = isBeauty ? 'usr-vendor-03' : 'usr-vendor-02';
-              productData.vendorName = isBeauty ? 'Manaal skin care' : 'Global Trader Store';
+              const info = getVendorForProduct(productData);
+              productData.vendorId = info.id;
+              productData.vendorName = info.name;
             }
             return jsonResponse(productData);
           } else {
@@ -365,15 +635,25 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
             stock: bodyObj.stock !== undefined ? Number(bodyObj.stock) : existing.stock
           };
           await setDoc(docRef, merged);
+          clearFallbackCache('products');
           return jsonResponse(merged);
         } else if (method === 'DELETE') {
           await deleteDoc(docRef);
+          clearFallbackCache('products');
           return jsonResponse({ success: true, message: "Product deleted" });
         }
       } else {
         if (method === 'GET') {
           const rawProducts = await getCollectionDocs('products', initialProducts);
-          let filtered = [...rawProducts];
+          let filtered = rawProducts.map((p: any) => {
+            const mapped = { ...p };
+            if (!mapped.vendorId) {
+              const info = getVendorForProduct(mapped);
+              mapped.vendorId = info.id;
+              mapped.vendorName = info.name;
+            }
+            return mapped;
+          });
 
           const category = searchParams.get('category');
           const search = searchParams.get('search');
@@ -417,6 +697,7 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
             specifications: bodyObj.specifications || {}
           };
           await setDoc(doc(db, 'products', pId), newProduct);
+          clearFallbackCache('products');
           return jsonResponse(newProduct, 201);
         }
       }
@@ -590,6 +871,7 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
           };
 
           await setDoc(doc(db, 'orders', orderId), newOrder);
+          clearFallbackCache('products');
           return jsonResponse(newOrder, 201);
         }
       }
@@ -617,11 +899,15 @@ const customFetch = async function(input: RequestInfo | URL, init?: RequestInit)
         const existing = snap.data();
         const merged = {
           ...existing,
-          email: bodyObj.email || existing.email,
+          email: bodyObj.email !== undefined ? bodyObj.email : existing.email,
           password: bodyObj.password !== undefined ? bodyObj.password : existing.password,
-          representativeName: bodyObj.representativeName || existing.representativeName,
+          representativeName: bodyObj.representativeName !== undefined ? bodyObj.representativeName : existing.representativeName,
           zaadNumber: bodyObj.zaadNumber !== undefined ? bodyObj.zaadNumber : existing.zaadNumber,
-          edahabNumber: bodyObj.edahabNumber !== undefined ? bodyObj.edahabNumber : existing.edahabNumber
+          edahabNumber: bodyObj.edahabNumber !== undefined ? bodyObj.edahabNumber : existing.edahabNumber,
+          banner: bodyObj.banner !== undefined ? bodyObj.banner : existing.banner,
+          logo: bodyObj.logo !== undefined ? bodyObj.logo : existing.logo,
+          isClosed: bodyObj.isClosed !== undefined ? bodyObj.isClosed : existing.isClosed,
+          description: bodyObj.description !== undefined ? bodyObj.description : existing.description
         };
         await setDoc(docRef, merged);
         return jsonResponse(merged);

@@ -175,6 +175,13 @@ export interface Vendor {
   zaadNumber?: string;
   edahabNumber?: string;
   subUsers?: VendorSubUser[];
+  rating?: number;
+  reviewsCount?: number;
+  productsCount?: number;
+  ordersCount?: number;
+  banner?: string;
+  logo?: string;
+  isClosed?: boolean;
 }
 
 export interface Coupon {
@@ -221,5 +228,11 @@ export interface HeroCampaign {
   rejectionReason?: string;
   createdAt: string;
   approvedAt?: string;
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  subcategories: string[];
 }
 

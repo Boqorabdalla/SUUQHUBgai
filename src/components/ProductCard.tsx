@@ -17,6 +17,7 @@ interface ProductCardProps {
   onAddToCart: (product: Product, color?: string, size?: string, qty?: number) => void;
   isWishlisted: boolean;
   onToggleWishlist: (productId: string) => void;
+  isVendorClosed?: boolean;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -26,7 +27,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onViewDetails,
   onAddToCart,
   isWishlisted,
-  onToggleWishlist
+  onToggleWishlist,
+  isVendorClosed = false
 }) => {
   const [hovered, setHovered] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -35,6 +37,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isVendorClosed) return;
     setAdding(true);
     // Select default color variant if available
     const defaultColor = product.variants?.colors?.[0]?.name;
@@ -59,32 +62,44 @@ const ProductCard: React.FC<ProductCardProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -15 }}
         transition={{ duration: 0.3 }}
-        className="group relative bg-white rounded-xl border border-slate-200 hover:border-indigo-400 overflow-hidden shadow-sm hover:shadow-md transition-all duration-250 flex flex-col h-full"
+        className={`group relative bg-white rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all duration-250 flex flex-col h-full ${
+          isVendorClosed 
+            ? 'border-slate-200 opacity-80 bg-slate-50/50' 
+            : 'border-slate-200 hover:border-indigo-400'
+        }`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         id={`prod-card-${product.id}`}
       >
       {/* Badges layer */}
       <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 pointer-events-none">
-        {showSaleBadge && (
-          <span className="bg-rose-600 text-white font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded shadow-sm">
-            FLASH SALE
+        {isVendorClosed ? (
+          <span className="bg-rose-600 text-white font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded shadow-sm animate-pulse">
+            STORE CLOSED
           </span>
-        )}
-        {showBestSellerBadge && (
-          <span className="bg-indigo-600 text-white font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded shadow-sm">
-            Best Seller
-          </span>
-        )}
-        {showNewBadge && (
-          <span className="bg-indigo-50 text-indigo-700 font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-indigo-100 shadow-sm">
-            New
-          </span>
-        )}
-        {isOutOfStock && (
-          <span className="bg-slate-100 text-slate-400 font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-slate-200">
-            {t.outOfStock}
-          </span>
+        ) : (
+          <>
+            {showSaleBadge && (
+              <span className="bg-rose-600 text-white font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded shadow-sm">
+                FLASH SALE
+              </span>
+            )}
+            {showBestSellerBadge && (
+              <span className="bg-indigo-600 text-white font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded shadow-sm">
+                Best Seller
+              </span>
+            )}
+            {showNewBadge && (
+              <span className="bg-indigo-50 text-indigo-700 font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-indigo-100 shadow-sm">
+                New
+              </span>
+            )}
+            {isOutOfStock && (
+              <span className="bg-slate-100 text-slate-400 font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-slate-200">
+                {t.outOfStock}
+              </span>
+            )}
+          </>
         )}
       </div>
 
@@ -106,7 +121,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
           alt={product.title}
           loading="lazy"
           referrerPolicy="no-referrer"
-          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
+            isVendorClosed ? 'filter grayscale-30 opacity-70' : ''
+          }`}
         />
         {/* Hover overlay with action icons */}
         <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
@@ -126,7 +143,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </span>
         <h3 
           onClick={() => onViewDetails(product)}
-          className="font-display font-semibold text-sm line-clamp-2 text-slate-800 group-hover:text-indigo-600 transition cursor-pointer mb-2 h-10 leading-tight"
+          className={`font-display font-semibold text-sm line-clamp-2 cursor-pointer mb-2 h-10 leading-tight transition ${
+            isVendorClosed 
+              ? 'text-slate-500' 
+              : 'text-slate-800 group-hover:text-indigo-600'
+          }`}
         >
           {product.title}
         </h3>
@@ -148,23 +169,25 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {product.discountPrice && product.discountPrice < product.price ? (
               <div className="flex flex-col">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-lg font-display font-extrabold text-rose-600">
+                  <span className={`text-lg font-display font-extrabold ${isVendorClosed ? 'text-slate-500' : 'text-rose-600'}`}>
                     {formatPrice(product.discountPrice, currency)}
                   </span>
                   <span className="text-xs text-slate-400 line-through">
                     {formatPrice(product.price, currency)}
                   </span>
                 </div>
-                <span className="text-[10px] text-rose-500 font-mono font-bold tracking-wider">
-                  SAVE {Math.round(((product.price - product.discountPrice) / product.price) * 100)}%
-                </span>
+                {!isVendorClosed && (
+                  <span className="text-[10px] text-rose-500 font-mono font-bold tracking-wider">
+                    SAVE {Math.round(((product.price - product.discountPrice) / product.price) * 100)}%
+                  </span>
+                )}
               </div>
             ) : (
-              <span className="text-lg font-display font-extrabold text-slate-900">
+              <span className={`text-lg font-display font-extrabold ${isVendorClosed ? 'text-slate-500' : 'text-slate-900'}`}>
                 {formatPrice(product.price, currency)}
               </span>
             )}
-            {product.stock <= 5 && !isOutOfStock && (
+            {product.stock <= 5 && !isOutOfStock && !isVendorClosed && (
               <span className="text-[10px] text-amber-600 font-mono font-semibold mt-0.5">
                 {t.lowStock} ({product.stock})
               </span>
@@ -173,9 +196,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
           <button
             onClick={handleQuickAdd}
-            disabled={adding || isOutOfStock}
+            disabled={adding || isOutOfStock || isVendorClosed}
             className={`cursor-pointer px-3 py-2 rounded text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 ${
-              isOutOfStock
+              isOutOfStock || isVendorClosed
                 ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                 : adding
                 ? 'bg-indigo-700 text-white scale-95'
@@ -183,7 +206,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
             }`}
           >
             <ShoppingCart className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{adding ? '...' : t.addToCart}</span>
+            <span className="hidden sm:inline">
+              {isVendorClosed ? 'Closed' : adding ? '...' : t.addToCart}
+            </span>
           </button>
         </div>
       </div>

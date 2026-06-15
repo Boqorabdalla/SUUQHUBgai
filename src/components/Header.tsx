@@ -69,21 +69,21 @@ export default function Header({
             <div className="w-11 h-11 shrink-0 relative transition-transform duration-300 group-hover:scale-105">
               <svg width="100%" height="100%" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 {/* Store awning stripes */}
-                <path d="M12 20 L23 42 C24 44 21 47 18 47 C15 47 12 44 13 42 L12 20 Z" fill="#0e75cc" />
+                <path d="M12 20 L23 42 C24 44 21 47 18 47 C15 47 12 44 13 42 L12 20 Z" fill="#0f5132" />
                 <path d="M30 20 L33 42 C34 44 31 47 28 47 C25 47 22 44 23 42 L30 20 Z" fill="#7ebd24" />
-                <path d="M48 20 L44 42 C43 44 40 47 37 47 C34 47 32 44 33 42 L41 20 Z" fill="#0e75cc" />
+                <path d="M48 20 L44 42 C43 44 40 47 37 47 C34 47 32 44 33 42 L41 20 Z" fill="#0f5132" />
                 <path d="M66 20 L59 42 C58 44 55 47 52 47 C49 47 47 44 48 42 L60 20 Z" fill="#7ebd24" />
-                <path d="M84 20 L74 42 C73 44 70 47 67 47 C64 47 62 44 63 42 L78 20 Z" fill="#0e75cc" />
+                <path d="M84 20 L74 42 C73 44 70 47 67 47 C64 47 62 44 63 42 L78 20 Z" fill="#0f5132" />
                 
                 {/* Store base structure */}
-                <path d="M16 47 L16 80 C16 84 20 86 24 86 L76 86 C80 86 84 84 84 80 L84 47" stroke="#0e75cc" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <path d="M16 47 L16 80 C16 84 20 86 24 86 L76 86 C80 86 84 84 84 80 L84 47" stroke="#0f5132" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                 
                 {/* Pinpoint overlay */}
                 <path d="M50 40 C38 40 33 48 33 58 C33 71 50 87 50 87 C50 87 67 71 67 58 C67 48 62 40 50 40 Z" fill="#7ebd24" filter="drop-shadow(0px 2px 3px rgba(0,0,0,0.15))" />
                 <circle cx="50" cy="54" r="5" fill="#ffffff" />
               </svg>
             </div>
-
+ 
             {/* SuuqHub Title + Skyline Orbit Arch */}
             <div className="flex flex-col relative justify-center pt-2">
               {/* Skyline Orbit Arch curve sitting over logo text */}
@@ -98,7 +98,7 @@ export default function Header({
                     <rect x="5" y="8" width="20" height="18" rx="3" fill="#f08c14" />
                     <circle cx="15" cy="14" r="2.5" fill="#ffffff" opacity="0.3" />
                   </g>
-
+ 
                   {/* Corporate block building in Blue (Middle) */}
                   <g transform="translate(68, 1) scale(0.65)">
                     <rect x="5" y="10" width="10" height="20" fill="#4b6584" />
@@ -110,19 +110,19 @@ export default function Header({
                     <rect x="20" y="15" width="2" height="3" fill="#ffffff" opacity="0.8" />
                     <rect x="26" y="15" width="2" height="3" fill="#ffffff" opacity="0.8" />
                   </g>
-
+ 
                   {/* Residential Blue house (Right) */}
                   <g transform="translate(118, 5) scale(0.65)">
-                    <rect x="6" y="12" width="20" height="14" fill="#0c75cc" />
-                    <path d="M3 12 L16 2 L29 12 Z" fill="#095fb0" />
+                    <rect x="6" y="12" width="20" height="14" fill="#0c3e26" />
+                    <path d="M3 12 L16 2 L29 12 Z" fill="#051e12" />
                     <rect x="13" y="18" width="6" height="8" fill="#ffffff" opacity="0.9" />
                   </g>
                 </svg>
               </div>
-
+ 
               {/* Text logo */}
               <div className="flex items-baseline font-sans font-black tracking-tight text-xl h-7">
-                <span className="text-[#0e75cc]">Suuq</span>
+                <span className="text-[#0f5132]">Suuq</span>
                 <span className="text-[#7ebd24] font-extrabold">Hub</span>
               </div>
               <span className="text-[8.5px] font-mono tracking-[0.15em] text-slate-400 uppercase font-black -mt-1 pl-0.5">
