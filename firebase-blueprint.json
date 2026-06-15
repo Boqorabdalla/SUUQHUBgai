@@ -69,6 +69,20 @@
         "password": { "type": "string" }
       },
       "required": ["id", "vendorName", "representativeName", "email", "status", "createdAt"]
+    },
+    "Category": {
+      "title": "Product Category",
+      "description": "Store categories and dynamic subcategory options.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "subcategories": {
+          "type": "array",
+          "description": "List of subcategory strings allowed under this primary category"
+        }
+      },
+      "required": ["id", "name"]
     }
   },
   "firestore": {
@@ -87,6 +101,10 @@
     "/vendors/{vendorId}": {
       "schema": "Vendor",
       "description": "Sellers and storefront merchant identity records."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Primary classes and categories for products."
     }
   }
 }

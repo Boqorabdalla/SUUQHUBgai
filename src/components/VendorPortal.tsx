@@ -30,6 +30,7 @@ interface VendorPortalProps {
   userRole: string;
   lang: 'en' | 'ar' | 'es';
   currentCurrency: 'USD' | 'EUR' | 'AED';
+  onVendorUpdated?: () => void;
 }
 
 export default function VendorPortal({
@@ -37,7 +38,8 @@ export default function VendorPortal({
   userEmail,
   userRole,
   lang,
-  currentCurrency
+  currentCurrency,
+  onVendorUpdated
 }: VendorPortalProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -148,6 +150,7 @@ export default function VendorPortal({
   const [vendorDescription, setVendorDescription] = useState('');
   const [settingsMsg, setSettingsMsg] = useState('');
   const [settingsSuccess, setSettingsSuccess] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Remittance Form States
   const [activeRemitOrderId, setActiveRemitOrderId] = useState<string | null>(null);
@@ -568,36 +571,81 @@ export default function VendorPortal({
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedVendor) return;
+    console.log("handleSaveSettings initiated...");
+    if (!selectedVendor) {
+      console.warn("handleSaveSettings: No selected vendor profile found to update.");
+      return;
+    }
     setSettingsMsg('');
+    setIsSavingSettings(true);
+
+    const repName = (representativeName || '').trim();
+    if (!repName) {
+      setSettingsSuccess(false);
+      setSettingsMsg('Store Owner / Representative name is required.');
+      console.warn("handleSaveSettings validation failed: representativeName is empty.");
+      setIsSavingSettings(false);
+      return;
+    }
+
+    let finalLogo = (logo || '').trim();
+    if (!finalLogo) {
+      if (selectedVendor.vendorName) {
+        finalLogo = selectedVendor.vendorName.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase();
+      }
+      if (!finalLogo) {
+        finalLogo = 'SH';
+      }
+    }
+
     try {
+      console.log("Saving settings to server for vendor ID:", selectedVendor.id, {
+        zaadNumber,
+        edahabNumber,
+        representativeName: repName,
+        banner,
+        logo: finalLogo,
+        isClosed,
+        description: vendorDescription
+      });
       const res = await fetch(`/api/vendors/${selectedVendor.id}/credentials`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          zaadNumber,
-          edahabNumber,
-          representativeName,
-          banner,
-          logo,
-          isClosed,
-          description: vendorDescription
+          zaadNumber: zaadNumber || '',
+          edahabNumber: edahabNumber || '',
+          representativeName: repName,
+          banner: banner || '',
+          logo: finalLogo,
+          isClosed: !!isClosed,
+          description: vendorDescription || ''
         })
       });
+      console.log("Credentials save response code:", res.status);
       const data = await res.json();
+      console.log("Credentials save response data:", data);
       if (res.ok) {
         setSettingsSuccess(true);
         setSettingsMsg('Store settings and branding details saved successfully!');
         setSelectedVendor(data);
         setVendors(prev => prev.map(v => v.id === data.id ? data : v));
+        // Reset local form states to match returned data
+        setLogo(data.logo || '');
+        setRepresentativeName(data.representativeName || '');
+        if (onVendorUpdated) {
+          onVendorUpdated();
+        }
         setTimeout(() => setSettingsMsg(''), 4500);
       } else {
         setSettingsSuccess(false);
         setSettingsMsg(data.error || 'Failed to update credentials');
       }
-    } catch {
+    } catch (err) {
+      console.error("Error saving store credentials:", err);
       setSettingsSuccess(false);
       setSettingsMsg('Connection error updating credentials');
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -4311,7 +4359,6 @@ export default function VendorPortal({
                 <div>
                   <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1">Store Owner / Representative</label>
                   <input
-                    required
                     type="text"
                     placeholder="e.g. Salem Al-Mansoori"
                     value={representativeName}
@@ -4321,9 +4368,8 @@ export default function VendorPortal({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1">2-Letter Logo Symbol</label>
+                  <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1">2-Letter Logo Symbol (Optional)</label>
                   <input
-                    required
                     maxLength={3}
                     placeholder="e.g. BS"
                     value={logo}
@@ -4448,10 +4494,9 @@ export default function VendorPortal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1.5">
                   <span className="text-[10px] font-mono font-black tracking-wider text-emerald-600 uppercase flex items-center gap-1">
-                    🟢 Zaad Service Tel
+                    🟢 Zaad Service Tel (Optional)
                   </span>
                   <input
-                    required
                     type="text"
                     maxLength={15}
                     placeholder="e.g. 634400213"
@@ -4463,10 +4508,9 @@ export default function VendorPortal({
 
                 <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1.5">
                   <span className="text-[10px] font-mono font-black tracking-wider text-amber-700 uppercase flex items-center gap-1">
-                    🟡 eDahab Service Tel
+                    🟡 eDahab Service Tel (Optional)
                   </span>
                   <input
-                    required
                     type="text"
                     maxLength={15}
                     placeholder="e.g. 627700213"
@@ -4480,9 +4524,22 @@ export default function VendorPortal({
 
             <button
               type="submit"
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition shadow-sm cursor-pointer flex items-center justify-center gap-2"
+              disabled={isSavingSettings}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition shadow-sm cursor-pointer flex items-center justify-center gap-2"
             >
-              <Check className="w-4 h-4" /> Save Store configurations
+              {isSavingSettings ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Saving Store Configurations...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" /> Save Store configurations
+                </>
+              )}
             </button>
           </form>
         </div>

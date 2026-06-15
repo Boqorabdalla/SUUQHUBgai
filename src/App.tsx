@@ -955,6 +955,7 @@ export default function App() {
               userRole={firebaseUser.role}
               lang={lang}
               currentCurrency={currency}
+              onVendorUpdated={fetchLiveCatalog}
             />
           </motion.div>
         );
