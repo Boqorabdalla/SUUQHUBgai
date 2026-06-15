@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent, RefreshCw, ChevronDown, ChevronRight, Users, BarChart2, FileText, Plus, Search } from 'lucide-react';
 import { Product, Vendor, Order, OrderItem, OrderStatus, Coupon, ProductVariant, ProductCategory, SupportTicket } from '../types';
 
@@ -124,8 +124,153 @@ export default function VendorPortal({
   const [withdrawNumber, setWithdrawNumber] = useState('');
   const [withdrawMsg, setWithdrawMsg] = useState('');
   const [withdrawIsSuccess, setWithdrawIsSuccess] = useState(false);
-  const [pendingWithdrawAmount, setPendingWithdrawAmount] = useState(500);
-  const [alreadyWithdrawnAmount, setAlreadyWithdrawnAmount] = useState(600);
+  const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
+
+  // Dynamic, vendor-specific financial and order dashboard calculations
+  const dashboardStats = useMemo(() => {
+    if (!selectedVendor) {
+      return {
+        totalCommercialSales: 0,
+        totalDeliveryCharge: 0,
+        monthlyEarning: 0,
+        totalEarningPayouts: 0,
+        weeklySalesValues: [0, 0, 0, 0, 0, 0, 0],
+        maxWeeklySales: 100,
+        chartPoints: [] as { x: number; y: number; val: number; l: string }[]
+      };
+    }
+
+    // Helper to get status of an order scoped to this vendor
+    const getVendorStatusForOrder = (o: Order) => {
+      if (o.vendorStatuses && o.vendorStatuses[selectedVendor.id]) {
+        return o.vendorStatuses[selectedVendor.id];
+      }
+      return o.status;
+    };
+
+    // Filter out canceled orders for commercial calculations
+    const activeOrders = orders.filter(o => (getVendorStatusForOrder(o) as string) !== 'canceled');
+
+    // 1. Total Commercial Sales: sum of prices of this vendor's items in non-canceled orders
+    const totalSales = activeOrders.reduce((sum, o) => {
+      const vendorItems = o.items.filter(item => products.some(p => p.id === item.productId));
+      const orderSales = vendorItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      return sum + orderSales;
+    }, 0);
+
+    // 2. Total Delivery Charge: sum of delivery/shipping costs for active orders containing this vendor's products
+    const totalDelivery = activeOrders.reduce((sum, o) => {
+      return sum + (o.shippingCost || 0);
+    }, 0);
+
+    // 3. Monthly Earning: sum of prices of this vendor's items in orders made in the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const monthlySales = activeOrders.reduce((sum, o) => {
+      const orderDate = new Date(o.createdAt);
+      if (orderDate >= thirtyDaysAgo) {
+        const vendorItems = o.items.filter(item => products.some(p => p.id === item.productId));
+        const orderSales = vendorItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        return sum + orderSales;
+      }
+      return sum;
+    }, 0);
+
+    // 4. Total Earning / Payouts: Cumulative store income
+    const totalPayoutsValue = totalSales + (selectedVendor.alreadyWithdrawnAmount ?? 0);
+
+    // 5. Weekly Sales day-by-day (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+    const weeklySales = [0, 0, 0, 0, 0, 0, 0];
+    orders.forEach(o => {
+      if ((getVendorStatusForOrder(o) as string) === 'canceled') return;
+
+      const orderDate = new Date(o.createdAt);
+      let dayIndex = orderDate.getDay(); // 0: Sun, 1: Mon, ..., 6: Sat
+      dayIndex = dayIndex === 0 ? 6 : dayIndex - 1;
+
+      const vendorItems = o.items.filter(item => products.some(p => p.id === item.productId));
+      const orderSales = vendorItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      weeklySales[dayIndex] += orderSales;
+    });
+
+    const maxWeeklySalesVal = Math.max(...weeklySales, 100);
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    const points = weeklySales.map((val, idx) => {
+      const x = 5 + idx * 15;
+      const y = 85 - (val / maxWeeklySalesVal) * 70; // Map val to y between 15 and 85
+      return { x, y, val, l: weekdays[idx] };
+    });
+
+    return {
+      totalCommercialSales: totalSales,
+      totalDeliveryCharge: totalDelivery,
+      monthlyEarning: monthlySales,
+      totalEarningPayouts: totalPayoutsValue,
+      weeklySalesValues: weeklySales,
+      maxWeeklySales: maxWeeklySalesVal,
+      chartPoints: points
+    };
+  }, [selectedVendor, orders, products]);
+
+  const handlePostWithdraw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVendor) return;
+    setWithdrawMsg('');
+
+    const amountNum = parseFloat(withdrawAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      setWithdrawMsg('Please enter a valid amount.');
+      return;
+    }
+
+    if (amountNum > (selectedVendor.earnings || 0)) {
+      setWithdrawMsg('Amount exceeds available wallet earnings.');
+      return;
+    }
+
+    setIsSubmittingWithdraw(true);
+
+    try {
+      const updatedEarnings = (selectedVendor.earnings || 0) - amountNum;
+      const updatedPending = (selectedVendor.pendingWithdrawAmount ?? 0) + amountNum;
+
+      const res = await fetch(`/api/vendors/${selectedVendor.id}/credentials`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          earnings: updatedEarnings,
+          pendingWithdrawAmount: updatedPending,
+          zaadNumber: selectedVendor.zaadNumber || '',
+          edahabNumber: selectedVendor.edahabNumber || '',
+          representativeName: selectedVendor.representativeName || '',
+          banner: selectedVendor.banner || '',
+          logo: selectedVendor.logo || '',
+          isClosed: !!selectedVendor.isClosed,
+          description: selectedVendor.description || ''
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedVendor(data);
+        setVendors(prev => prev.map(v => v.id === data.id ? data : v));
+        setWithdrawIsSuccess(true);
+        setWithdrawMsg(`Successfully requested $${amountNum.toLocaleString()} payout via ${withdrawProvider.toUpperCase()}!`);
+        if (onVendorUpdated) {
+          onVendorUpdated();
+        }
+      } else {
+        const data = await res.json();
+        setWithdrawMsg(data.error || 'Failed to authorize payout withdrawal.');
+      }
+    } catch (err) {
+      console.error('Error creating withdrawal request:', err);
+      setWithdrawMsg('Network error authorizing withdrawal. Please try again.');
+    } finally {
+      setIsSubmittingWithdraw(false);
+    }
+  };
 
   // Advanced Reports Filters
   const [reportTransType, setReportTransType] = useState<'all' | 'order' | 'expense'>('all');
@@ -1628,14 +1773,14 @@ export default function VendorPortal({
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { label: 'Pending', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'pending').length || 3, bg: 'bg-amber-50', hoverBorder: 'hover:border-amber-400', textColor: 'text-amber-700' },
-                    { label: 'Confirmed', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'confirmed').length || 4, bg: 'bg-blue-50', hoverBorder: 'hover:border-blue-400', textColor: 'text-blue-700' },
-                    { label: 'Packaging', count: orders.filter(o => { const s = (o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status; return s === 'processing' || s === 'packaging'; }).length || 1, bg: 'bg-indigo-50', hoverBorder: 'hover:border-indigo-400', textColor: 'text-indigo-700' },
-                    { label: 'Out for Delivery', count: orders.filter(o => { const s = (o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status; return s === 'shipped' || s === 'out-for-delivery' || s === 'out_for_delivery'; }).length || 1, bg: 'bg-purple-50', hoverBorder: 'hover:border-purple-400', textColor: 'text-purple-700' },
-                    { label: 'Delivered', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'delivered').length || 11, bg: 'bg-emerald-50', hoverBorder: 'hover:border-emerald-400', textColor: 'text-emerald-700' },
-                    { label: 'Canceled', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'canceled').length || 1, bg: 'bg-rose-50', hoverBorder: 'hover:border-rose-400', textColor: 'text-rose-700' },
-                    { label: 'Returned', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'returned').length || 1, bg: 'bg-slate-50', hoverBorder: 'hover:border-slate-400', textColor: 'text-slate-700' },
-                    { label: 'Failed to Deliver', count: orders.filter(o => { const s = (o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status; return s === 'failed' || s === 'failed_to_deliver'; }).length || 2, bg: 'bg-red-50', hoverBorder: 'hover:border-red-400', textColor: 'text-red-700' }
+                    { label: 'Pending', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'pending').length, bg: 'bg-amber-50', hoverBorder: 'hover:border-amber-400', textColor: 'text-amber-700' },
+                    { label: 'Confirmed', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'confirmed').length, bg: 'bg-blue-50', hoverBorder: 'hover:border-blue-400', textColor: 'text-blue-700' },
+                    { label: 'Packaging', count: orders.filter(o => { const s = (o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status; return s === 'processing' || s === 'packaging'; }).length, bg: 'bg-indigo-50', hoverBorder: 'hover:border-indigo-400', textColor: 'text-indigo-700' },
+                    { label: 'Out for Delivery', count: orders.filter(o => { const s = (o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status; return s === 'shipped' || s === 'out-for-delivery' || s === 'out_for_delivery'; }).length, bg: 'bg-purple-50', hoverBorder: 'hover:border-purple-400', textColor: 'text-purple-700' },
+                    { label: 'Delivered', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'delivered').length, bg: 'bg-emerald-50', hoverBorder: 'hover:border-emerald-400', textColor: 'text-emerald-700' },
+                    { label: 'Canceled', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'canceled').length, bg: 'bg-rose-50', hoverBorder: 'hover:border-rose-400', textColor: 'text-rose-700' },
+                    { label: 'Returned', count: orders.filter(o => ((o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status) === 'returned').length, bg: 'bg-slate-50', hoverBorder: 'hover:border-slate-400', textColor: 'text-slate-700' },
+                    { label: 'Failed to Deliver', count: orders.filter(o => { const s = (o.vendorStatuses && selectedVendor && o.vendorStatuses[selectedVendor.id]) || o.status; return s === 'failed' || s === 'failed_to_deliver'; }).length, bg: 'bg-red-50', hoverBorder: 'hover:border-red-400', textColor: 'text-red-700' }
                   ].map((metric, idx) => (
                     <div key={idx} className={`p-4 rounded-xl border border-slate-100 ${metric.bg} ${metric.hoverBorder} transition-all duration-200 hover:shadow-xs flex flex-col justify-between text-left`}>
                       <span className="text-[11px] font-mono font-bold text-slate-500 uppercase tracking-wide">{metric.label}</span>
@@ -1657,7 +1802,7 @@ export default function VendorPortal({
                   <div className="space-y-1">
                     <span className="text-[10px] font-mono tracking-widest font-black text-emerald-200 uppercase">Vendor Wallet balance</span>
                     <h3 className="text-3xl font-black font-sans tracking-tight pt-1">
-                      ${(selectedVendor?.earnings || 10081.50).toLocaleString()}
+                      ${(selectedVendor?.earnings || 0).toLocaleString()}
                     </h3>
                     <p className="text-[10px] text-emerald-150 font-mono pt-0.5">Avail. for payout request</p>
                   </div>
@@ -1666,8 +1811,8 @@ export default function VendorPortal({
                     <button
                       type="button"
                       onClick={() => {
-                        setWithdrawAmount(String(selectedVendor?.earnings || 10081.50));
-                        setWithdrawNumber(selectedVendor?.zaadNumber || "063466113");
+                        setWithdrawAmount(String(selectedVendor?.earnings || 0));
+                        setWithdrawNumber(selectedVendor?.zaadNumber || selectedVendor?.edahabNumber || "");
                         setWithdrawMsg("");
                         setWithdrawIsSuccess(false);
                         setShowWithdrawModal(true);
@@ -1682,12 +1827,12 @@ export default function VendorPortal({
                 {/* Right grid: balance metrics breakdown (0:13) */}
                 <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {[
-                    { label: 'Pending Withdraw', value: `$${pendingWithdrawAmount}.00`, desc: 'Processing outbounds', icon: Clock, iconColor: 'text-amber-500' },
-                    { label: 'Already Withdrawn', value: `$${alreadyWithdrawnAmount}.00`, desc: 'Direct paid remittances', icon: CheckCircle2, iconColor: 'text-emerald-500' },
-                    { label: 'Total Commercial / Sales', value: '$6,401.97', desc: 'Gross directory value', icon: DollarSign, iconColor: 'text-blue-500' },
-                    { label: 'Total Delivery Charge', value: '$822.00', desc: 'Slight markup credits', icon: Truck, iconColor: 'text-purple-500' },
-                    { label: 'Monthly Earning', value: '$2,534.50', desc: 'Calculated calendar yield', icon: Calendar, iconColor: 'text-teal-500' },
-                    { label: 'Total Earning / Payouts', value: '$25,756.80', desc: 'Cumulative store income', icon: ShieldCheck, iconColor: 'text-indigo-500' }
+                    { label: 'Pending Withdraw', value: `$${(selectedVendor?.pendingWithdrawAmount ?? 0).toLocaleString()}`, desc: 'Processing outbounds', icon: Clock, iconColor: 'text-amber-500' },
+                    { label: 'Already Withdrawn', value: `$${(selectedVendor?.alreadyWithdrawnAmount ?? 0).toLocaleString()}`, desc: 'Direct paid remittances', icon: CheckCircle2, iconColor: 'text-emerald-500' },
+                    { label: 'Total Commercial / Sales', value: `$${dashboardStats.totalCommercialSales.toLocaleString()}`, desc: 'Gross directory value', icon: DollarSign, iconColor: 'text-blue-500' },
+                    { label: 'Total Delivery Charge', value: `$${dashboardStats.totalDeliveryCharge.toLocaleString()}`, desc: 'Slight markup credits', icon: Truck, iconColor: 'text-purple-500' },
+                    { label: 'Monthly Earning', value: `$${dashboardStats.monthlyEarning.toLocaleString()}`, desc: 'Calculated calendar yield', icon: Calendar, iconColor: 'text-teal-500' },
+                    { label: 'Total Earning / Payouts', value: `$${dashboardStats.totalEarningPayouts.toLocaleString()}`, desc: 'Cumulative store income', icon: ShieldCheck, iconColor: 'text-indigo-500' }
                   ].map((walletItem, idx) => {
                     const IconObj = walletItem.icon;
                     return (
@@ -1717,9 +1862,15 @@ export default function VendorPortal({
                 <div className="h-44 w-full bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col justify-between">
                   <div className="flex-1 w-full relative flex items-end justify-between px-4 pb-2 border-b border-slate-200">
                     {/* Background helper lines */}
-                    <div className="absolute inset-x-0 top-1/4 border-t border-slate-100 font-mono text-[8px] text-slate-350 select-none">$10,000</div>
-                    <div className="absolute inset-x-0 top-2/4 border-t border-slate-100 font-mono text-[8px] text-slate-350 select-none">$5,000</div>
-                    <div className="absolute inset-x-0 top-3/4 border-t border-slate-100 font-mono text-[8px] text-slate-350 select-none">$1,000</div>
+                    <div className="absolute inset-x-0 top-1/4 border-t border-slate-100 font-mono text-[8px] text-slate-350 select-none">
+                      Max: ${dashboardStats.maxWeeklySales.toLocaleString()}
+                    </div>
+                    <div className="absolute inset-x-0 top-2/4 border-t border-slate-100 font-mono text-[8px] text-slate-350 select-none">
+                      Mid: ${(dashboardStats.maxWeeklySales / 2).toLocaleString()}
+                    </div>
+                    <div className="absolute inset-x-0 top-3/4 border-t border-slate-100 font-mono text-[8px] text-slate-350 select-none">
+                      Min: $0
+                    </div>
 
                     {/* Chart line trace via SVG */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
@@ -1727,25 +1878,22 @@ export default function VendorPortal({
                         fill="none"
                         stroke="#4f46e5"
                         strokeWidth="2.5"
-                        points="5,80 20,65 35,45 50,75 65,30 80,48 95,15"
+                        points={dashboardStats.chartPoints.map(p => `${p.x},${p.y}`).join(' ')}
                       />
                       <path
                         fill="rgba(79, 70, 229, 0.04)"
-                        d="M5,80 L20,65 L35,45 L50,75 L65,30 L80,48 L95,15 L95,100 L5,100 Z"
+                        d={`M5,85 L${dashboardStats.chartPoints.map(p => `${p.x},${p.y}`).join(' L')} L95,85 Z`}
                       />
                     </svg>
 
                     {/* Interactive points & hover indicators */}
-                    {[
-                      { l: 'Mon', h: '20%' }, { l: 'Tue', h: '35%' }, { l: 'Wed', h: '55%' },
-                      { l: 'Thu', h: '25%' }, { l: 'Fri', h: '70%' }, { l: 'Sat', h: '52%' }, { l: 'Sun', h: '85%' }
-                    ].map((pt, i) => (
-                      <div key={i} className="flex flex-col items-center z-10 group relative" style={{ height: pt.h }}>
+                    {dashboardStats.chartPoints.map((pt, i) => (
+                      <div key={i} className="flex flex-col items-center z-10 group relative" style={{ height: `${100 - pt.y}%` }}>
                         {/* Hover Tooltip card */}
                         <div className="absolute bottom-full mb-2 bg-slate-900 text-white text-[9px] font-mono font-bold px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-                          Sales: ${(i * 1250 + 1300).toLocaleString()}
+                          Sales: ${pt.val.toLocaleString()}
                         </div>
-                        <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full border-2 border-white shadow-3xs cursor-pointer group-hover:scale-130 transition-transform" />
+                        <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full border-2 border-white shadow-3xs cursor-pointer group-hover:scale-130 transition-transform animate-fadeIn" />
                       </div>
                     ))}
                   </div>
@@ -4994,6 +5142,178 @@ export default function VendorPortal({
       })()}
         </div>
       </div>
+
+      {/* Dynamic Instant Payout / Withdraw Modal */}
+      {showWithdrawModal && selectedVendor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" id="withdraw-modal-overlay">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-xl space-y-5 text-left animate-in zoom-in-95 duration-200 relative overflow-hidden">
+            
+            {/* Modal header */}
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide font-mono flex items-center gap-1.5">
+                  <DollarSign className="w-5 h-5 text-emerald-600" /> Authorized Payout Remittance
+                </h3>
+                <p className="text-[11px] text-slate-550 mt-1">Deduct wallet balance & push to Somaliland mobile networks</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWithdrawModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Withdraw form */}
+            {!withdrawIsSuccess ? (
+              <form onSubmit={handlePostWithdraw} className="space-y-4">
+                {withdrawMsg && (
+                  <div className="p-3 text-[11px] rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-bold flex gap-2 items-center">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{withdrawMsg}</span>
+                  </div>
+                )}
+
+                {/* Balance Summary Display */}
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-150">
+                  <div className="text-left">
+                    <span className="text-[9px] font-mono text-slate-450 uppercase block">Available Balance</span>
+                    <span className="text-sm font-bold text-emerald-700">${(selectedVendor.earnings || 0).toLocaleString()} USD</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] font-mono text-slate-450 uppercase block">Active In-Flight</span>
+                    <span className="text-sm font-bold text-slate-700">${(selectedVendor.pendingWithdrawAmount ?? 0).toLocaleString()} USD</span>
+                  </div>
+                </div>
+
+                {/* Provider Picker */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider">Select Mobile Network Partner</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWithdrawProvider('zaad');
+                        setWithdrawNumber(selectedVendor.zaadNumber || '');
+                      }}
+                      className={`py-3.5 px-4 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                        withdrawProvider === 'zaad'
+                          ? 'border-emerald-600 bg-emerald-50/55 ring-1 ring-emerald-600'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <span className="text-xs font-black tracking-tight text-emerald-800">Telesom ZAAD</span>
+                      <span className="text-[8.5px] font-mono text-slate-400 font-bold uppercase">Option #1 Partner</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWithdrawProvider('edahab');
+                        setWithdrawNumber(selectedVendor.edahabNumber || '');
+                      }}
+                      className={`py-3.5 px-4 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                        withdrawProvider === 'edahab'
+                          ? 'border-yellow-600 bg-yellow-50/25 ring-1 ring-yellow-600'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <span className="text-xs font-black tracking-tight text-yellow-800">Somtel eDahab</span>
+                      <span className="text-[8.5px] font-mono text-slate-400 font-bold uppercase">Option #2 Partner</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Receiver Mobile Number Input */}
+                <div>
+                  <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1">Mobile Account Number</label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 text-xs text-slate-400 font-mono font-bold">+252</span>
+                    <input
+                      type="text"
+                      value={withdrawNumber}
+                      onChange={(e) => setWithdrawNumber(e.target.value)}
+                      placeholder="e.g. 63XXXXXXX"
+                      className="w-full text-xs bg-white text-slate-800 border border-slate-200 rounded-xl pl-14 pr-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-600 font-mono"
+                      required
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 mt-1">Configured for active Somaliland merchant settlements.</p>
+                </div>
+
+                {/* Amount Field */}
+                <div>
+                  <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1">Payout Request Amount (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 text-xs text-slate-400 font-bold">$</span>
+                    <input
+                      type="number"
+                      step="any"
+                      min="1"
+                      placeholder="0.00"
+                      value={withdrawAmount}
+                      onChange={(e) => setWithdrawAmount(e.target.value)}
+                      max={selectedVendor.earnings || 0}
+                      className="w-full text-xs bg-white text-slate-800 border border-slate-200 rounded-xl pl-8 pr-4 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-[8.5px] text-slate-400">Transaction clears immediately</span>
+                    <button
+                      type="button"
+                      onClick={() => setWithdrawAmount(String(selectedVendor.earnings || 0))}
+                      className="text-[9.5px] font-mono font-bold text-indigo-650 hover:underline cursor-pointer"
+                    >
+                      Withdraw Maximum Limit
+                    </button>
+                  </div>
+                </div>
+
+                {/* Authorize button */}
+                <button
+                  type="submit"
+                  disabled={isSubmittingWithdraw}
+                  className="w-full text-center py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-300 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmittingWithdraw ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Mapped Clearance processing...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-3.5 h-3.5" /> Authorize Instant Payout
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <div className="text-center py-6 space-y-4 animate-in zoom-in-95 duration-200">
+                <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-150 shadow-sm animate-bounce">
+                  <Check className="w-8 h-8 stroke-[3.5]" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-slate-850 uppercase tracking-widest font-mono">Authorization Successful</h4>
+                  <p className="text-[11px] text-slate-550 px-4 leading-relaxed">{withdrawMsg}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowWithdrawModal(false);
+                    setWithdrawIsSuccess(false);
+                    setWithdrawAmount('');
+                    setWithdrawMsg('');
+                  }}
+                  className="px-6 py-2 bg-slate-900 text-white hover:bg-slate-800 text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  Return to Dashboard
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

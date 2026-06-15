@@ -1263,7 +1263,10 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
     banner,
     logo,
     isClosed,
-    description
+    description,
+    earnings,
+    pendingWithdrawAmount,
+    alreadyWithdrawnAmount
   } = req.body;
   const vendor = dbVendors.find(v => v.id === req.params.id);
 
@@ -1297,6 +1300,16 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
   }
   if (description !== undefined) {
     vendor.description = description;
+  }
+  if (earnings !== undefined) {
+    // Save as number
+    (vendor as any).earnings = Number(earnings);
+  }
+  if (pendingWithdrawAmount !== undefined) {
+    (vendor as any).pendingWithdrawAmount = Number(pendingWithdrawAmount);
+  }
+  if (alreadyWithdrawnAmount !== undefined) {
+    (vendor as any).alreadyWithdrawnAmount = Number(alreadyWithdrawnAmount);
   }
 
   saveDbToFile();

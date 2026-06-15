@@ -27,15 +27,14 @@ export default function ProductDetailsModal({
   onAddToCart,
   isVendorClosed = false
 }: ProductDetailsModalProps) {
-  if (!isOpen) return null;
-
-  const t = translations[lang];
+  const t = translations[lang] || translations['en'];
 
   // Gallery view state
-  const [selectedImage, setSelectedImage] = useState(product.image);
+  const [selectedImage, setSelectedImage] = useState(product?.image || '');
 
   // Combine all possible images (primary, additional images, variant-specific images) safely
   const allImages = React.useMemo(() => {
+    if (!product) return [];
     const list = [product.image];
     if (product.images && Array.isArray(product.images)) {
       list.push(...product.images);
@@ -49,19 +48,21 @@ export default function ProductDetailsModal({
   }, [product]);
 
   // Selections state
-  const [selectedColor, setSelectedColor] = useState(product.variants?.colors?.[0]?.name || '');
-  const [selectedSize, setSelectedSize] = useState(product.variants?.sizes?.[0]?.name || '');
+  const [selectedColor, setSelectedColor] = useState(product?.variants?.colors?.[0]?.name || '');
+  const [selectedSize, setSelectedSize] = useState(product?.variants?.sizes?.[0]?.name || '');
   const [quantity, setQuantity] = useState(1);
 
   // Sync initial image if product changes
   React.useEffect(() => {
-    setSelectedImage(product.image);
-    setSelectedSize(product.variants?.sizes?.[0]?.name || '');
+    if (product) {
+      setSelectedImage(product.image);
+      setSelectedSize(product.variants?.sizes?.[0]?.name || '');
+    }
   }, [product]);
 
   const handleSizeClick = (sizeName: string) => {
     setSelectedSize(sizeName);
-    const szObj = product.variants?.sizes?.find(s => s.name === sizeName);
+    const szObj = product?.variants?.sizes?.find(s => s.name === sizeName);
     if (szObj?.image) {
       setSelectedImage(szObj.image);
     }
@@ -75,10 +76,10 @@ export default function ProductDetailsModal({
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Compute actual price applying any variant modifier selection
-  const activeColorObject = product.variants?.colors?.find(c => c.name === selectedColor);
-  const activeSizeObject = product.variants?.sizes?.find(s => s.name === selectedSize);
+  const activeColorObject = product?.variants?.colors?.find(c => c.name === selectedColor);
+  const activeSizeObject = product?.variants?.sizes?.find(s => s.name === selectedSize);
   const modifier = (activeColorObject?.priceModifier || 0) + (activeSizeObject?.priceModifier || 0);
-  const computedSinglePrice = product.price + modifier;
+  const computedSinglePrice = product ? (product.price + modifier) : 0;
 
   const handleCopyLink = () => {
     setCopiedLink(true);
@@ -86,7 +87,9 @@ export default function ProductDetailsModal({
   };
 
   const handleSubAdd = () => {
-    onAddToCart(product, selectedColor, selectedSize, quantity);
+    if (product) {
+      onAddToCart(product, selectedColor, selectedSize, quantity);
+    }
     onClose();
   };
 
@@ -96,6 +99,8 @@ export default function ProductDetailsModal({
     { name: 'Maria S.', rating: 4, date: '2026-05-20', text: 'Excellent specifications. Delivery was delayed by 1 day but product is top notch.' },
     { name: 'Ismael A.', rating: 5, date: '2026-05-28', text: 'Incredibly comfortable and performs exactly as described by the seller.' }
   ];
+
+  if (!isOpen || !product) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
