@@ -9,11 +9,30 @@ import {
   doc, 
   getDoc, 
   getDocs, 
-  setDoc, 
+  setDoc as rawSetDoc, 
   deleteDoc,
   query,
   where
 } from 'firebase/firestore';
+
+function cleanPayload(obj: any): any {
+  if (obj === null || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanPayload(item));
+  }
+  const cleaned: any = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val !== undefined) {
+      cleaned[key] = cleanPayload(val);
+    }
+  }
+  return cleaned;
+}
+
+function setDoc(docRef: any, data: any, options?: any) {
+  return rawSetDoc(docRef, cleanPayload(data), options);
+}
 import { initialProducts, initialCoupons, initialOrders } from './initialData';
 
 const initialVendors = [
