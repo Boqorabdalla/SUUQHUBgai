@@ -51,7 +51,7 @@ export default function AllVendorsView({
     const urlVendorId = params.get('vendor') || params.get('vendorId');
     if (urlVendorId) {
       if (!selectedVendor || selectedVendor.id !== urlVendorId) {
-        const found = vendors.find(v => v.id === urlVendorId && v.status === 'approved');
+        const found = vendors.find(v => v.id === urlVendorId);
         if (found) {
           setSelectedVendor(found);
         }

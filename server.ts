@@ -126,6 +126,14 @@ async function saveVendorToFirestore(vendor: Vendor) {
     if (vendor.logo !== undefined) payload.logo = vendor.logo;
     if (vendor.isClosed !== undefined) payload.isClosed = !!vendor.isClosed;
 
+    // Contact and clearance fields
+    if ((vendor as any).whatsapp !== undefined) payload.whatsapp = (vendor as any).whatsapp;
+    if ((vendor as any).callContact !== undefined) payload.callContact = (vendor as any).callContact;
+    if ((vendor as any).clearanceRate !== undefined) payload.clearanceRate = Number((vendor as any).clearanceRate);
+    if ((vendor as any).clearanceActive !== undefined) payload.clearanceActive = !!(vendor as any).clearanceActive;
+    if ((vendor as any).clearanceStartDate !== undefined) payload.clearanceStartDate = (vendor as any).clearanceStartDate;
+    if ((vendor as any).clearanceEndDate !== undefined) payload.clearanceEndDate = (vendor as any).clearanceEndDate;
+
     await docRef.set(sanitizeFirestorePayload(payload));
     console.log(`Successfully persisted vendor ${vendor.vendorName} (${vendor.id}) to Cloud Firestore.`);
   } catch (err) {
