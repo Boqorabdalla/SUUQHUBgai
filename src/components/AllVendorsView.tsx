@@ -44,27 +44,27 @@ export default function AllVendorsView({
   // Navigation inside Vendors section
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [initialSyncDone, setInitialSyncDone] = useState(false);
 
-  // Synchronize URL query parameter with selection of vendor
+  // Synchronize URL query parameter with selection of vendor on initial load
   React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlVendorId = params.get('vendor') || params.get('vendorId');
-    if (urlVendorId) {
-      if (!selectedVendor || selectedVendor.id !== urlVendorId) {
+    if (initialSyncDone) return;
+    if (vendors && vendors.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const urlVendorId = params.get('vendor') || params.get('vendorId');
+      if (urlVendorId) {
         const found = vendors.find(v => v.id === urlVendorId);
         if (found) {
           setSelectedVendor(found);
         }
       }
-    } else {
-      if (selectedVendor) {
-        setSelectedVendor(null);
-      }
+      setInitialSyncDone(true);
     }
-  }, [vendors]);
+  }, [vendors, initialSyncDone]);
 
-  // Sync state selection back to browser history state query params
+  // Sync state selection back to browser history state query params (only after initial load has finished checking)
   React.useEffect(() => {
+    if (!initialSyncDone) return;
     const params = new URLSearchParams(window.location.search);
     const urlVendorId = params.get('vendor') || params.get('vendorId');
     if (selectedVendor) {
@@ -81,7 +81,7 @@ export default function AllVendorsView({
         window.history.replaceState({}, '', finalUrl);
       }
     }
-  }, [selectedVendor]);
+  }, [selectedVendor, initialSyncDone]);
   
   // Search and filter inside specific vendor storefront
   const [storeSearch, setStoreSearch] = useState('');

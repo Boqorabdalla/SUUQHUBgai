@@ -927,6 +927,8 @@ const getVendorForProduct = (product: any) => {
           logo: bodyObj.logo !== undefined ? bodyObj.logo : existing.logo,
           isClosed: bodyObj.isClosed !== undefined ? bodyObj.isClosed : existing.isClosed,
           description: bodyObj.description !== undefined ? bodyObj.description : existing.description,
+          whatsapp: bodyObj.whatsapp !== undefined ? bodyObj.whatsapp : existing.whatsapp,
+          callContact: bodyObj.callContact !== undefined ? bodyObj.callContact : existing.callContact,
           clearanceRate: bodyObj.clearanceRate !== undefined ? (bodyObj.clearanceRate === null ? null : Number(bodyObj.clearanceRate)) : existing.clearanceRate,
           clearanceActive: bodyObj.clearanceActive !== undefined ? !!bodyObj.clearanceActive : existing.clearanceActive,
           clearanceStartDate: bodyObj.clearanceStartDate !== undefined ? bodyObj.clearanceStartDate : existing.clearanceStartDate,
