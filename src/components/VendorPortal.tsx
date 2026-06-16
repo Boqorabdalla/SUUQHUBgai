@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent, RefreshCw, ChevronDown, ChevronRight, Users, BarChart2, FileText, Plus, Search } from 'lucide-react';
+import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent, RefreshCw, ChevronDown, ChevronRight, Users, BarChart2, FileText, Plus, Search, Share2 } from 'lucide-react';
 import { Product, Vendor, Order, OrderItem, OrderStatus, Coupon, ProductVariant, ProductCategory, SupportTicket } from '../types';
 
 const safeParseError = async (res: Response, defaultMsg: string): Promise<string> => {
@@ -116,6 +116,12 @@ export default function VendorPortal({
   const [posSuccessInvoice, setPosSuccessInvoice] = useState<any | null>(null);
   const [posSelectedCategory, setPosSelectedCategory] = useState<string>('all');
   const [posAddingStatus, setPosAddingStatus] = useState<string>('');
+  const [posDeliveryMethod, setPosDeliveryMethod] = useState<'pickup' | 'delivery'>('pickup');
+  const [posCustomerName, setPosCustomerName] = useState('');
+  const [posCustomerPhone, setPosCustomerPhone] = useState('');
+  const [posCustomerAddress, setPosCustomerAddress] = useState('');
+  const [posCustomerEmail, setPosCustomerEmail] = useState('');
+  const [posShippingCost, setPosShippingCost] = useState('15');
 
   // Withdraw request modal states
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -280,6 +286,8 @@ export default function VendorPortal({
   // Clearance Configuration States
   const [clearanceRate, setClearanceRate] = useState<string>('15');
   const [clearanceActive, setClearanceActive] = useState<boolean>(false);
+  const [clearanceStartDate, setClearanceStartDate] = useState<string>('');
+  const [clearanceEndDate, setClearanceEndDate] = useState<string>('');
   const [clearanceMsg, setClearanceMsg] = useState<string>('');
 
   // Shipping Configuration States
@@ -339,6 +347,9 @@ export default function VendorPortal({
   const [settingsMsg, setSettingsMsg] = useState('');
   const [settingsSuccess, setSettingsSuccess] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [whatsapp, setWhatsapp] = useState('');
+  const [callContact, setCallContact] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Remittance Form States
   const [activeRemitOrderId, setActiveRemitOrderId] = useState<string | null>(null);
@@ -372,6 +383,15 @@ export default function VendorPortal({
         setIsClosed(!!selectedVendor.isClosed);
         setVendorDescription(selectedVendor.description || '');
         setEmergencyPhone(selectedVendor.zaadNumber || selectedVendor.edahabNumber || '');
+        setWhatsapp(selectedVendor.whatsapp || '');
+        setCallContact(selectedVendor.callContact || '');
+        
+        // Sync Clearance
+        setClearanceRate(selectedVendor.clearanceRate !== undefined ? String(selectedVendor.clearanceRate) : '15');
+        setClearanceActive(!!selectedVendor.clearanceActive);
+        setClearanceStartDate(selectedVendor.clearanceStartDate || new Date().toISOString().substring(0, 10));
+        setClearanceEndDate(selectedVendor.clearanceEndDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10));
+
         lastVendorIdRef.current = selectedVendor.id;
       }
     } else {
@@ -799,6 +819,28 @@ export default function VendorPortal({
     }
   };
 
+  const handleShopLogoFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setSettingsMsg('Please upload a valid image file for the logo (PNG, JPG, WEBP).');
+      setSettingsSuccess(false);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      if (typeof reader.result === 'string') {
+        const compressed = await compressBase64Image(reader.result, 250, 250, 0.655);
+        setLogo(compressed);
+        setSettingsMsg('');
+      }
+    };
+    reader.onerror = () => {
+      setSettingsMsg('Failed to process uploaded logo image.');
+      setSettingsSuccess(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("handleSaveSettings initiated...");
@@ -836,7 +878,9 @@ export default function VendorPortal({
         banner,
         logo: finalLogo,
         isClosed,
-        description: vendorDescription
+        description: vendorDescription,
+        whatsapp,
+        callContact
       });
       const res = await fetch(`/api/vendors/${selectedVendor.id}/credentials`, {
         method: 'PUT',
@@ -848,7 +892,9 @@ export default function VendorPortal({
           banner: banner || '',
           logo: finalLogo,
           isClosed: !!isClosed,
-          description: vendorDescription || ''
+          description: vendorDescription || '',
+          whatsapp: whatsapp || '',
+          callContact: callContact || ''
         })
       });
       console.log("Credentials save response code:", res.status);
@@ -876,6 +922,62 @@ export default function VendorPortal({
       setSettingsMsg('Connection error updating credentials');
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleSaveClearance = async () => {
+    if (!selectedVendor) return;
+    setClearanceMsg('');
+
+    const rateNum = Number(clearanceRate);
+    if (isNaN(rateNum) || rateNum < 1 || rateNum > 90) {
+      setClearanceMsg('Clearance Markdown rate must be a valid percentage between 1% and 90%.');
+      return;
+    }
+
+    if (!clearanceStartDate || !clearanceEndDate) {
+      setClearanceMsg('Both starting and ending dates must be selected for the clearance sales campaign.');
+      return;
+    }
+
+    if (new Date(clearanceStartDate) > new Date(clearanceEndDate)) {
+      setClearanceMsg('Campaign Start Date cannot be set after the End Date.');
+      return;
+    }
+
+    try {
+      console.log("Saving clearance setup to server for vendor ID:", selectedVendor.id, {
+        clearanceRate: rateNum,
+        clearanceActive,
+        clearanceStartDate,
+        clearanceEndDate
+      });
+      const res = await fetch(`/api/vendors/${selectedVendor.id}/credentials`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clearanceRate: rateNum,
+          clearanceActive: !!clearanceActive,
+          clearanceStartDate,
+          clearanceEndDate
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSelectedVendor(data);
+        setVendors(prev => prev.map(v => v.id === data.id ? data : v));
+        setClearanceMsg(`Clearance campaign with ${clearanceRate}% rate has been successfully synced and activated!`);
+        if (onVendorUpdated) {
+          onVendorUpdated();
+        }
+        setTimeout(() => setClearanceMsg(''), 4500);
+      } else {
+        setClearanceMsg(data.error || 'Failed to update store clearance campaign.');
+      }
+    } catch (err) {
+      console.error("Error saving clearance campaign settings:", err);
+      setClearanceMsg('Connection error updating clearance campaign.');
     }
   };
 
@@ -2190,7 +2292,10 @@ export default function VendorPortal({
                     // Extra manual discount
                     const manualDeduct = Number(posExtraDiscount) || 0;
                     const tax = Math.max(0, subtotal - itemDiscount - couponDeduct - manualDeduct) * 0.15; // 15% VAT Somali rate
-                    const totalCost = Math.max(0, subtotal - itemDiscount - couponDeduct - manualDeduct + tax);
+                    
+                    // Shipping/Delivery cost
+                    const shippingFee = posDeliveryMethod === 'delivery' ? (Number(posShippingCost) || 0) : 0;
+                    const totalCost = Math.max(0, subtotal - itemDiscount - couponDeduct - manualDeduct + tax + shippingFee);
 
                     // Change calculator
                     const paid = Number(posPaidAmount) || 0;
@@ -2246,11 +2351,113 @@ export default function VendorPortal({
                           <span>VAT/Tax (15%):</span>
                           <span>+${tax.toFixed(2)}</span>
                         </div>
+
+                        {posDeliveryMethod === 'delivery' && (
+                          <div className="flex justify-between text-indigo-600 font-bold">
+                            <span>Delivery Fee:</span>
+                            <span>+${Number(posShippingCost || 0).toFixed(2)}</span>
+                          </div>
+                        )}
                         
                         <div className="flex justify-between text-slate-800 font-extrabold text-xs pt-1.5 border-t border-dashed">
                           <span>TOTAL:</span>
                           <span className="font-sans text-sm font-black text-indigo-700">${totalCost.toFixed(2)}</span>
                         </div>
+
+                        {/* Fulfillment Selection */}
+                        <div className="space-y-1.5 pt-2 border-t text-left">
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">Fulfillment Method</span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPosDeliveryMethod('pickup');
+                              }}
+                              className={`py-1.5 border text-center font-bold text-[10px] uppercase rounded-xl transition cursor-pointer flex items-center justify-center gap-1 ${posDeliveryMethod === 'pickup' ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-100 text-slate-705 hover:bg-slate-200 border-slate-200'}`}
+                            >
+                              🛒 Self Pickup
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPosDeliveryMethod('delivery');
+                              }}
+                              className={`py-1.5 border text-center font-bold text-[10px] uppercase rounded-xl transition cursor-pointer flex items-center justify-center gap-1 ${posDeliveryMethod === 'delivery' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-705 hover:bg-slate-200 border-slate-200'}`}
+                            >
+                              🚚 Home Delivery
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Home Delivery customer entry fields */}
+                        {posDeliveryMethod === 'delivery' && (
+                          <div className="p-3 bg-indigo-50/55 border border-indigo-100 rounded-xl space-y-2 text-left animate-fadeIn">
+                            <span className="block text-[8.5px] font-bold text-indigo-700 uppercase font-mono tracking-widest mb-1 pb-1 border-b border-indigo-100 flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-indigo-600" /> Courier Shipping Address
+                            </span>
+                            
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[8.5px] text-slate-450 uppercase mb-0.5 font-bold font-sans">Receiver Name</label>
+                                <input
+                                  type="text"
+                                  placeholder="Amina Omar"
+                                  value={posCustomerName}
+                                  onChange={(e) => setPosCustomerName(e.target.value)}
+                                  className="w-full text-[10.5px] font-sans bg-white border border-slate-200 px-2 py-1 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none text-slate-805"
+                                  required
+                                />
+                               </div>
+                              <div>
+                                <label className="block text-[8.5px] text-slate-450 uppercase mb-0.5 font-bold font-sans">Mobile Phone</label>
+                                <input
+                                  type="text"
+                                  placeholder="63XXXXXXX"
+                                  value={posCustomerPhone}
+                                  onChange={(e) => setPosCustomerPhone(e.target.value)}
+                                  className="w-full text-[10.5px] font-mono bg-white border border-slate-200 px-2 py-1 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none text-slate-805"
+                                  required
+                                />
+                               </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[8.5px] text-slate-450 uppercase mb-0.5 font-bold font-sans">Full Address</label>
+                                <input
+                                  type="text"
+                                  placeholder="Sha'ab Rd"
+                                  value={posCustomerAddress}
+                                  onChange={(e) => setPosCustomerAddress(e.target.value)}
+                                  className="w-full text-[10.5px] bg-white border border-slate-200 px-2 py-1 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none text-slate-805"
+                                  required
+                                />
+                               </div>
+                              <div>
+                                <label className="block text-[8.5px] text-slate-450 uppercase mb-0.5 font-bold font-sans font-mono">Cost ($)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="15"
+                                  value={posShippingCost}
+                                  onChange={(e) => setPosShippingCost(e.target.value)}
+                                  className="w-full text-[10.5px] font-bold font-mono text-right bg-white border border-slate-200 px-2 py-1 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none text-slate-850"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[8.5px] text-slate-450 uppercase mb-0.5 font-bold font-sans">Email Address</label>
+                              <input
+                                type="email"
+                                placeholder="customer@example.com"
+                                value={posCustomerEmail}
+                                onChange={(e) => setPosCustomerEmail(e.target.value)}
+                                className="w-full text-[10.5px] bg-white border border-slate-200 px-2 py-1 rounded focus:ring-1 focus:ring-indigo-500 focus:outline-none text-slate-805"
+                              />
+                            </div>
+                          </div>
+                        )}
 
                         {/* Paid By Selection (0:01) */}
                         <div className="space-y-1.5 pt-2 border-t">
@@ -2308,47 +2515,104 @@ export default function VendorPortal({
                             onClick={async () => {
                               try {
                                 if (posCart.length === 0) return;
-                                const receiptPayload = {
-                                  id: `pos-${Date.now().toString().substring(7)}`,
-                                  items: posCart,
-                                  subtotal,
-                                  discount: itemDiscount + couponDeduct + manualDeduct,
-                                  tax,
-                                  total: totalCost,
-                                  paidAmount: paid || totalCost,
-                                  changeAmount: changeVal,
-                                  paidBy: posPaidBy,
-                                  cashier: representativeName || "Sarah Representative",
-                                  date: new Date().toLocaleString()
-                                };
-                                setPosSuccessInvoice(receiptPayload);
-                                setOrders(prev => [{
-                                  id: receiptPayload.id,
-                                  customerId: "pos-walkin-client",
-                                  customerName: "Walk In Purchaser",
-                                  customerEmail: "walkin@hubaal.so",
+
+                                // Validation for Home Delivery
+                                if (posDeliveryMethod === 'delivery') {
+                                  if (!posCustomerName.trim()) {
+                                    alert("Please enter the customized delivery recipient name!");
+                                    return;
+                                  }
+                                  if (!posCustomerPhone.trim()) {
+                                    alert("Please enter the contact phone number for home delivery!");
+                                    return;
+                                  }
+                                  if (!posCustomerAddress.trim()) {
+                                    alert("Please specify the delivery shipping address!");
+                                    return;
+                                  }
+                                }
+
+                                const payload = {
+                                  customerId: posDeliveryMethod === 'delivery' ? "pos-delivery-client" : "pos-walkin-client",
+                                  customerName: posDeliveryMethod === 'delivery' ? posCustomerName.trim() : "Walk In Purchaser",
+                                  customerEmail: posDeliveryMethod === 'delivery' ? (posCustomerEmail.trim() || "delivery@walkin.so") : "walkin@hubaal.so",
                                   items: posCart.map(ci => ({
                                     productId: ci.product.id,
                                     title: ci.product.title,
                                     price: ci.product.price,
-                                    quantity: ci.quantity
+                                    quantity: ci.quantity,
+                                    selectedColor: ci.selectedColor || "",
+                                    selectedSize: ci.selectedSize || "",
+                                    image: ci.product.images?.[0] || ci.product.image || ""
                                   })),
                                   subtotal,
                                   tax,
-                                  shippingCost: 0,
+                                  shippingCost: posDeliveryMethod === 'delivery' ? (Number(posShippingCost) || 0) : 0,
                                   discount: itemDiscount + couponDeduct + manualDeduct,
                                   total: totalCost,
-                                  status: 'delivered',
-                                  deliveryMethod: 'pickup',
-                                  createdAt: new Date().toISOString()
-                                } as any, ...prev]);
+                                  couponCode: posSelectedCoupon?.code || null,
+                                  paymentMethod: posPaidBy === 'cash' ? 'Cash match' : 'Card Paid',
+                                  deliveryMethod: posDeliveryMethod, // 'pickup' or 'delivery'
+                                  status: posDeliveryMethod === 'delivery' ? 'pending' : 'delivered',
+                                  statusNote: posDeliveryMethod === 'delivery' ? "POS checkout order created. Dispatched to SUUQHUB central logistics delivery." : "POS checkout order created. Delivered over-the-counter.",
+                                  shippingAddress: {
+                                    fullName: posDeliveryMethod === 'delivery' ? posCustomerName.trim() : "Walk In Purchaser",
+                                    addressLine1: posDeliveryMethod === 'delivery' ? posCustomerAddress.trim() : "Counter POS Handout",
+                                    city: "Hargeisa",
+                                    state: "Somaliland",
+                                    zipCode: "M4300",
+                                    country: "Somalia (Somaliland)",
+                                    phone: posDeliveryMethod === 'delivery' ? posCustomerPhone.trim() : "Local counter"
+                                  }
+                                };
+
+                                const res = await fetch('/api/orders', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(payload)
+                                });
+
+                                if (!res.ok) {
+                                  const errData = await res.json();
+                                  throw new Error(errData.error || "Failed to persist POS order");
+                                }
+
+                                const dbOrder = await res.json();
+
+                                const receiptPayload = {
+                                  id: dbOrder.id || `pos-${Date.now().toString().substring(7)}`,
+                                  items: posCart,
+                                  subtotal,
+                                  discount: itemDiscount + couponDeduct + manualDeduct,
+                                  tax,
+                                  shippingCost: posDeliveryMethod === 'delivery' ? (Number(posShippingCost) || 0) : 0,
+                                  total: totalCost,
+                                  paidAmount: paid || totalCost,
+                                  changeAmount: changeVal,
+                                  paidBy: posPaidBy,
+                                  deliveryMethod: posDeliveryMethod,
+                                  recipientName: posDeliveryMethod === 'delivery' ? posCustomerName.trim() : "Walk In Purchaser",
+                                  recipientPhone: posDeliveryMethod === 'delivery' ? posCustomerPhone.trim() : "",
+                                  cashier: representativeName || "Sarah Representative",
+                                  date: new Date().toLocaleString()
+                                };
+
+                                setPosSuccessInvoice(receiptPayload);
+                                setOrders(prev => [dbOrder, ...prev]);
                                 
+                                // Reset cashier cart and variables
                                 setPosCart([]);
                                 setPosPaidAmount('');
                                 setPosExtraDiscount('0');
                                 setPosSelectedCoupon(null);
-                              } catch (err) {
+                                setPosCustomerName('');
+                                setPosCustomerPhone('');
+                                setPosCustomerAddress('');
+                                setPosCustomerEmail('');
+                                setPosDeliveryMethod('pickup');
+                              } catch (err: any) {
                                 console.error("Error creating POS receipt:", err);
+                                alert("Failed to complete POS order: " + err.message);
                               }
                             }}
                             className="w-full text-center py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-xs active:scale-97 disabled:opacity-55 disabled:pointer-events-none cursor-pointer"
@@ -2723,7 +2987,7 @@ export default function VendorPortal({
 
               <div className="space-y-4 max-w-md bg-slate-50 border border-slate-200 p-5 rounded-2xl">
                 {clearanceMsg && (
-                  <div className="p-3 text-xs bg-emerald-50 border border-emerald-150 text-emerald-800 rounded">
+                  <div className="p-3 text-xs bg-indigo-50 border border-indigo-150 text-indigo-850 rounded font-medium">
                     {clearanceMsg}
                   </div>
                 )}
@@ -2734,29 +2998,61 @@ export default function VendorPortal({
                     type="number"
                     min="1"
                     max="90"
+                    placeholder="e.g. 15"
                     value={clearanceRate}
                     onChange={(e) => setClearanceRate(e.target.value)}
-                    className="w-full text-xs font-mono bg-white border border-slate-205 roundedpx-4 py-2.5 text-slate-800 focus:outline-none"
+                    className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
                   />
+                  <p className="text-[9px] text-slate-400 mt-1">This discount rate applies storewide to all products during the scheduled period.</p>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700">Activate Clearance Rate</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Campaign Start Date</label>
+                    <input
+                      type="date"
+                      value={clearanceStartDate}
+                      onChange={(e) => setClearanceStartDate(e.target.value)}
+                      className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Campaign End Date</label>
+                    <input
+                      type="date"
+                      value={clearanceEndDate}
+                      onChange={(e) => setClearanceEndDate(e.target.value)}
+                      className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 bg-indigo-50/40 rounded-xl border border-indigo-100">
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">Activate Store-wide Clearance</span>
+                    <span className="text-[9.5px] text-slate-450 block">If unchecked, markdown is disabled immediately.</span>
+                  </div>
                   <input
                     type="checkbox"
                     checked={clearanceActive}
                     onChange={(e) => setClearanceActive(e.target.checked)}
-                    className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                    className="w-5 h-5 accent-indigo-600 rounded cursor-pointer shrink-0"
                   />
                 </div>
 
+                {clearanceActive && clearanceStartDate && clearanceEndDate && (
+                  <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl text-[10px] text-amber-800 flex items-start gap-2">
+                    <span>💡</span>
+                    <span>
+                      Active schedule range: <strong className="font-mono">{clearanceStartDate}</strong> to <strong className="font-mono">{clearanceEndDate}</strong>. Outside this window, standard price ratios apply.
+                    </span>
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  onClick={() => {
-                    setClearanceMsg(`Clearance rate of ${clearanceRate}% has been successfully synced store-wide on your approved items!`);
-                    setTimeout(() => setClearanceMsg(''), 4500);
-                  }}
-                  className="w-full text-center py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wide rounded-lg transition-colors cursor-pointer shadow-3xs"
+                  onClick={handleSaveClearance}
+                  className="w-full text-center py-2.5 bg-indigo-605 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wide rounded-lg transition-colors cursor-pointer shadow-3xs"
                 >
                   Save Store clearance
                 </button>
@@ -4703,6 +4999,49 @@ export default function VendorPortal({
           </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-4">
+            {/* Shareable Storefront Link */}
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-550/5 p-4 rounded-xl border border-indigo-100/80 space-y-2 mb-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-black tracking-wider text-indigo-600 uppercase flex items-center gap-1">
+                  🔗 Shareable Store Link
+                </span>
+                <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                  Customer Direct Link
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-650 leading-normal">
+                Copy and share your unique shop link on WhatsApp, Facebook, Instagram, or TikTok. When clicked, customer browsers will open your customized storefront directly.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${window.location.origin}${window.location.pathname}?vendor=${selectedVendor.id}`}
+                  className="w-full text-xs font-mono bg-white border border-slate-200 rounded-lg px-3 py-2 text-indigo-900 select-all focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shopUrl = `${window.location.origin}${window.location.pathname}?vendor=${selectedVendor.id}`;
+                    navigator.clipboard.writeText(shopUrl);
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 2000);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:transform active:scale-95 text-white rounded-lg flex items-center gap-1.5 transition text-xs font-bold font-mono uppercase tracking-wide shrink-0 cursor-pointer"
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="w-4 h-4" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-4 h-4" /> Copy Link
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
             {settingsMsg && (
               <div className={`p-4 text-xs rounded-lg border flex gap-3 items-center ${
                 settingsSuccess ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-red-50 border-red-200 text-red-750'
@@ -4715,28 +5054,99 @@ export default function VendorPortal({
             {/* Store Information */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-4">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">Storefront Presentation</h3>
+
+              <div>
+                <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1">Store Owner / Representative Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Salem Al-Mansoori"
+                  value={representativeName}
+                  onChange={(e) => setRepresentativeName(e.target.value)}
+                  className="w-full text-xs bg-white border border-slate-200 rounded px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600 font-sans"
+                />
+              </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Brand Logo Upload Block */}
                 <div>
-                  <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1">Store Owner / Representative</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Salem Al-Mansoori"
-                    value={representativeName}
-                    onChange={(e) => setRepresentativeName(e.target.value)}
-                    className="w-full text-xs bg-white border border-slate-200 rounded px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600 font-sans"
-                  />
+                  <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1.5">Store Brand Logo Image</label>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        handleShopLogoFile(e.dataTransfer.files[0]);
+                      }
+                    }}
+                    className="border-2 border-dashed border-slate-200 hover:border-indigo-500 hover:bg-slate-50/50 rounded-xl p-4 text-center cursor-pointer transition-all relative group h-28 flex flex-col justify-center items-center overflow-hidden"
+                    onClick={() => document.getElementById('settings-logo-file')?.click()}
+                  >
+                    <input
+                      type="file"
+                      id="settings-logo-file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleShopLogoFile(e.target.files[0]);
+                        }
+                      }}
+                    />
+                    
+                    {logo && (logo.startsWith('data:image/') || logo.startsWith('http')) ? (
+                      <div className="flex items-center gap-3 w-full justify-between px-2">
+                        <div className="h-16 w-16 rounded-xl overflow-hidden border border-slate-205 flex-shrink-0 relative">
+                          <img src={logo} alt="Store logo preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLogo('');
+                            }}
+                            className="absolute top-0.5 right-0.5 p-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full transition-all shadow-md cursor-pointer"
+                            title="Remove Image"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <div className="text-right flex-1">
+                          <p className="text-[10px] text-emerald-600 font-mono font-bold flex items-center justify-end gap-1">
+                            Uploaded Logo
+                          </p>
+                          <span className="text-[9px] text-slate-400">Click box to replace</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-center py-1">
+                        <div className="mx-auto w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors">
+                          <Upload className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-700">Logo <span className="text-indigo-600 font-bold hover:underline">browse files</span></p>
+                          {logo && logo.length <= 3 && (
+                            <p className="text-[9px] text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded inline-block font-mono font-bold">Initials: {logo}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1">2-Letter Logo Symbol (Optional)</label>
-                  <input
-                    maxLength={3}
-                    placeholder="e.g. BS"
-                    value={logo}
-                    onChange={(e) => setLogo(e.target.value.toUpperCase())}
-                    className="w-full text-xs font-mono bg-white border border-slate-200 rounded px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
-                  />
+                {/* Backwards Fallback Initials / Presentation info */}
+                <div className="flex flex-col justify-between">
+                  <div>
+                    <label className="block text-[10px] text-slate-500 uppercase font-mono tracking-wider mb-1.5">Backup Brand Initials (For fallback logo symbol)</label>
+                    <input
+                      maxLength={3}
+                      placeholder="e.g. BS"
+                      value={logo && (logo.startsWith('data:image/') || logo.startsWith('http')) ? '' : logo}
+                      onChange={(e) => setLogo(e.target.value.toUpperCase())}
+                      className="w-full text-xs font-mono bg-white border border-slate-200 rounded px-3 py-2.5 text-slate-805 text-slate-850 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-450 leading-relaxed mt-2 sm:mt-0">
+                    If no photo logo is uploaded, these 2-3 letters will be automatically displayed inside dynamic brand elements.
+                  </p>
                 </div>
               </div>
 
@@ -4879,6 +5289,43 @@ export default function VendorPortal({
                     onChange={(e) => setEdahabNumber(e.target.value.replace(/\D/g, ''))}
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-550"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Direct Shop Contacts */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-3">
+              <h3 className="text-xs font-bold text-slate-755 text-slate-700 uppercase tracking-wide">Customer Direct Contacts</h3>
+              <p className="text-[11px] text-slate-500">
+                Provide your WhatsApp number and direct phone call details so customers can easily contact you directly from your shop page.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1.5">
+                  <span className="text-[10px] font-mono font-black tracking-wider text-emerald-600 uppercase flex items-center gap-1">
+                    💬 WhatsApp Number (Optional)
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="e.g. +252634400213"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    className="w-full text-xs bg-slate-550 bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                  <span className="text-[9px] text-slate-400">Include country code if needed.</span>
+                </div>
+
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1.5">
+                  <span className="text-[10px] font-mono font-black tracking-wider text-indigo-650 text-indigo-600 uppercase flex items-center gap-1">
+                    📞 Direct Phone Call (Optional)
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="e.g. 0634400213"
+                    value={callContact}
+                    onChange={(e) => setCallContact(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-555 focus:ring-indigo-500"
+                  />
+                  <span className="text-[9px] text-slate-400">Direct dial phone number.</span>
                 </div>
               </div>
             </div>
@@ -5311,6 +5758,138 @@ export default function VendorPortal({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 4. POS Success Receipt & Invoice Modal */}
+      {posSuccessInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 animate-fadeIn" id="pos-success-modal">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-sm w-full p-6 shadow-2xl space-y-4 text-left animate-in zoom-in-95 duration-200 relative overflow-hidden font-mono text-xs">
+            
+            {/* Real thermal paper serrated cut design line */}
+            <div className="absolute top-0 inset-x-0 h-1.5 bg-slate-100 flex overflow-hidden">
+              {Array.from({ length: 40 }).map((_, i) => (
+                <div key={i} className="w-2.5 h-2.5 bg-white rotate-45 transform origin-top-left -mt-1.5 ml-1" />
+              ))}
+            </div>
+
+            <div className="text-center space-y-1 pt-3 font-sans">
+              <span className="inline-block p-1.5 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-bold tracking-widest uppercase font-mono">
+                {posSuccessInvoice.deliveryMethod === 'delivery' ? '🚚 SUUQHUB LOGISTICS DIRECT' : '🛒 CASHIER HANDOUT DIRECT'}
+              </span>
+              <h3 className="text-base font-black tracking-tight text-slate-800 uppercase font-sans mt-1">SUUQHUB SMART MARKET</h3>
+              <p className="text-[10px] text-slate-400 font-sans uppercase">{selectedVendor?.vendorName || "Active Partner Vendor"}</p>
+              <p className="text-[9px] text-slate-400">Terminal Cashier: {posSuccessInvoice.cashier}</p>
+              <p className="text-[9px] text-slate-400">Timestamp: {posSuccessInvoice.date}</p>
+            </div>
+
+            <div className="border-t border-b border-dashed border-slate-200 py-3 space-y-2">
+              <div className="flex justify-between text-[11px] font-bold text-slate-805">
+                <span>ITEM DESCRIPTION</span>
+                <span>QTY x PRICE</span>
+              </div>
+              
+              <div className="space-y-1 text-slate-600 text-[10.5px]">
+                {posSuccessInvoice.items.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between">
+                    <span className="truncate max-w-[180px]">{item.product.title}</span>
+                    <span>{item.quantity} x ${item.product.price.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 text-slate-600 text-[10.5px] border-b border-dashed border-slate-200 pb-3">
+              <div className="flex justify-between">
+                <span>SUBTOTAL:</span>
+                <span>${posSuccessInvoice.subtotal.toFixed(2)}</span>
+              </div>
+              {posSuccessInvoice.discount > 0 && (
+                <div className="flex justify-between text-emerald-600 font-bold">
+                  <span>DISCOUNTS:</span>
+                  <span>-${posSuccessInvoice.discount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>VAT/TAX (15%):</span>
+                <span>+${posSuccessInvoice.tax.toFixed(2)}</span>
+              </div>
+              {posSuccessInvoice.deliveryMethod === 'delivery' && (
+                <div className="flex justify-between text-indigo-600 font-bold">
+                  <span>COURIER SHIPPING:</span>
+                  <span>+${posSuccessInvoice.shippingCost.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-slate-900 font-black text-xs pt-1 border-t border-slate-100">
+                <span>GRAND TOTAL:</span>
+                <span>${posSuccessInvoice.total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {posSuccessInvoice.deliveryMethod === 'delivery' ? (
+              <div className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl space-y-1 text-indigo-900 text-[10px] font-sans">
+                <span className="font-bold flex items-center gap-1 uppercase tracking-widest font-mono"><Truck className="w-3.5 h-3.5 shrink-0 text-indigo-600" /> SUUQHUB LOGISTICS DIRECTIVE</span>
+                <p className="font-sans text-[10px] leading-relaxed text-indigo-700">
+                  This order was dispatched successfully to <b>SuuqHub Logistics central delivery section</b> for courier dispatch.
+                </p>
+                <div className="pt-1 font-mono text-[9.5px] text-indigo-800 space-y-0.5">
+                  <div><b>Order Status:</b> Pending Courier Transit</div>
+                  <div><b>Receiver:</b> {posSuccessInvoice.recipientName}</div>
+                  <div><b>Phone:</b> {posSuccessInvoice.recipientPhone}</div>
+                  <div><b>Delivery Fee Owed:</b> ${posSuccessInvoice.shippingCost}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1 text-slate-600 text-[10.5px]">
+                <div className="flex justify-between">
+                  <span>PAYMENT METHOD:</span>
+                  <span className="font-bold uppercase">{posSuccessInvoice.paidBy}</span>
+                </div>
+                {posSuccessInvoice.paidBy === 'cash' && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>AMOUNT TENDERED:</span>
+                      <span>${(Number(posSuccessInvoice.paidAmount) || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-slate-800">
+                      <span>CHANGE DUE:</span>
+                      <span>${(Number(posSuccessInvoice.changeAmount) || 0).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="text-center pt-2 space-y-3 font-sans">
+              <div className="inline-block px-3 py-1 bg-slate-100 text-slate-700 text-[9px] font-mono tracking-widest rounded-md uppercase font-bold border border-slate-200">
+                ORDER ID: {posSuccessInvoice.id}
+              </div>
+              
+              <div className="text-[10px] text-slate-400 leading-relaxed font-serif italic">
+                "Thank you for supporting Somali domestic vendors! Remit all delivery balances promptly."
+              </div>
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.print();
+                  }}
+                  className="flex-1 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-[10.5px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer text-center"
+                >
+                  Print Receipt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPosSuccessInvoice(null)}
+                  className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[10.5px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer text-center"
+                >
+                  Close Receipt
+                </button>
+              </div>
+            </div>
+            
           </div>
         </div>
       )}

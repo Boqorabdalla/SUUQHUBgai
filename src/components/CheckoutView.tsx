@@ -199,7 +199,44 @@ export default function CheckoutView({
   }, []);
 
   // Computations
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const getEffectivePriceAndClearance = (item: CartItem) => {
+    const prod = products.find(p => p.id === item.productId);
+    const vendor = prod ? vendors.find(v => v.id === prod.vendorId) : null;
+    let clearanceRateApplied = 0;
+    let isCampaignActive = false;
+
+    if (vendor && vendor.clearanceActive && vendor.clearanceRate) {
+      const today = new Date().toISOString().substring(0, 10);
+      isCampaignActive = !!(vendor.clearanceStartDate && vendor.clearanceEndDate &&
+        today >= vendor.clearanceStartDate && today <= vendor.clearanceEndDate);
+      if (isCampaignActive) {
+        clearanceRateApplied = vendor.clearanceRate;
+      }
+    }
+
+    const originalUnitTotal = item.price;
+    const discountedUnitTotal = clearanceRateApplied > 0 
+      ? originalUnitTotal * (1 - clearanceRateApplied / 100) 
+      : originalUnitTotal;
+
+    return {
+      originalUnitTotal,
+      discountedUnitTotal,
+      clearanceRateApplied,
+      isCampaignActive
+    };
+  };
+
+  const cartSubtotalsAndClearances = cartItems.map(item => {
+    const { discountedUnitTotal } = getEffectivePriceAndClearance(item);
+    return {
+      originalSum: item.price * item.quantity,
+      discountedSum: discountedUnitTotal * item.quantity
+    };
+  });
+
+  const subtotal = cartSubtotalsAndClearances.reduce((sum, item) => sum + item.discountedSum, 0);
+  const totalClearanceMerchantDeductions = cartSubtotalsAndClearances.reduce((sum, item) => sum + (item.originalSum - item.discountedSum), 0);
   
   let discount = 0;
   if (appliedCoupon) {
@@ -246,15 +283,18 @@ export default function CheckoutView({
       customerRole: userRole || "customer",
       customerName: fullName,
       customerEmail: userEmail || "customer@apex.com",
-      items: cartItems.map(item => ({
-        productId: item.productId,
-        title: item.title,
-        price: item.price,
-        quantity: item.quantity,
-        selectedColor: item.selectedColor,
-        selectedSize: item.selectedSize,
-        image: item.image
-      })),
+      items: cartItems.map(item => {
+        const { discountedUnitTotal } = getEffectivePriceAndClearance(item);
+        return {
+          productId: item.productId,
+          title: item.title,
+          price: discountedUnitTotal,
+          quantity: item.quantity,
+          selectedColor: item.selectedColor,
+          selectedSize: item.selectedSize,
+          image: item.image
+        };
+      }),
       subtotal,
       tax,
       shippingCost,
@@ -806,29 +846,52 @@ export default function CheckoutView({
           
           {/* Items list */}
           <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto pr-1">
-            {cartItems.map((item) => (
-              <div key={item.id} className="py-3 flex gap-3 text-left">
-                <div className="w-10 h-10 rounded bg-slate-50 overflow-hidden flex-shrink-0 border border-slate-200">
-                  <img src={item.image} alt="" className="w-full h-full object-cover" />
+            {cartItems.map((item) => {
+              const { discountedUnitTotal, clearanceRateApplied } = getEffectivePriceAndClearance(item);
+              return (
+                <div key={item.id} className="py-3 flex gap-3 text-left">
+                  <div className="w-10 h-10 rounded bg-slate-50 overflow-hidden flex-shrink-0 border border-slate-200">
+                    <img src={item.image} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-grow flex flex-col justify-center text-xs">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-semibold text-slate-800 line-clamp-1 leading-snug">{item.title}</span>
+                      {clearanceRateApplied > 0 && (
+                        <span className="px-1.5 py-0.2 bg-red-100 text-red-700 font-mono text-[8px] font-extrabold uppercase rounded leading-none">
+                          {clearanceRateApplied}% Off
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-slate-500 font-mono text-[10px] mt-0.5">
+                      Qty {item.quantity} {item.selectedColor ? ` / ${item.selectedColor}` : ''}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end justify-center">
+                    {clearanceRateApplied > 0 && (
+                      <span className="text-[10px] text-slate-400 line-through leading-tight">
+                        {formatPrice(item.price * item.quantity, currency)}
+                      </span>
+                    )}
+                    <span className="text-xs font-mono font-bold text-slate-705 leading-none">
+                      {formatPrice(discountedUnitTotal * item.quantity, currency)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-grow flex flex-col justify-center text-xs">
-                  <span className="font-semibold text-slate-800 line-clamp-1 leading-snug">{item.title}</span>
-                  <span className="text-slate-500 font-mono text-[10px] mt-0.5">
-                    Qty {item.quantity} {item.selectedColor ? ` / ${item.selectedColor}` : ''}
-                  </span>
-                </div>
-                <div className="flex items-center text-xs font-mono font-bold text-slate-705">
-                  {formatPrice(item.price * item.quantity, currency)}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="space-y-2.5 border-t border-slate-100 pt-4 text-xs text-slate-500">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span className="text-slate-800 font-semibold">{formatPrice(subtotal, currency)}</span>
+              <span className="text-slate-800 font-semibold">{formatPrice(subtotal + totalClearanceMerchantDeductions, currency)}</span>
             </div>
+            {totalClearanceMerchantDeductions > 0 && (
+              <div className="flex justify-between text-red-600 font-medium">
+                <span>⚡ Store Clearance Savings</span>
+                <span>-{formatPrice(totalClearanceMerchantDeductions, currency)}</span>
+              </div>
+            )}
             {appliedCoupon && (
               <div className="flex justify-between text-emerald-600 font-medium">
                 <span>Voucher coupon ({appliedCoupon.code})</span>

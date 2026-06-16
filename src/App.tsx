@@ -20,7 +20,7 @@ import AllVendorsView from './components/AllVendorsView';
 import { Product, CartItem, Coupon, UserRole, HeroCampaign } from './types';
 import { initialProducts } from './initialData';
 import { translations, formatPrice } from './utils';
-import { LayoutGrid, Filter, Search, ShieldCheck, Download, AlertCircle, ShoppingBag, ArrowRight, Sparkles, ChevronLeft, ChevronRight, Zap, RefreshCw, Star, Flame, Trophy } from 'lucide-react';
+import { LayoutGrid, Filter, Search, ShieldCheck, Download, AlertCircle, ShoppingBag, ArrowRight, Sparkles, ChevronLeft, ChevronRight, Zap, RefreshCw, Star, Flame, Trophy, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -69,6 +69,9 @@ export default function App() {
 
   // Success checkout screen code
   const [lastCompletedOrderId, setLastCompletedOrderId] = useState<string | null>(null);
+
+  // Mobile drawer navigation state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Listen for user changes in Auth SDK
   useEffect(() => {
@@ -205,6 +208,15 @@ export default function App() {
       localStorage.removeItem('apex_local_user');
     }
   }, [firebaseUser]);
+
+  // Redirect to all-vendors tab on startup if of any shared vendor link query parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const vendorId = params.get('vendor') || params.get('vendorId');
+    if (vendorId) {
+      setActiveTab('all-vendors');
+    }
+  }, []);
 
   // Load backend catalog lists on component mount
   useEffect(() => {
@@ -903,6 +915,8 @@ export default function App() {
               currency={currency}
               lang={lang}
               userId={firebaseUser?.id || "usr-customer-01"}
+              userName={firebaseUser?.name || "Guest Account"}
+              userEmail={firebaseUser?.email || "boqorapps@gmail.com"}
             />
           </motion.div>
         );
@@ -1180,6 +1194,12 @@ export default function App() {
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         userName={firebaseUser?.name || 'Guest Account'}
+        categoriesList={categoriesList}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        setViewAllSection={setViewAllSection}
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
         onSignOut={firebaseUser ? () => {
           signOut(auth).then(() => {
             setFirebaseUser(null);
@@ -1192,6 +1212,221 @@ export default function App() {
           });
         } : undefined}
       />
+
+      {/* Premium Full-Width Mobile Dropdown Menu Drawer (Directly anchors below headers) */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <div className="fixed inset-x-0 top-16 sm:top-20 z-50 lg:hidden flex flex-col md:px-0">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs top-16 sm:top-20 pointer-events-auto"
+            />
+            
+            {/* Dropdown Container */}
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              className="relative w-full bg-white border-b border-slate-200 shadow-2xl overflow-y-auto max-h-[80vh] flex flex-col z-50 pointer-events-auto"
+            >
+              <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+                
+                {/* Column 1: Directory & Quick Links */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-[11px] font-sans font-black tracking-wider text-[#0f5132] uppercase">
+                      🧭 Quick Directory
+                    </span>
+                    <button 
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="p-1 rounded-full hover:bg-slate-100 text-slate-400"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Home */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('catalog');
+                        setSelectedCategory('All');
+                        setViewAllSection(null);
+                        setSearchTerm('');
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`p-3 rounded-xl text-left font-bold text-xs flex items-center justify-between border transition cursor-pointer ${activeTab === 'catalog' && (!searchTerm || searchTerm !== 'Pro') && (!selectedCategory || selectedCategory === 'All') ? 'bg-[#0f5132]/5 text-[#0f5132] border-[#0f5132]/20 font-black' : 'border-slate-100 hover:bg-slate-50 text-slate-700'}`}
+                    >
+                      <span>🏠 Home</span>
+                      <ChevronRight className="w-3 h-3 opacity-60" />
+                    </button>
+
+                    {/* Brand */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('catalog');
+                        setSearchTerm('Pro');
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`p-3 rounded-xl text-left font-bold text-xs flex items-center justify-between border transition cursor-pointer ${activeTab === 'catalog' && searchTerm === 'Pro' ? 'bg-[#0f5132]/5 text-[#0f5132] border-[#0f5132]/20 font-black' : 'border-slate-100 hover:bg-slate-50 text-slate-700'}`}
+                    >
+                      <span>🔥 Brand</span>
+                      <ChevronRight className="w-3 h-3 opacity-60" />
+                    </button>
+
+                    {/* Offers */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewAllSection('flash');
+                        setActiveTab('catalog');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="p-3 rounded-xl text-left border border-slate-100 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-between transition cursor-pointer"
+                    >
+                      <span>🎁 Offers</span>
+                      <span className="bg-[#7ebd24]/10 text-[#0f5132] text-[9px] font-mono font-bold px-1.5 py-0.5 rounded animate-pulse">SAVE</span>
+                    </button>
+
+                    {/* All Vendors */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('all-vendors');
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`p-3 rounded-xl text-left font-bold text-xs flex items-center justify-between border transition cursor-pointer ${activeTab === 'all-vendors' ? 'bg-[#0f5132]/5 text-[#0f5132] border-[#0f5132]/20 font-black' : 'border-slate-100 hover:bg-slate-50 text-slate-700'}`}
+                    >
+                      <span>🏬 All Vendors</span>
+                      <ChevronRight className="w-3 h-3 opacity-60" />
+                    </button>
+                  </div>
+
+                  {/* Somali literature banner bar */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory('Literature');
+                      setActiveTab('catalog');
+                      setViewAllSection(null);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full p-3 rounded-xl text-left font-bold text-xs flex items-center justify-between border transition cursor-pointer ${selectedCategory === 'Literature' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'border-indigo-100 hover:bg-slate-50 bg-indigo-50/20 text-indigo-900'}`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span>📚</span> 
+                      <span> Somali Publication House</span>
+                    </span>
+                    <span className="bg-indigo-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">HQ</span>
+                  </button>
+
+                  {/* Vendor zone utilities */}
+                  <div className="bg-slate-55 rounded-xl p-3.5 space-y-2 border border-slate-100">
+                    <span className="text-[10px] font-mono font-black text-slate-400 block uppercase tracking-wider">
+                      💼 Vendor Zone
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('login');
+                          setMobileMenuOpen(false);
+                        }}
+                        className="p-2 bg-white hover:bg-emerald-50 border border-slate-200 rounded-lg text-left text-[11px] font-bold text-emerald-800 transition block cursor-pointer"
+                      >
+                        🤝 Become Vendor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('vendor');
+                          setMobileMenuOpen(false);
+                        }}
+                        className="p-2 bg-white hover:bg-indigo-50 border border-slate-200 rounded-lg text-left text-[11px] font-bold text-indigo-700 transition block cursor-pointer"
+                      >
+                        🔑 Vendor Login
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column 2: Categories and Switchers */}
+                <div className="pt-5 sm:pt-0 sm:pl-6 space-y-4">
+                  <span className="text-[11px] font-sans font-black tracking-wider text-[#0f5132] uppercase block">
+                    📁 Browse Collections
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {categoriesList.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(cat);
+                          setViewAllSection(null);
+                          setActiveTab('catalog');
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`px-3 py-2 text-xs text-left rounded-lg transition font-bold flex justify-between items-center cursor-pointer ${selectedCategory === cat ? 'text-[#0f5132] bg-[#0f5132]/5 font-black' : 'text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        <span>{cat === 'All' ? 'All Collections' : cat}</span>
+                        {selectedCategory === cat && <span className="w-1.5 h-1.5 rounded-full bg-[#7ebd24]"></span>}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Quick localization switchers to bring high touch target access */}
+                  <div className="border-t border-slate-100 pt-4 flex gap-4">
+                    <div className="flex-1">
+                      <span className="text-[9px] font-mono text-slate-400 uppercase font-black block mb-1">Language</span>
+                      <div className="flex rounded-lg bg-slate-100 p-0.5">
+                        {(['en', 'ar', 'es'] as const).map((l) => (
+                          <button
+                            key={l}
+                            type="button"
+                            onClick={() => setLang(l)}
+                            className={`flex-1 text-center py-1 text-[10px] font-bold uppercase rounded-md transition cursor-pointer ${lang === l ? 'bg-white shadow text-[#0f5132]' : 'text-slate-500 hover:text-slate-900'}`}
+                          >
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-[9px] font-mono text-slate-400 uppercase font-black block mb-1">Currency</span>
+                      <div className="flex rounded-lg bg-slate-100 p-0.5">
+                        {(['USD', 'EUR', 'AED'] as const).map((curr) => (
+                          <button
+                            key={curr}
+                            type="button"
+                            onClick={() => setCurrency(curr)}
+                            className={`flex-1 text-center py-1 text-[10px] font-bold uppercase rounded-md transition cursor-pointer ${currency === curr ? 'bg-white shadow text-[#0f5132]' : 'text-slate-500 hover:text-slate-900'}`}
+                          >
+                            {curr}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Backing Footer info */}
+              <div className="bg-[#0f5132]/5 py-3.5 px-4 text-center border-t border-slate-100 text-[10px] font-semibold text-[#0f5132]/80 font-sans flex justify-between items-center">
+                <span>© Somali Multi-Vendor Portal</span>
+                <span className="font-mono text-[9px] bg-white px-2 py-0.5 rounded border border-slate-200">SuuqHub Global v1.2</span>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Green Sub-navigation ribbon bar - MATCHING IMAGE 1 */}
       <div className="bg-[#0f5132] text-white select-none whitespace-nowrap border-t border-[#0c3e26]/30 shadow-sm relative z-40">
@@ -1265,16 +1500,16 @@ export default function App() {
               {/* Dropdown list */}
               <div className="absolute top-full right-0 w-48 bg-white text-slate-800 rounded-b-lg border border-slate-200 shadow-xl opacity-0 invisible group-hover/vz:opacity-100 group-hover/vz:visible transition-all duration-150 py-1.5 z-50 text-left font-bold text-xs animate-in slide-in-from-top-1">
                 <button 
-                  onClick={() => { setActiveTab('vendor'); }} 
-                  className="w-full text-left px-5 py-2.5 hover:bg-slate-50 hover:text-[#0f5132] transition cursor-pointer flex items-center gap-2 text-slate-705 text-xs font-bold"
+                  onClick={() => { setActiveTab('login'); }} 
+                  className="w-full text-left px-5 py-2.5 hover:bg-slate-50 hover:text-[#0f5132] transition cursor-pointer flex items-center gap-2 text-emerald-800 text-xs font-bold border-b border-slate-100"
                 >
-                  Go to Vendor Portal
+                  🤝 1. Become a Vendor
                 </button>
                 <button 
-                  onClick={() => { setActiveTab('login'); }} 
-                  className="w-full text-left px-5 py-2.5 hover:bg-slate-50 hover:text-[#0f5132] transition cursor-pointer flex items-center gap-2 text-slate-705 text-xs font-bold"
+                  onClick={() => { setActiveTab('vendor'); }} 
+                  className="w-full text-left px-5 py-2.5 hover:bg-slate-50 hover:text-indigo-700 transition cursor-pointer flex items-center gap-2 text-indigo-700 text-xs font-bold"
                 >
-                  Register New Store
+                  🔑 2. Login as a Vendor
                 </button>
               </div>
             </div>

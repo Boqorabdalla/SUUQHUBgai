@@ -45,7 +45,44 @@ export default function CartDrawer({
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
   // Computations
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const getEffectivePriceAndClearance = (item: CartItem) => {
+    const prod = products.find(p => p.id === item.productId);
+    const vendor = prod ? vendors.find(v => v.id === prod.vendorId) : null;
+    let clearanceRateApplied = 0;
+    let isCampaignActive = false;
+
+    if (vendor && vendor.clearanceActive && vendor.clearanceRate) {
+      const today = new Date().toISOString().substring(0, 10);
+      isCampaignActive = !!(vendor.clearanceStartDate && vendor.clearanceEndDate &&
+        today >= vendor.clearanceStartDate && today <= vendor.clearanceEndDate);
+      if (isCampaignActive) {
+        clearanceRateApplied = vendor.clearanceRate;
+      }
+    }
+
+    const originalUnitTotal = item.price;
+    const discountedUnitTotal = clearanceRateApplied > 0 
+      ? originalUnitTotal * (1 - clearanceRateApplied / 100) 
+      : originalUnitTotal;
+
+    return {
+      originalUnitTotal,
+      discountedUnitTotal,
+      clearanceRateApplied,
+      isCampaignActive
+    };
+  };
+
+  const cartSubtotalsAndClearances = cartItems.map(item => {
+    const { discountedUnitTotal } = getEffectivePriceAndClearance(item);
+    return {
+      originalSum: item.price * item.quantity,
+      discountedSum: discountedUnitTotal * item.quantity
+    };
+  });
+
+  const subtotal = cartSubtotalsAndClearances.reduce((sum, item) => sum + item.discountedSum, 0);
+  const totalClearanceMerchantDeductions = cartSubtotalsAndClearances.reduce((sum, item) => sum + (item.originalSum - item.discountedSum), 0);
 
   const [globalDeliveryFee, setGlobalDeliveryFee] = useState<number>(15);
 
@@ -151,6 +188,7 @@ export default function CartDrawer({
                 const prod = products.find(p => p.id === item.productId);
                 const vendorOfItem = prod ? vendors.find(v => v.id === prod.vendorId) : null;
                 const isClosed = vendorOfItem ? !!vendorOfItem.isClosed : false;
+                const { discountedUnitTotal, clearanceRateApplied } = getEffectivePriceAndClearance(item);
 
                 return (
                   <div key={item.id} className={`py-4 flex gap-4 text-left ${isClosed ? 'opacity-60 bg-red-950/5 p-2 rounded-xl border border-red-500/10' : ''}`}>
@@ -170,6 +208,11 @@ export default function CartDrawer({
                           {isClosed && (
                             <span className="bg-rose-500/10 text-rose-400 font-mono text-[8px] tracking-wider px-1 rounded border border-rose-500/20">
                               STORE CLOSED
+                            </span>
+                          )}
+                          {clearanceRateApplied > 0 && (
+                            <span className="bg-rose-505/10 bg-red-500/10 text-rose-400 font-mono text-[8px] font-black px-1 rounded border border-red-550/20">
+                              {clearanceRateApplied}% OFF
                             </span>
                           )}
                         </div>
@@ -198,9 +241,16 @@ export default function CartDrawer({
                       </div>
 
                       {/* Item Total */}
-                      <span className="text-xs font-mono font-bold text-white">
-                        {formatPrice(item.price * item.quantity, currency)}
-                      </span>
+                      <div className="flex flex-col items-end">
+                        {clearanceRateApplied > 0 && (
+                          <span className="text-[9px] text-gray-500 line-through">
+                            {formatPrice(item.price * item.quantity, currency)}
+                          </span>
+                        )}
+                        <span className="text-xs font-mono font-bold text-white">
+                          {formatPrice(discountedUnitTotal * item.quantity, currency)}
+                        </span>
+                      </div>
 
                       {/* Trash action */}
                       <button
@@ -257,8 +307,14 @@ export default function CartDrawer({
               <div className="space-y-2.5 text-xs text-gray-400 pb-4 border-b border-[#242934]">
                 <div className="flex justify-between">
                   <span>{t.subtotal}</span>
-                  <span className="text-gray-200 font-semibold">{formatPrice(subtotal, currency)}</span>
+                  <span className="text-gray-200 font-semibold">{formatPrice(subtotal + totalClearanceMerchantDeductions, currency)}</span>
                 </div>
+                {totalClearanceMerchantDeductions > 0 && (
+                  <div className="flex justify-between text-rose-400 font-medium">
+                    <span>⚡ Store Clearance Savings</span>
+                    <span>-{formatPrice(totalClearanceMerchantDeductions, currency)}</span>
+                  </div>
+                )}
                 {appliedCoupon && (
                   <div className="flex justify-between text-emerald-400">
                     <span>{t.discount} ({appliedCoupon.code})</span>

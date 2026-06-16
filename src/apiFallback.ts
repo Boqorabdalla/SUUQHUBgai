@@ -926,7 +926,11 @@ const getVendorForProduct = (product: any) => {
           banner: bodyObj.banner !== undefined ? bodyObj.banner : existing.banner,
           logo: bodyObj.logo !== undefined ? bodyObj.logo : existing.logo,
           isClosed: bodyObj.isClosed !== undefined ? bodyObj.isClosed : existing.isClosed,
-          description: bodyObj.description !== undefined ? bodyObj.description : existing.description
+          description: bodyObj.description !== undefined ? bodyObj.description : existing.description,
+          clearanceRate: bodyObj.clearanceRate !== undefined ? (bodyObj.clearanceRate === null ? null : Number(bodyObj.clearanceRate)) : existing.clearanceRate,
+          clearanceActive: bodyObj.clearanceActive !== undefined ? !!bodyObj.clearanceActive : existing.clearanceActive,
+          clearanceStartDate: bodyObj.clearanceStartDate !== undefined ? bodyObj.clearanceStartDate : existing.clearanceStartDate,
+          clearanceEndDate: bodyObj.clearanceEndDate !== undefined ? bodyObj.clearanceEndDate : existing.clearanceEndDate
         };
         await setDoc(docRef, merged);
         return jsonResponse(merged);

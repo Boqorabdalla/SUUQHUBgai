@@ -12,12 +12,16 @@ interface CustomerDashboardProps {
   currency: 'USD' | 'EUR' | 'AED';
   lang: 'en' | 'ar' | 'es';
   userId: string;
+  userName?: string;
+  userEmail?: string;
 }
 
 export default function CustomerDashboard({
   currency,
   lang,
-  userId
+  userId,
+  userName = 'Guest Account',
+  userEmail = 'guest@suuqhub.com'
 }: CustomerDashboardProps) {
   // Database states
   const [orders, setOrders] = useState<Order[]>([]);
@@ -84,7 +88,7 @@ export default function CustomerDashboard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
-          userName: 'Salem Al-Mansoori',
+          userName: userName,
           subject: newTicketSubject,
           message: newTicketMsg
         })
@@ -144,8 +148,10 @@ export default function CustomerDashboard({
         {/* Left Side: Sidebar nav */}
         <div className="md:col-span-3 space-y-2 bg-white p-4 rounded border border-slate-200 shadow-sm">
           <div className="p-3 border-b border-slate-100 mb-3 text-center md:text-left">
-            <div className="w-12 h-12 rounded bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-lg mb-2.5 mx-auto md:mx-0">S</div>
-            <span className="block font-bold text-slate-800 text-sm">Salem Al-Mansoori</span>
+            <div className="w-12 h-12 rounded bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-lg mb-2.5 mx-auto md:mx-0">
+              {(userName && userName.length > 0) ? userName.charAt(0).toUpperCase() : 'G'}
+            </div>
+            <span className="block font-bold text-slate-800 text-sm">{userName}</span>
             <span className="text-[10px] text-slate-400 font-mono">Customer ID: {userId}</span>
           </div>
 
@@ -731,8 +737,8 @@ export default function CustomerDashboard({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 rounded border border-slate-200">
                   <span className="block font-bold text-[10px] uppercase font-mono tracking-wider mb-2 text-slate-400">Personal Details</span>
-                  <p className="text-slate-800 font-semibold mb-1">Salem Al-Mansoori</p>
-                  <p className="text-slate-500 font-mono">salem@mideast.com</p>
+                  <p className="text-slate-800 font-semibold mb-1">{userName}</p>
+                  <p className="text-slate-500 font-mono">{userEmail}</p>
                 </div>
 
                 <div className="p-4 bg-slate-50 rounded border border-slate-200">

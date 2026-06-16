@@ -183,6 +183,12 @@ export interface Vendor {
   banner?: string;
   logo?: string;
   isClosed?: boolean;
+  clearanceRate?: number;
+  clearanceActive?: boolean;
+  clearanceStartDate?: string;
+  clearanceEndDate?: string;
+  whatsapp?: string;
+  callContact?: string;
 }
 
 export interface Coupon {

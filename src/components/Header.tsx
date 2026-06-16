@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { ShoppingBag, Search, User, Globe, DollarSign, Database, Shield, Briefcase, Bell, Eye } from 'lucide-react';
+import { ShoppingBag, Search, User, Globe, DollarSign, Database, Shield, Briefcase, Bell, Eye, Menu, X, ChevronDown, LayoutGrid } from 'lucide-react';
 import { translations, currencyExchange } from '../utils';
 import { UserRole } from '../types';
 
@@ -23,6 +23,14 @@ interface HeaderProps {
   setSearchTerm: (term: string) => void;
   userName: string;
   onSignOut?: () => void;
+
+  // Mobile Navigation Support
+  categoriesList?: string[];
+  selectedCategory?: string;
+  setSelectedCategory?: (cat: string) => void;
+  setViewAllSection?: (sec: string | null) => void;
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: (open: boolean) => void;
 }
 
 export default function Header({
@@ -39,12 +47,22 @@ export default function Header({
   searchTerm,
   setSearchTerm,
   userName,
-  onSignOut
+  onSignOut,
+  categoriesList,
+  selectedCategory,
+  setSelectedCategory,
+  setViewAllSection,
+  mobileMenuOpen,
+  setMobileMenuOpen
 }: HeaderProps) {
   const [langOpen, setLangOpen] = useState(false);
   const [curOpen, setCurOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
+  
+  // Mobile drawer states
+  const [vzDropdownOpen, setVzDropdownOpen] = useState(false);
+  const [catMenuOpen, setCatMenuOpen] = useState(false);
 
   const t = translations[currentLang];
   const isRtl = currentLang === 'ar';
@@ -57,16 +75,26 @@ export default function Header({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20 gap-4">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-1.5 sm:gap-4">
           
+          {/* Hamburger Menu Icon (Mobile Only) */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="lg:hidden p-1 sm:p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
+            aria-label="Toggle Mobile Menu"
+            id="mobile-drawer-toggle"
+          >
+            <Menu className="w-5.5 h-5.5" />
+          </button>
+
           {/* Logo */}
           <div 
             onClick={() => setActiveTab('catalog')} 
-            className="flex items-center gap-3 cursor-pointer group select-none shrink-0"
+            className="flex items-center gap-1.5 sm:gap-3 cursor-pointer group select-none shrink-0"
           >
             {/* Storefront + Location Pin */}
-            <div className="w-11 h-11 shrink-0 relative transition-transform duration-300 group-hover:scale-105">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 shrink-0 relative transition-transform duration-300 group-hover:scale-105">
               <svg width="100%" height="100%" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 {/* Store awning stripes */}
                 <path d="M12 20 L23 42 C24 44 21 47 18 47 C15 47 12 44 13 42 L12 20 Z" fill="#0f5132" />
@@ -87,7 +115,7 @@ export default function Header({
             {/* SuuqHub Title + Skyline Orbit Arch */}
             <div className="flex flex-col relative justify-center pt-2">
               {/* Skyline Orbit Arch curve sitting over logo text */}
-              <div className="absolute -top-3.5 left-[30px] right-[-15px] h-[22px] pointer-events-none select-none">
+              <div className="absolute -top-3.5 left-[15px] sm:left-[30px] right-[-15px] h-[22px] pointer-events-none select-none">
                 <svg width="100%" height="100%" viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                   {/* Arc curve */}
                   <path d="M10 32 C 45 18, 115 18, 150 32" stroke="#a5b1c2" strokeWidth="1.5" strokeLinecap="round" />
@@ -121,11 +149,11 @@ export default function Header({
               </div>
  
               {/* Text logo */}
-              <div className="flex items-baseline font-sans font-black tracking-tight text-xl h-7">
+              <div className="flex items-baseline font-sans font-black tracking-tight text-lg sm:text-xl h-6 sm:h-7">
                 <span className="text-[#0f5132]">Suuq</span>
                 <span className="text-[#7ebd24] font-extrabold">Hub</span>
               </div>
-              <span className="text-[8.5px] font-mono tracking-[0.15em] text-slate-400 uppercase font-black -mt-1 pl-0.5">
+              <span className="text-[7.5px] sm:text-[8.5px] font-mono tracking-[0.1em] sm:tracking-[0.15em] text-slate-400 uppercase font-black -mt-1 pl-0.5">
                 Multi-Vendor Hub
               </span>
             </div>
@@ -147,16 +175,16 @@ export default function Header({
           </div>
 
           {/* Nav Icons and Portal links */}
-          <div className="flex items-center gap-1.5 sm:gap-3 flex-nowrap shrink-0">
+          <div className="flex items-center gap-0.5 sm:gap-3 flex-nowrap shrink-0">
             
             {/* Language dropdown */}
             <div className="relative">
               <button
                 onClick={() => { setLangOpen(!langOpen); setCurOpen(false); }}
-                className="p-2 sm:px-3 sm:py-1.5 rounded hover:bg-slate-100 text-sm text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5 cursor-pointer"
+                className="p-1 sm:p-2 sm:px-3 sm:py-1.5 rounded hover:bg-slate-100 text-sm text-slate-600 hover:text-slate-900 transition flex items-center gap-1 cursor-pointer"
               >
                 <Globe className="w-4 h-4 text-indigo-600" />
-                <span className="hidden sm:inline font-medium uppercase font-sans">{currentLang}</span>
+                <span className="hidden sm:inline font-medium uppercase font-sans text-xs">{currentLang}</span>
               </button>
               {langOpen && (
                 <div className={`absolute right-0 mt-2 w-32 rounded bg-white border border-slate-200 shadow-lg py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150`}>
@@ -177,10 +205,10 @@ export default function Header({
             <div className="relative">
               <button
                 onClick={() => { setCurOpen(!curOpen); setLangOpen(false); }}
-                className="p-2 sm:px-3 sm:py-1.5 rounded hover:bg-slate-100 text-sm text-slate-600 hover:text-slate-900 transition flex items-center gap-1 cursor-pointer"
+                className="p-1 sm:p-2 sm:px-3 sm:py-1.5 rounded hover:bg-slate-100 text-sm text-slate-600 hover:text-slate-900 transition flex items-center gap-0.5 cursor-pointer"
               >
-                <span className="text-indigo-600 font-bold">$</span>
-                <span className="hidden sm:inline font-medium uppercase font-mono">{currentCurrency}</span>
+                <span className="text-indigo-600 font-black text-xs">$</span>
+                <span className="hidden sm:inline font-medium uppercase font-mono text-xs">{currentCurrency}</span>
               </button>
               {curOpen && (
                 <div className="absolute right-0 mt-2 w-32 rounded bg-white border border-slate-200 shadow-lg py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
@@ -223,7 +251,7 @@ export default function Header({
               {(selectedRole === 'superadmin' || selectedRole === 'delivery_manager') && (
                 <button
                   onClick={() => setActiveTab('admin')}
-                  className={`cursor-pointer px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition ${activeTab === 'admin' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/50' : 'text-slate-500 hover:bg-slate-100'}`}
+                  className={`cursor-pointer px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition ${activeTab === 'admin' ? 'bg-indigo-55 text-indigo-700 border border-indigo-200/50' : 'text-slate-500 hover:bg-slate-100'}`}
                 >
                   <Shield className="w-3.5 h-3.5" />
                   {selectedRole === 'delivery_manager' ? 'Delivery Console' : t.adminConsole}
@@ -235,10 +263,10 @@ export default function Header({
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowNotificationPopup(!showNotificationPopup)}
-                className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-slate-900 rounded hover:bg-slate-100 transition cursor-pointer relative shrink-0"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-slate-500 hover:text-slate-900 rounded hover:bg-slate-100 transition cursor-pointer relative shrink-0 animate-none"
               >
-                <Bell className="w-5 h-5 text-slate-600" />
-                <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                <Bell className="w-4.5 h-4.5 text-slate-600" />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
               </button>
 
               {showNotificationPopup && (
@@ -249,7 +277,7 @@ export default function Header({
                   </div>
                   <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
                     {notificationList.map((n) => (
-                      <div key={n.id} className="p-3 text-left hover:bg-slate-50 transition">
+                      <div key={n.id} className="p-3 text-left hover:bg-slate-55 transition">
                         <div className="flex justify-between items-start mb-0.5">
                           <span className="text-xs font-semibold text-slate-800">{n.title}</span>
                           <span className="text-[9px] font-mono text-slate-400">{n.time}</span>
@@ -261,13 +289,14 @@ export default function Header({
                 </div>
               )}
             </div>
-                        {/* Shopping Cart Button */}
+
+            {/* Shopping Cart Button */}
             <button
               onClick={openCart}
-              className="w-9 h-9 flex items-center justify-center hover:bg-slate-100 rounded hover:text-slate-900 text-slate-600 relative transition cursor-pointer shrink-0"
+              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center hover:bg-slate-100 rounded hover:text-slate-900 text-slate-600 relative transition cursor-pointer shrink-0"
               id="header-cart-btn"
             >
-              <ShoppingBag className="w-5 h-5" />
+              <ShoppingBag className="w-4.5 h-4.5" />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 h-4.5 w-4.5 bg-indigo-600 text-white font-extrabold text-[9px] rounded-full flex items-center justify-center animate-bounce shadow">
                   {cartCount}
@@ -279,19 +308,20 @@ export default function Header({
             {!onSignOut ? (
               <button
                 onClick={() => setActiveTab('login')}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3.5 py-2 rounded-lg font-bold cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95 whitespace-nowrap shrink-0"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-lg font-bold cursor-pointer transition flex items-center justify-center gap-1 shadow-sm active:scale-95 whitespace-nowrap shrink-0"
                 id="header-login-mobile-btn"
               >
-                <User className="w-4 h-4 shrink-0" />
+                <User className="w-3.5 h-3.5 shrink-0" />
                 <span>Log In</span>
               </button>
             ) : (
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition cursor-pointer"
+                  className="flex items-center gap-1 p-1 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition cursor-pointer"
+                  id="profile-dropdown-btn"
                 >
-                  <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center text-xs font-bold ring-1 ring-slate-200 overflow-hidden">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-indigo-50 flex items-center justify-center text-xs font-bold ring-1 ring-slate-200 overflow-hidden shrink-0">
                     <User className="w-4 h-4 text-indigo-600" />
                   </div>
                   <span className="hidden md:inline font-medium text-xs max-w-[90px] truncate">{userName}</span>
@@ -306,7 +336,7 @@ export default function Header({
                     
                     <button
                       onClick={() => { setActiveTab('dashboard'); setUserDropdownOpen(false); }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-55 bg-white hover:bg-slate-50 hover:text-slate-900 cursor-pointer transition flex items-center gap-2"
+                      className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 bg-white hover:text-slate-900 cursor-pointer transition flex items-center gap-2"
                     >
                       <User className="w-3.5 h-3.5 text-slate-400" /> {t.customerDashboard}
                     </button>
@@ -354,7 +384,6 @@ export default function Header({
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>

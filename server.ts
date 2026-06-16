@@ -1105,9 +1105,9 @@ app.post("/api/orders", async (req, res) => {
     paymentMethod: paymentMethod || "Credit Card",
     paymentStatus: "paid", // Instantly approved for beautiful interactive preview workflow
     shippingAddress,
-    status: "pending",
+    status: req.body.status || "pending",
     statusHistory: [
-      { status: "pending", timestamp: new Date().toISOString(), note: "Order placed. Paid securely." }
+      { status: req.body.status || "pending", timestamp: new Date().toISOString(), note: req.body.statusNote || "Order placed. Paid securely." }
     ],
     vendorStatuses,
     createdAt: new Date().toISOString(),
@@ -1266,7 +1266,13 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
     description,
     earnings,
     pendingWithdrawAmount,
-    alreadyWithdrawnAmount
+    alreadyWithdrawnAmount,
+    clearanceRate,
+    clearanceActive,
+    clearanceStartDate,
+    clearanceEndDate,
+    whatsapp,
+    callContact
   } = req.body;
   const vendor = dbVendors.find(v => v.id === req.params.id);
 
@@ -1300,6 +1306,24 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
   }
   if (description !== undefined) {
     vendor.description = description;
+  }
+  if (whatsapp !== undefined) {
+    (vendor as any).whatsapp = whatsapp;
+  }
+  if (callContact !== undefined) {
+    (vendor as any).callContact = callContact;
+  }
+  if (clearanceRate !== undefined) {
+    (vendor as any).clearanceRate = clearanceRate === null ? undefined : Number(clearanceRate);
+  }
+  if (clearanceActive !== undefined) {
+    (vendor as any).clearanceActive = !!clearanceActive;
+  }
+  if (clearanceStartDate !== undefined) {
+    (vendor as any).clearanceStartDate = clearanceStartDate;
+  }
+  if (clearanceEndDate !== undefined) {
+    (vendor as any).clearanceEndDate = clearanceEndDate;
   }
   if (earnings !== undefined) {
     // Save as number

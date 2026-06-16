@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { 
   Search, Star, Store, MapPin, Mail, MessageCircle, 
   Tag, ShoppingCart, ArrowLeft, Heart, BadgeCheck, Bell, Shield,
-  ChevronRight, Sparkles, AlertCircle, Eye, Share2, Check
+  ChevronRight, Sparkles, AlertCircle, Eye, Share2, Check, Phone
 } from 'lucide-react';
 import { Product, Vendor, Coupon } from '../types';
 import { formatPrice } from '../utils';
@@ -33,8 +33,55 @@ export default function AllVendorsView({
   onToggleWishlist,
   lang
 }: AllVendorsViewProps) {
+  const renderLogo = (logoUrl?: string, name?: string, sizeClass: string = "w-full h-full object-cover") => {
+    const isImage = logoUrl && (logoUrl.startsWith('data:image/') || logoUrl.startsWith('http://') || logoUrl.startsWith('https://') || logoUrl.startsWith('/'));
+    if (isImage) {
+      return <img src={logoUrl} alt={name || "Vendor logo"} className={sizeClass} referrerPolicy="no-referrer" />;
+    }
+    return <span>{logoUrl || (name ? name[0] : 'S')}</span>;
+  };
+
   // Navigation inside Vendors section
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Synchronize URL query parameter with selection of vendor
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlVendorId = params.get('vendor') || params.get('vendorId');
+    if (urlVendorId) {
+      if (!selectedVendor || selectedVendor.id !== urlVendorId) {
+        const found = vendors.find(v => v.id === urlVendorId && v.status === 'approved');
+        if (found) {
+          setSelectedVendor(found);
+        }
+      }
+    } else {
+      if (selectedVendor) {
+        setSelectedVendor(null);
+      }
+    }
+  }, [vendors]);
+
+  // Sync state selection back to browser history state query params
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlVendorId = params.get('vendor') || params.get('vendorId');
+    if (selectedVendor) {
+      if (urlVendorId !== selectedVendor.id) {
+        params.set('vendor', selectedVendor.id);
+        window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+      }
+    } else {
+      if (urlVendorId) {
+        params.delete('vendor');
+        params.delete('vendorId');
+        const searchStr = params.toString();
+        const finalUrl = searchStr ? `${window.location.pathname}?${searchStr}` : window.location.pathname;
+        window.history.replaceState({}, '', finalUrl);
+      }
+    }
+  }, [selectedVendor]);
   
   // Search and filter inside specific vendor storefront
   const [storeSearch, setStoreSearch] = useState('');
@@ -121,6 +168,16 @@ export default function AllVendorsView({
 
     const isFollowing = !!followingVendors[selectedVendor.id];
 
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const hasClearanceCampaign = !!(
+      selectedVendor.clearanceActive && 
+      selectedVendor.clearanceRate && 
+      selectedVendor.clearanceStartDate && 
+      selectedVendor.clearanceEndDate &&
+      todayStr >= selectedVendor.clearanceStartDate && 
+      todayStr <= selectedVendor.clearanceEndDate
+    );
+
     return (
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8 text-left animate-in fade-in duration-200" id="vendor-storefront-panel">
         
@@ -166,13 +223,39 @@ export default function AllVendorsView({
             </div>
           </div>
 
+          {/* Clearance Sale Promo Badge */}
+          {hasClearanceCampaign && (
+            <div className="bg-gradient-to-r from-red-600 via-orange-500 to-red-700 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-rose-100/15 animate-in slide-in-from-top-1 duration-300">
+              <div className="flex items-center gap-4 text-left">
+                <div className="bg-white text-rose-650 text-red-650 text-red-600 font-extrabold px-3 py-1.5 rounded-xl text-xl sm:text-2xl font-mono flex flex-col items-center leading-none shadow-md shrink-0 select-none">
+                  <span>{selectedVendor.clearanceRate}%</span>
+                  <span className="text-[8px] uppercase tracking-widest font-black mt-0.5">OFF</span>
+                </div>
+                <div>
+                  <span className="inline-block px-2 py-0.5 bg-white/20 text-[9px] uppercase tracking-widest font-mono font-black rounded mb-0.5 leading-none">
+                    ⚡ STORE-WIDE CLEARANCE SALE ACTIVE
+                  </span>
+                  <h3 className="text-xs font-sans font-black tracking-tight leading-normal">
+                    Massive clearance markdown automatically applied to all {selectedVendor.vendorName} products!
+                  </h3>
+                  <p className="text-[10px] text-white/85 leading-none mt-0.5">
+                    Clearance run schedule: <strong className="font-mono bg-black/15 px-1 rounded">{selectedVendor.clearanceStartDate}</strong> to <strong className="font-mono bg-black/15 px-1 rounded">{selectedVendor.clearanceEndDate}</strong>.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 bg-white/10 px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider select-none border border-white/10">
+                ⏱️ Runs active
+              </div>
+            </div>
+          )}
+
           {/* Under Banner details and status bar */}
           <div className="p-6 sm:p-8 flex flex-col md:flex-row gap-6 md:items-center justify-between">
             {/* Brand icon and info row */}
             <div className="flex gap-4 sm:gap-6 items-start">
               {/* Circular Logo overlapping or prominent */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-[#0f5132] to-[#7ebd24] text-white flex items-center justify-center font-display font-black text-2xl sm:text-3xl border-4 border-white shadow-md relative -mt-14 sm:-mt-16 z-10 shrink-0 select-none">
-                {selectedVendor.logo || selectedVendor.vendorName[0]}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-[#0f5132] to-[#7ebd24] text-white flex items-center justify-center font-display font-black text-2xl sm:text-3xl border-4 border-white shadow-md relative -mt-14 sm:-mt-16 z-10 shrink-0 select-none overflow-hidden">
+                {renderLogo(selectedVendor.logo, selectedVendor.vendorName, "w-full h-full object-cover rounded-md")}
               </div>
 
               {/* Vendor Title content */}
@@ -220,11 +303,52 @@ export default function AllVendorsView({
 
             {/* Micro Action Controls */}
             <div className="flex flex-wrap gap-2.5 items-center shrink-0">
-              {/* Contact Representative button */}
+              {/* Share Shop Link Button */}
+              <button 
+                onClick={() => {
+                  const shopUrl = `${window.location.origin}${window.location.pathname}?vendor=${selectedVendor.id}`;
+                  navigator.clipboard.writeText(shopUrl);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2000);
+                }}
+                className="cursor-pointer px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/50 text-indigo-700 rounded-lg flex items-center justify-center transition duration-150 relative text-xs font-bold"
+                title="Copy share link of this shop storefront"
+              >
+                {copiedLink ? <Check className="w-4 h-4 text-emerald-600 mr-1.5" /> : <Share2 className="w-4 h-4 mr-1.5 text-indigo-600" />}
+                <span>{copiedLink ? 'Copied Link' : 'Share Shop'}</span>
+              </button>
+
+              {/* WhatsApp direct dial */}
+              {selectedVendor.whatsapp && (
+                <a 
+                  href={`https://wa.me/${selectedVendor.whatsapp.replace(/[^0-9]/g, '')}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/50 text-emerald-800 rounded-lg flex items-center justify-center transition duration-150 text-xs font-bold"
+                  title="Chat directly with vendor on WhatsApp"
+                >
+                  <MessageCircle className="w-4 h-4 text-emerald-600 fill-emerald-500 mr-1.5" />
+                  <span>WhatsApp Us</span>
+                </a>
+              )}
+
+              {/* Direct call represent */}
+              {selectedVendor.callContact && (
+                <a 
+                  href={`tel:${selectedVendor.callContact}`}
+                  className="px-3.5 py-2.5 bg-sky-50 hover:bg-sky-100 border border-sky-200/50 text-sky-800 rounded-lg flex items-center justify-center transition duration-150 text-xs font-bold"
+                  title="Make a direct phone call to store coordinator"
+                >
+                  <Phone className="w-3.5 h-3.5 text-sky-650 mr-1.5" />
+                  <span>Call Us ({selectedVendor.callContact})</span>
+                </a>
+              )}
+
+              {/* Contact Representative chat log simulator button */}
               <button 
                 onClick={() => { setShowContactModal(true); setChatLog([{ sender: 'vendor', text: `Welcome to ${selectedVendor.vendorName}! Let us know if you have any questions.` }]); }}
                 className="cursor-pointer p-2.5 bg-slate-100 hover:bg-slate-200/85 hover:text-slate-900 border border-slate-205 text-slate-700 rounded-lg flex items-center justify-center transition duration-150 relative"
-                title="Message Vendor representative"
+                title="Send active chat query"
               >
                 <MessageCircle className="w-4.5 h-4.5" />
               </button>
@@ -384,8 +508,8 @@ export default function AllVendorsView({
               {/* Header */}
               <div className="p-4 bg-[#0f5132] text-white flex items-center justify-between select-none">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-white/15 text-white flex items-center justify-center font-bold font-sans">
-                    {selectedVendor.logo || selectedVendor.vendorName[0]}
+                  <div className="w-9 h-9 rounded-lg bg-white/15 text-white flex items-center justify-center font-bold font-sans overflow-hidden">
+                    {renderLogo(selectedVendor.logo, selectedVendor.vendorName, "w-full h-full object-cover rounded-sm")}
                   </div>
                   <div className="text-left">
                     <h4 className="text-xs font-bold">{selectedVendor.vendorName}</h4>
@@ -465,6 +589,16 @@ export default function AllVendorsView({
       {approvedVendors.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
           {approvedVendors.map((vendor) => {
+            const today = new Date().toISOString().substring(0, 10);
+            const isCampaignActive = !!(
+              vendor.clearanceActive && 
+              vendor.clearanceRate && 
+              vendor.clearanceStartDate && 
+              vendor.clearanceEndDate &&
+              today >= vendor.clearanceStartDate && 
+              today <= vendor.clearanceEndDate
+            );
+
             return (
               <div 
                 key={vendor.id}
@@ -486,12 +620,17 @@ export default function AllVendorsView({
                       Closed Now
                     </span>
                   )}
+                  {isCampaignActive && (
+                    <span className="absolute top-3 left-3 px-2.5 py-1 bg-red-600 text-white font-mono text-[9px] uppercase tracking-wider rounded font-black z-10 shadow flex items-center gap-1 animate-pulse border border-white/10">
+                      🔥 CLEARANCE {vendor.clearanceRate}% OFF
+                    </span>
+                  )}
                 </div>
 
                 {/* Overlapping circle logo avatar */}
                 <div className="px-6 flex justify-between items-end -mt-8 sm:-mt-10 shrink-0 relative z-10 select-none">
-                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-lg bg-gradient-to-br from-[#0f5132] to-[#7ebd24] text-white flex items-center justify-center font-display font-black text-xl sm:text-2.5xl border-3 border-white shadow-md relative">
-                    {vendor.logo || vendor.vendorName[0]}
+                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-lg bg-gradient-to-br from-[#0f5132] to-[#7ebd24] text-white flex items-center justify-center font-display font-black text-xl sm:text-2.5xl border-3 border-white shadow-md relative overflow-hidden">
+                    {renderLogo(vendor.logo, vendor.vendorName, "w-full h-full object-cover rounded-md")}
                   </div>
                   
                   {/* Total products tag overlaying the card */}
