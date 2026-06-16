@@ -908,6 +908,7 @@ const getVendorForProduct = (product: any) => {
         
         const merged = { ...snap.data(), status: bodyObj.status };
         await setDoc(docRef, merged);
+        clearFallbackCache('vendors');
         return jsonResponse(merged);
       } else if (routePath.includes('/credentials')) {
         const vendorId = routePath.replace('/credentials', '').replace('/', '');
@@ -935,6 +936,7 @@ const getVendorForProduct = (product: any) => {
           clearanceEndDate: bodyObj.clearanceEndDate !== undefined ? bodyObj.clearanceEndDate : existing.clearanceEndDate
         };
         await setDoc(docRef, merged);
+        clearFallbackCache('vendors');
         return jsonResponse(merged);
       } else {
         if (method === 'GET') {
@@ -963,6 +965,7 @@ const getVendorForProduct = (product: any) => {
             password: bodyObj.password || undefined
           };
           await setDoc(doc(db, 'vendors', vId), newVendor);
+          clearFallbackCache('vendors');
           return jsonResponse(newVendor, 201);
         }
       }
