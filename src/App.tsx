@@ -343,8 +343,29 @@ export default function App() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  // Direct mock install criteria prompt
+  // Direct mock/real install criteria prompt
   const [pwaModalOpen, setPwaModalOpen] = useState(false);
+  const [isInIframe, setIsInIframe] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      setIsInIframe(window.self !== window.top);
+    } catch (e) {
+      setIsInIframe(true);
+    }
+
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
+  }, []);
+
   const handleSimulateInstall = () => {
     setPwaModalOpen(true);
   };
@@ -1580,6 +1601,9 @@ export default function App() {
         isOpen={pwaModalOpen}
         onClose={() => setPwaModalOpen(false)}
         appName="SuuqHub (Smart Market Place)"
+        deferredPrompt={deferredPrompt}
+        setDeferredPrompt={setDeferredPrompt}
+        isInIframe={isInIframe}
       />
 
       {/* Humble Footer, architectural compliance */}
