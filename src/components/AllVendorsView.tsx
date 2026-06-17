@@ -9,7 +9,7 @@ import {
   Tag, ShoppingCart, ArrowLeft, Heart, BadgeCheck, Bell, Shield,
   ChevronRight, Sparkles, AlertCircle, Eye, Share2, Check, Phone
 } from 'lucide-react';
-import { Product, Vendor, Coupon } from '../types';
+import { Product, Vendor, Coupon, CartItem } from '../types';
 import { formatPrice } from '../utils';
 
 interface AllVendorsViewProps {
@@ -21,6 +21,7 @@ interface AllVendorsViewProps {
   wishlist: string[];
   onToggleWishlist: (productId: string) => void;
   lang: 'en' | 'ar' | 'es';
+  cart?: CartItem[];
 }
 
 export default function AllVendorsView({
@@ -31,7 +32,8 @@ export default function AllVendorsView({
   onAddToCart,
   wishlist,
   onToggleWishlist,
-  lang
+  lang,
+  cart = []
 }: AllVendorsViewProps) {
   const renderLogo = (logoUrl?: string, name?: string, sizeClass: string = "w-full h-full object-cover") => {
     const isImage = logoUrl && (logoUrl.startsWith('data:image/') || logoUrl.startsWith('http://') || logoUrl.startsWith('https://') || logoUrl.startsWith('/'));
@@ -45,6 +47,65 @@ export default function AllVendorsView({
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [initialSyncDone, setInitialSyncDone] = useState(false);
+
+  // Analytics logging helper
+  const logVendorAnalyticsAction = async (vendorId: string, action: 'view' | 'share' | 'whatsapp' | 'call') => {
+    try {
+      await fetch(`/api/vendors/${vendorId}/analytics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+    } catch (err) {
+      console.warn("Failed to log vendor analytics event:", action, err);
+    }
+  };
+
+  // Dynamic Whatsapp Enquiry Link Builder
+  const getWhatsAppHref = () => {
+    if (!selectedVendor) return '#';
+    const baseNumber = selectedVendor.whatsapp ? selectedVendor.whatsapp.replace(/[^0-9]/g, '') : '';
+    if (!baseNumber) return '#';
+
+    // Find cart items belonging to this vendor
+    const vendorCartItems = (cart || []).filter(item => {
+      const prod = products.find(p => p.id === item.productId);
+      return prod && prod.vendorId === selectedVendor.id;
+    });
+
+    let message = '';
+    if (vendorCartItems.length > 0) {
+      message = `Hi *${selectedVendor.representativeName || selectedVendor.vendorName}*,\n\n`;
+      message += `I am interested in placing an order through your SuuqHub shop storefront for the following items:\n\n`;
+      
+      vendorCartItems.forEach((item, index) => {
+        const itemSpec = [item.selectedColor ? `Color: ${item.selectedColor}` : null, item.selectedSize ? `Size: ${item.selectedSize}` : null]
+          .filter(Boolean)
+          .join(', ');
+        
+        message += `*${index + 1}.* *${item.title}*  -  ${item.quantity}x\n`;
+        if (itemSpec) {
+          message += `   _${itemSpec}_\n`;
+        }
+        message += `   Price: ${formatPrice(item.price, currency)} each\n\n`;
+      });
+
+      const totalSum = vendorCartItems.reduce((acc, current) => acc + (current.price * current.quantity), 0);
+      message += `*Estimated Cart Subtotal:* *${formatPrice(totalSum, currency)}*\n\n`;
+      message += `Are these items in-stock and available for immediate delivery? Mahadsanid! 😊`;
+    } else {
+      message = `Hi *${selectedVendor.representativeName || selectedVendor.vendorName}*,\n\nI was looking through your online storefront *"${selectedVendor.vendorName}"* on SuuqHub. Let me know what products are currently available or trending in stock! Mahadsanid.`;
+    }
+
+    return `https://wa.me/${baseNumber}?text=${encodeURIComponent(message)}`;
+  };
+
+  // Track page/storefront views when a selected seller is loaded
+  React.useEffect(() => {
+    if (selectedVendor) {
+      logVendorAnalyticsAction(selectedVendor.id, 'view');
+    }
+  }, [selectedVendor?.id]);
 
   // Synchronize URL query parameter with selection of vendor on initial load
   React.useEffect(() => {
@@ -249,6 +310,32 @@ export default function AllVendorsView({
             </div>
           )}
 
+          {/* Custom Storefront Promo Banner */}
+          {!!(selectedVendor as any).promoActive && (
+            <div className={`bg-gradient-to-r ${(selectedVendor as any).promoGradient || 'from-indigo-600 via-purple-600 to-pink-600'} text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-b animate-in slide-in-from-top-1 duration-300`}>
+              <div className="flex items-center gap-4 text-left">
+                <div className="bg-white/15 backdrop-blur-md text-white border border-white/25 font-extrabold px-3 py-1.5 rounded-xl text-xl sm:text-2xl font-mono flex flex-col items-center leading-none shadow-md shrink-0 select-none">
+                  <span>{(selectedVendor as any).promoDiscount || 20}%</span>
+                  <span className="text-[8px] uppercase tracking-widest font-black mt-0.5">SAVE</span>
+                </div>
+                <div>
+                  <span className="inline-block px-2 py-0.5 bg-white/20 text-[9px] uppercase tracking-widest font-mono font-black rounded mb-0.5 leading-none">
+                    🎁 SPECIAL STORE PROMO UNLOCKED
+                  </span>
+                  <h3 className="text-sm font-sans font-black tracking-tight leading-normal">
+                    {(selectedVendor as any).promoMessage || "Exclusive special discounts applies storewide on checking out!"}
+                  </h3>
+                  <p className="text-[10px] text-white/85 mt-1 leading-none">
+                    Discount coupon rate automatically applied on checkout: <strong className="font-mono bg-white/10 px-1.5 py-0.5 rounded text-amber-300">{(selectedVendor as any).promoDiscount || 20}% OFF</strong>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 bg-white/10 px-3 py-1.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider select-none border border-white/10">
+                ⭐ Promo Active
+              </div>
+            </div>
+          )}
+
           {/* Under Banner details and status bar */}
           <div className="p-6 sm:p-8 flex flex-col md:flex-row gap-6 md:items-center justify-between">
             {/* Brand icon and info row */}
@@ -309,6 +396,7 @@ export default function AllVendorsView({
                   const shopUrl = `${window.location.origin}${window.location.pathname}?vendor=${selectedVendor.id}`;
                   navigator.clipboard.writeText(shopUrl);
                   setCopiedLink(true);
+                  logVendorAnalyticsAction(selectedVendor.id, 'share');
                   setTimeout(() => setCopiedLink(false), 2000);
                 }}
                 className="cursor-pointer px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/50 text-indigo-700 rounded-lg flex items-center justify-center transition duration-150 relative text-xs font-bold"
@@ -321,7 +409,8 @@ export default function AllVendorsView({
               {/* WhatsApp direct dial */}
               {selectedVendor.whatsapp && (
                 <a 
-                  href={`https://wa.me/${selectedVendor.whatsapp.replace(/[^0-9]/g, '')}`}
+                  href={getWhatsAppHref()}
+                  onClick={() => logVendorAnalyticsAction(selectedVendor.id, 'whatsapp')}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/50 text-emerald-800 rounded-lg flex items-center justify-center transition duration-150 text-xs font-bold"
@@ -336,6 +425,7 @@ export default function AllVendorsView({
               {selectedVendor.callContact && (
                 <a 
                   href={`tel:${selectedVendor.callContact}`}
+                  onClick={() => logVendorAnalyticsAction(selectedVendor.id, 'call')}
                   className="px-3.5 py-2.5 bg-sky-50 hover:bg-sky-100 border border-sky-200/50 text-sky-800 rounded-lg flex items-center justify-center transition duration-150 text-xs font-bold"
                   title="Make a direct phone call to store coordinator"
                 >

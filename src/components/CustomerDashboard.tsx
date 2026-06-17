@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Package, Truck, Calendar, MapPin, Receipt, MessageCircle, HelpCircle, User, Loader2, Sparkles, Send } from 'lucide-react';
+import { Package, Truck, Calendar, MapPin, Receipt, MessageCircle, HelpCircle, User, Loader2, Sparkles, Send, Star, X } from 'lucide-react';
 import { Order, SupportTicket } from '../types';
 import { formatPrice } from '../utils';
 
@@ -45,6 +45,64 @@ export default function CustomerDashboard({
 
   // Print Invoice layout simulation
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
+
+  // Review Submissions
+  const [reviewProductId, setReviewProductId] = useState<string | null>(null);
+  const [reviewProductTitle, setReviewProductTitle] = useState<string>('');
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [submittingReview, setSubmittingReview] = useState<boolean>(false);
+  const [submittedReviews, setSubmittedReviews] = useState<Record<string, boolean>>(() => {
+    try {
+      const cached = localStorage.getItem('suuqhub_reviewed_items');
+      return cached ? JSON.parse(cached) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewProductId) return;
+    setSubmittingReview(true);
+
+    try {
+      const res = await fetch(`/api/products/${reviewProductId}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userName: userName || 'Anonymous Client',
+          comment: reviewComment,
+          rating: reviewRating,
+          verified: true
+        })
+      });
+
+      if (res.ok) {
+        // Cache this reviewed productId
+        const updated = { ...submittedReviews, [reviewProductId]: true };
+        setSubmittedReviews(updated);
+        localStorage.setItem('suuqhub_reviewed_items', JSON.stringify(updated));
+
+        // Reset fields
+        setReviewProductId(null);
+        setReviewComment('');
+        setReviewRating(5);
+
+        // Refresh global product details
+        await fetchDashboardData();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || 'Failed to submit review');
+      }
+    } catch {
+      alert('Network error submitting feedback review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   useEffect(() => {
     fetchDashboardData();
@@ -354,6 +412,27 @@ export default function CustomerDashboard({
                           }`}>
                             {itemStatus === 'shipped' ? '🚚 Out for delivery' : itemStatus}
                           </span>
+
+                          {itemStatus === 'delivered' && (
+                            submittedReviews[item.productId] ? (
+                              <span className="text-[10px] font-black text-emerald-600 mt-2 flex items-center gap-1 font-mono uppercase bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded">
+                                ★ Rated
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReviewProductId(item.productId);
+                                  setReviewProductTitle(item.title);
+                                  setReviewRating(5);
+                                  setReviewComment('');
+                                }}
+                                className="mt-2 text-[10px] font-black uppercase tracking-wider text-white bg-indigo-650 hover:bg-indigo-750 px-3 py-1.5 rounded-lg font-mono transition shadow-sm cursor-pointer hover:shadow"
+                              >
+                                Write Review
+                              </button>
+                            )
+                          )}
                         </div>
                       </div>
                     );
@@ -765,6 +844,97 @@ export default function CustomerDashboard({
         </div>
 
       </div>
+
+      {/* Write Review Modal Dialog Popup */}
+      {reviewProductId && (
+        <div className="fixed inset-0 bg-[#0b0c10]/65 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl relative space-y-4 text-left">
+            <button
+              type="button"
+              onClick={() => setReviewProductId(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-full hover:bg-slate-50 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-indigo-600 font-mono uppercase tracking-wider">
+                Quality Feedback & Star Ratings
+              </span>
+              <h3 className="font-sans font-bold text-base text-slate-900 leading-tight">
+                Review: "{reviewProductTitle}"
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Your feedback is displayed publicly as a verified client review on the storefront.
+              </p>
+            </div>
+
+            <form onSubmit={handleReviewSubmit} className="space-y-4 pt-1">
+              {/* Rating Stars Picker */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-mono text-slate-500 uppercase font-black tracking-wide">
+                  Your Rating Score
+                </label>
+                <div className="flex gap-1.5 items-center">
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setReviewRating(num)}
+                      className="p-1 rounded transition-colors group cursor-pointer"
+                    >
+                      <Star
+                        className={`w-7 h-7 transition-colors ${
+                          num <= reviewRating
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-slate-200 hover:text-amber-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                  <span className="text-xs font-mono font-bold text-slate-500 ml-2">
+                    ({reviewRating} / 5 Stars)
+                  </span>
+                </div>
+              </div>
+
+              {/* Comment Details Area */}
+              <div className="space-y-1">
+                <label className="block text-[10px] font-mono text-slate-500 uppercase font-black tracking-wide">
+                  Review Details
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Share your personal experience with this product, its design quality, or shipping delivery..."
+                  className="w-full text-xs bg-slate-50 border border-slate-250 rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-600 h-28"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={submittingReview}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-750 disabled:bg-slate-300 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-md hover:shadow-lg cursor-pointer flex items-center justify-center gap-2"
+              >
+                {submittingReview ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Submitting Verified Review...
+                  </>
+                ) : (
+                  <>
+                    Submit Verified Review
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

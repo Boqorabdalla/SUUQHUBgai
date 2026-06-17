@@ -231,10 +231,12 @@ export interface HeroCampaign {
   pricingTier: string; // e.g. "Frontpage Premium Hero"
   durationDays: number;
   feeUSD: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
   rejectionReason?: string;
   createdAt: string;
   approvedAt?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface ProductCategory {

@@ -204,6 +204,7 @@ export default function CheckoutView({
     const vendor = prod ? vendors.find(v => v.id === prod.vendorId) : null;
     let clearanceRateApplied = 0;
     let isCampaignActive = false;
+    let promoDiscountApplied = 0;
 
     if (vendor && vendor.clearanceActive && vendor.clearanceRate) {
       const today = new Date().toISOString().substring(0, 10);
@@ -214,29 +215,47 @@ export default function CheckoutView({
       }
     }
 
+    if (vendor && (vendor as any).promoActive && (vendor as any).promoDiscount) {
+      promoDiscountApplied = Number((vendor as any).promoDiscount) || 0;
+    }
+
     const originalUnitTotal = item.price;
-    const discountedUnitTotal = clearanceRateApplied > 0 
-      ? originalUnitTotal * (1 - clearanceRateApplied / 100) 
+    const combinedDiscountRate = Math.min(95, clearanceRateApplied + promoDiscountApplied);
+    const discountedUnitTotal = combinedDiscountRate > 0 
+      ? originalUnitTotal * (1 - combinedDiscountRate / 100) 
       : originalUnitTotal;
+
+    const clearanceUnitContribution = clearanceRateApplied > 0
+      ? originalUnitTotal * (clearanceRateApplied / 100)
+      : 0;
+    const promoUnitContribution = promoDiscountApplied > 0
+      ? (originalUnitTotal - clearanceUnitContribution) * (promoDiscountApplied / 100)
+      : 0;
 
     return {
       originalUnitTotal,
       discountedUnitTotal,
       clearanceRateApplied,
-      isCampaignActive
+      promoDiscountApplied,
+      isCampaignActive,
+      clearanceUnitContribution,
+      promoUnitContribution
     };
   };
 
   const cartSubtotalsAndClearances = cartItems.map(item => {
-    const { discountedUnitTotal } = getEffectivePriceAndClearance(item);
+    const { discountedUnitTotal, clearanceUnitContribution, promoUnitContribution } = getEffectivePriceAndClearance(item);
     return {
       originalSum: item.price * item.quantity,
-      discountedSum: discountedUnitTotal * item.quantity
+      discountedSum: discountedUnitTotal * item.quantity,
+      clearanceDeduction: clearanceUnitContribution * item.quantity,
+      promoDeduction: promoUnitContribution * item.quantity
     };
   });
 
   const subtotal = cartSubtotalsAndClearances.reduce((sum, item) => sum + item.discountedSum, 0);
-  const totalClearanceMerchantDeductions = cartSubtotalsAndClearances.reduce((sum, item) => sum + (item.originalSum - item.discountedSum), 0);
+  const totalClearanceMerchantDeductions = cartSubtotalsAndClearances.reduce((sum, item) => sum + item.clearanceDeduction, 0);
+  const totalPromoMerchantDeductions = cartSubtotalsAndClearances.reduce((sum, item) => sum + item.promoDeduction, 0);
   
   let discount = 0;
   if (appliedCoupon) {
@@ -884,12 +903,18 @@ export default function CheckoutView({
           <div className="space-y-2.5 border-t border-slate-100 pt-4 text-xs text-slate-500">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span className="text-slate-800 font-semibold">{formatPrice(subtotal + totalClearanceMerchantDeductions, currency)}</span>
+              <span className="text-slate-800 font-semibold">{formatPrice(subtotal + totalClearanceMerchantDeductions + totalPromoMerchantDeductions, currency)}</span>
             </div>
             {totalClearanceMerchantDeductions > 0 && (
               <div className="flex justify-between text-red-600 font-medium">
                 <span>⚡ Store Clearance Savings</span>
                 <span>-{formatPrice(totalClearanceMerchantDeductions, currency)}</span>
+              </div>
+            )}
+            {totalPromoMerchantDeductions > 0 && (
+              <div className="flex justify-between text-violet-600 font-medium">
+                <span>🎁 Storefront Promo Banner Savings</span>
+                <span>-{formatPrice(totalPromoMerchantDeductions, currency)}</span>
               </div>
             )}
             {appliedCoupon && (

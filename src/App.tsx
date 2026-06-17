@@ -1155,6 +1155,7 @@ export default function App() {
           wishlist={wishlist}
           onToggleWishlist={handleToggleWishlist}
           lang={lang}
+          cart={cart}
         />
       );
     }

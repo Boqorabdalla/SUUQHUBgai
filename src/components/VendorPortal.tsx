@@ -4,8 +4,9 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent, RefreshCw, ChevronDown, ChevronRight, Users, BarChart2, FileText, Plus, Search, Share2 } from 'lucide-react';
+import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent, RefreshCw, ChevronDown, ChevronRight, Users, BarChart2, FileText, Plus, Search, Share2, MessageCircle, Phone, Printer } from 'lucide-react';
 import { Product, Vendor, Order, OrderItem, OrderStatus, Coupon, ProductVariant, ProductCategory, SupportTicket } from '../types';
+import QRCode from 'qrcode';
 
 const safeParseError = async (res: Response, defaultMsg: string): Promise<string> => {
   try {
@@ -131,6 +132,61 @@ export default function VendorPortal({
   const [withdrawMsg, setWithdrawMsg] = useState('');
   const [withdrawIsSuccess, setWithdrawIsSuccess] = useState(false);
   const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
+
+  const handlePrintReport = (reportTitle: string, tableHtmlId: string) => {
+    const printContent = document.getElementById(tableHtmlId);
+    if (!printContent) return;
+    const windowUrl = 'about:blank';
+    const uniqueName = new Date().getTime();
+    const windowName = 'Print' + uniqueName;
+    const printWindow = window.open(windowUrl, windowName, 'left=100,top=100,width=850,height=900');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${reportTitle}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, monospace; padding: 30px; color: #1a202c; max-width: 800px; margin: 0 auto; }
+              h1 { font-size: 20px; font-weight: 800; text-transform: uppercase; margin-bottom: 2px; color: #1e293b; letter-spacing: -0.025em; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+              p { font-size: 11px; color: #64748b; margin-top: 4px; margin-bottom: 20px; font-family: monospace; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+              th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 9px; font-weight: bold; text-transform: uppercase; padding: 12px 10px; text-align: left; color: #475569; letter-spacing: 0.05em; }
+              td { border-bottom: 1px solid #f1f5f9; padding: 12px 10px; font-size: 11px; color: #334155; }
+              tr:hover { background: #f8fafc; }
+              .text-right { text-align: right; }
+              .text-center { text-align: center; }
+              .mt-6 { margin-top: 24px; }
+              .pt-4 { padding-top: 16px; }
+              .border-t { border-top: 1px solid #e2e8f0; }
+              .grid { display: grid; grid-template-cols: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+              .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; rounded: 8px; }
+              .card-title { font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+              .card-val { font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+              .text-emerald { color: #16a34a; }
+              .text-blue { color: #2563eb; }
+              .text-indigo { color: #4f46e5; }
+              .text-rose { color: #e11d48; }
+            </style>
+          </head>
+          <body>
+            <h1>${reportTitle}</h1>
+            <p>Generated on ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} • Generated securely via Partner Portal Workspace Ecosystem</p>
+            ${printContent.innerHTML}
+            <div class="mt-6 pt-4 border-t text-center">
+              <span style="font-size: 9px; font-weight: bold; color: #94a3b8; font-family: monospace; letter-spacing: 0.1em; text-transform: uppercase;">CONFIDENTIAL PARTNER SYSTEM DATA &bull; END OF REPORT RECORD</span>
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+         printWindow.print();
+      }, 700);
+    } else {
+      window.print();
+    }
+  };
 
   // Dynamic, vendor-specific financial and order dashboard calculations
   const dashboardStats = useMemo(() => {
@@ -279,9 +335,127 @@ export default function VendorPortal({
   };
 
   // Advanced Reports Filters
+  const [reportSearchQuery, setReportSearchQuery] = useState('');
+  const [reportFilterStatus, setReportFilterStatus] = useState('all');
   const [reportTransType, setReportTransType] = useState<'all' | 'order' | 'expense'>('all');
   const [reportPeriod, setReportPeriod] = useState<string>('year');
   const [reportSelectedCategory, setReportSelectedCategory] = useState<string>('all');
+
+  // Filter base lists for active vendor
+  const vendorProducts = useMemo(() => {
+    if (!selectedVendor) return [];
+    return products.filter(p => p.vendorId === selectedVendor.id);
+  }, [products, selectedVendor]);
+
+  const vendorOrders = useMemo(() => {
+    if (!selectedVendor) return [];
+    return orders.filter(o => o.items.some(it => vendorProducts.some(vp => vp.id === it.productId)));
+  }, [orders, vendorProducts, selectedVendor]);
+
+  // Transaction Report Data & Filter
+  const transactionReportRows = useMemo(() => {
+    let rows = vendorOrders.flatMap((o) => {
+      const vItems = o.items.filter(it => vendorProducts.some(p => p.id === it.productId));
+      return vItems.map((item) => {
+        const netValue = item.price * item.quantity;
+        const discountAllocated = (o.discount || 0) * (netValue / Math.max(o.subtotal || 1, 1));
+        const commissionCharge = netValue * 0.10; // 10% commission fee
+        return {
+          id: `${o.id}-${item.productId}`,
+          orderId: o.id,
+          user: o.customerName || "Walk-in Guest",
+          prod: item.name,
+          amt: netValue,
+          disc: discountAllocated,
+          status: o.status,
+          commission: commissionCharge,
+          createdAt: o.createdAt
+        };
+      });
+    });
+
+    if (reportSearchQuery) {
+      const q = reportSearchQuery.toLowerCase();
+      rows = rows.filter(r => r.user.toLowerCase().includes(q) || r.prod.toLowerCase().includes(q) || r.orderId.toLowerCase().includes(q));
+    }
+    if (reportFilterStatus !== 'all') {
+      rows = rows.filter(r => r.status.toLowerCase() === reportFilterStatus.toLowerCase());
+    }
+    return rows;
+  }, [vendorOrders, vendorProducts, reportSearchQuery, reportFilterStatus]);
+
+  // Product Volumes Report Data & Filter
+  const productReportRows = useMemo(() => {
+    let list = vendorProducts.map((p) => {
+      const matchingItems = vendorOrders.flatMap(o => o.items).filter(it => it.productId === p.id);
+      const unitsSold = matchingItems.reduce((acc, it) => acc + it.quantity, 0);
+      const revenue = unitsSold * p.price;
+      return {
+        id: p.id,
+        title: p.title,
+        price: p.price,
+        sales: unitsSold,
+        revenue: revenue,
+        category: p.category || 'General'
+      };
+    });
+
+    if (reportSearchQuery) {
+      const q = reportSearchQuery.toLowerCase();
+      list = list.filter(r => r.title.toLowerCase().includes(q) || r.category.toLowerCase().includes(q));
+    }
+    if (reportSelectedCategory !== 'all') {
+      list = list.filter(r => r.category.toLowerCase() === reportSelectedCategory.toLowerCase());
+    }
+    return list.sort((a, b) => b.revenue - a.revenue);
+  }, [vendorProducts, vendorOrders, reportSearchQuery, reportSelectedCategory]);
+
+  // Order Intake Timeline Report Data & Filter
+  const orderReportRows = useMemo(() => {
+    let list = vendorOrders.map(o => {
+      const vItems = o.items.filter(it => vendorProducts.some(p => p.id === it.productId));
+      const mySubtotal = vItems.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+      return {
+        id: o.id,
+        customerName: o.customerName || "Walk-in Guest",
+        method: o.deliveryMethod || "Delivery",
+        amount: mySubtotal + (o.shippingCost || 0),
+        status: o.status,
+        createdAt: o.createdAt
+      };
+    });
+
+    if (reportSearchQuery) {
+      const q = reportSearchQuery.toLowerCase();
+      list = list.filter(r => r.customerName.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
+    }
+    if (reportFilterStatus !== 'all') {
+      list = list.filter(r => r.status.toLowerCase() === reportFilterStatus.toLowerCase());
+    }
+    return list;
+  }, [vendorOrders, vendorProducts, reportSearchQuery, reportFilterStatus]);
+
+  // VAT Taxation Ledger Report Data & Filter
+  const vatReportRows = useMemo(() => {
+    let list = vendorOrders.map(o => {
+      const vItems = o.items.filter(it => vendorProducts.some(p => p.id === it.productId));
+      const net = vItems.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+      const calculatedTax = net * 0.15;
+      return {
+        id: o.id,
+        net: net,
+        vat: calculatedTax,
+        total: net + calculatedTax,
+        customerName: o.customerName || "Walk-in Guest"
+      };
+    });
+
+    if (reportSearchQuery) {
+      const q = reportSearchQuery.toLowerCase();
+      list = list.filter(r => r.id.toLowerCase().includes(q) || r.customerName.toLowerCase().includes(q));
+    }
+    return list;
+  }, [vendorOrders, vendorProducts, reportSearchQuery]);
 
   // Clearance Configuration States
   const [clearanceRate, setClearanceRate] = useState<string>('15');
@@ -351,6 +525,59 @@ export default function VendorPortal({
   const [callContact, setCallContact] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // QR Code States & Callback Handlers
+  const qrCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const [qrError, setQrError] = useState('');
+
+  const generateQrCode = React.useCallback(async () => {
+    if (!selectedVendor || !qrCanvasRef.current) return;
+    try {
+      const shopUrl = `${window.location.origin}${window.location.pathname}?vendor=${selectedVendor.id}`;
+      await QRCode.toCanvas(qrCanvasRef.current, shopUrl, {
+        width: 180,
+        margin: 2,
+        color: {
+          dark: '#312e81',
+          light: '#ffffff'
+        }
+      });
+      setQrError('');
+    } catch (err: any) {
+      console.error('Failed to generate merchant QR code', err);
+      setQrError('Failed to render storefront QR code image.');
+    }
+  }, [selectedVendor?.id]);
+
+  const downloadQrCode = () => {
+    if (!selectedVendor || !qrCanvasRef.current) return;
+    try {
+      const url = qrCanvasRef.current.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `suuqhub-${selectedVendor.vendorName.toLowerCase().replace(/\s+/g, '-')}-qr.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.warn("Unable to trigger QR code download asset:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'dashboard' || activeTab === 'settings_shop') {
+      const timer = setTimeout(() => {
+        generateQrCode();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, selectedVendor?.id, generateQrCode]);
+
+  // Store Special Customer Promo Banner states
+  const [promoActive, setPromoActive] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState('20');
+  const [promoMessage, setPromoMessage] = useState('Exclusive Winter Sale event! Enjoy flat discounts storewide.');
+  const [promoGradient, setPromoGradient] = useState('from-indigo-600 via-purple-600 to-pink-600');
+
   // Remittance Form States
   const [activeRemitOrderId, setActiveRemitOrderId] = useState<string | null>(null);
   const [remitTxnId, setRemitTxnId] = useState('');
@@ -392,6 +619,12 @@ export default function VendorPortal({
         setClearanceStartDate(selectedVendor.clearanceStartDate || new Date().toISOString().substring(0, 10));
         setClearanceEndDate(selectedVendor.clearanceEndDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10));
 
+        // Sync Promotion
+        setPromoActive(!!(selectedVendor as any).promoActive);
+        setPromoDiscount((selectedVendor as any).promoDiscount !== undefined ? String((selectedVendor as any).promoDiscount) : '20');
+        setPromoMessage((selectedVendor as any).promoMessage || 'Exclusive Flash Sale event! Flat discounts on all store items.');
+        setPromoGradient((selectedVendor as any).promoGradient || 'from-indigo-600 via-purple-600 to-pink-600');
+
         lastVendorIdRef.current = selectedVendor.id;
       }
     } else {
@@ -404,6 +637,7 @@ export default function VendorPortal({
 
   // Form states for Hero Slide Campaigns
   const [heroCampaigns, setHeroCampaigns] = useState<any[]>([]);
+  const [editingCampaignId, setEditingCampaignId] = useState<string>('');
   const [campTitle, setCampTitle] = useState('');
   const [campSubtitle, setCampSubtitle] = useState('');
   const [campImage, setCampImage] = useState('');
@@ -981,6 +1215,59 @@ export default function VendorPortal({
     }
   };
 
+  const [promoMsgState, setPromoMsgState] = useState('');
+
+  const handleSavePromoBanner = async () => {
+    if (!selectedVendor) return;
+    setPromoMsgState('');
+
+    const discountNum = Number(promoDiscount);
+    if (isNaN(discountNum) || discountNum < 1 || discountNum > 99) {
+      setPromoMsgState('Promotional discount must be a valid percentage between 1% and 99%.');
+      return;
+    }
+
+    if (!promoMessage.trim()) {
+      setPromoMsgState('Promotional slogan/message is required.');
+      return;
+    }
+
+    try {
+      console.log("Saving promotional banner to server for vendor ID:", selectedVendor.id, {
+        promoActive,
+        promoDiscount: discountNum,
+        promoMessage,
+        promoGradient
+      });
+      const res = await fetch(`/api/vendors/${selectedVendor.id}/credentials`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          promoActive: !!promoActive,
+          promoDiscount: discountNum,
+          promoMessage: promoMessage.trim(),
+          promoGradient
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSelectedVendor(data);
+        setVendors(prev => prev.map(v => v.id === data.id ? data : v));
+        setPromoMsgState(`Promotional campaign has been successfully synced and activated!`);
+        if (onVendorUpdated) {
+          onVendorUpdated();
+        }
+        setTimeout(() => setPromoMsgState(''), 4500);
+      } else {
+        setPromoMsgState(data.error || 'Failed to update store promotional campaign.');
+      }
+    } catch (err) {
+      console.error("Error saving promo campaign:", err);
+      setPromoMsgState('Connection error syncing promotional campaign.');
+    }
+  };
+
   const handlePostRemittance = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeRemitOrderId) return;
@@ -1153,12 +1440,16 @@ export default function VendorPortal({
       subtitle: campSubtitle,
       pricingTier: campPricingTier,
       durationDays: days,
-      feeUSD: fee
+      feeUSD: fee,
+      ...(editingCampaignId ? { status: 'pending' } : {})
     };
 
     try {
-      const res = await fetch('/api/hero-campaigns', {
-        method: 'POST',
+      const endpoint = editingCampaignId ? `/api/hero-campaigns/${editingCampaignId}` : '/api/hero-campaigns';
+      const method = editingCampaignId ? 'PUT' : 'POST';
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -1167,8 +1458,12 @@ export default function VendorPortal({
         setCampTitle('');
         setCampSubtitle('');
         setCampImage('');
-        setCampMsg(`Campaign submitted successfully! Placed in queue for platform Superadmin audit. Billed fee: $${fee}.`);
+        const successMsg = editingCampaignId 
+          ? `Campaign edited and reapplied successfully for Superadmin review! Billed fee: $${fee}.`
+          : `Campaign submitted successfully! Placed in queue for platform Superadmin audit. Billed fee: $${fee}.`;
+        setCampMsg(successMsg);
         setCampIsSuccess(true);
+        setEditingCampaignId('');
         await fetchHeroCampaigns();
       } else {
         const errMsg = await safeParseError(res, 'Failed to submit campaign.');
@@ -1180,6 +1475,67 @@ export default function VendorPortal({
       setCampMsg('Network link error when posting campaign.');
       setCampIsSuccess(false);
     }
+  };
+
+  const handleDeleteCampaign = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this Requested Image Banner campaign? This is irreversible.')) return;
+    try {
+      const res = await fetch(`/api/hero-campaigns/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setCampMsg('Image Banner deleted successfully.');
+        setCampIsSuccess(true);
+        await fetchHeroCampaigns();
+      } else {
+        const errorMsg = await safeParseError(res, 'Failed to delete campaign.');
+        setCampMsg(errorMsg);
+        setCampIsSuccess(false);
+      }
+    } catch (err) {
+      console.error('Error deleting campaign:', err);
+      setCampMsg('Connection error deleting campaign.');
+      setCampIsSuccess(false);
+    }
+  };
+
+  const handleToggleCampaignSuspension = async (camp: any) => {
+    const isCurrentlySuspended = camp.status === 'suspended';
+    const nextStatus = isCurrentlySuspended ? 'approved' : 'suspended';
+    const actionWord = isCurrentlySuspended ? 'reactivate' : 'suspend';
+    if (!window.confirm(`Are you sure you want to ${actionWord} this display banner?`)) return;
+
+    try {
+      const res = await fetch(`/api/hero-campaigns/${camp.id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (res.ok) {
+        setCampMsg(`Campaign display ${isCurrentlySuspended ? 'reactivated' : 'suspended'} successfully.`);
+        setCampIsSuccess(true);
+        await fetchHeroCampaigns();
+      } else {
+        const errorMsg = await safeParseError(res, 'Failed to update campaign status.');
+        setCampMsg(errorMsg);
+        setCampIsSuccess(false);
+      }
+    } catch (err) {
+      console.error('Error toggling campaign suspension:', err);
+      setCampMsg('Connection error toggling suspension.');
+      setCampIsSuccess(false);
+    }
+  };
+
+  const handleStartEditCampaign = (camp: any) => {
+    setEditingCampaignId(camp.id);
+    setCampTitle(camp.title);
+    setCampSubtitle(camp.subtitle || '');
+    setCampImage(camp.image);
+    setCampPricingTier(camp.pricingTier);
+    setCampDuration(String(camp.durationDays));
+    setCampMsg('Loaded banner. Modify values and click "Update & Reapply Campaign" to submit.');
+    setCampIsSuccess(true);
   };
 
   const handlePostProduct = async (e: React.FormEvent) => {
@@ -2070,6 +2426,128 @@ export default function VendorPortal({
                   </div>
                 </div>
 
+              </div>
+
+              {/* Traffic & Marketing growth bento rows (Interactive QR + Real-Time Analytics) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+                {/* 1. Real-Time Storefront Analytics Dashboard */}
+                <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-205 p-6 shadow-3xs text-left space-y-4">
+                  <div className="border-b pb-3 border-slate-100 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                        <BarChart2 className="w-4.5 h-4.5 text-indigo-650 animate-pulse" /> Real-Time Storefront Traffic & Engagement
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">Live tracking indicators of customer-facing storefront conversions</p>
+                    </div>
+                    <span className="text-[9.5px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider select-none">
+                      ● Live Stats
+                    </span>
+                  </div>
+
+                  {/* Top Level Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-xl">
+                      <span className="text-[10px] text-slate-400 font-mono font-bold block uppercase tracking-wider">Product views</span>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Eye className="w-4 h-4 text-slate-500" />
+                        <span className="text-lg font-black text-slate-800 font-mono">
+                          {selectedVendor?.analytics?.views || 0}
+                        </span>
+                      </div>
+                      <span className="text-[8.5px] text-slate-400 block mt-1">Unique page visits</span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-xl">
+                      <span className="text-[10px] text-slate-400 font-mono font-bold block uppercase tracking-wider">Storefront Shares</span>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Share2 className="w-4 h-4 text-indigo-550" />
+                        <span className="text-lg font-black text-slate-800 font-mono">
+                          {selectedVendor?.analytics?.shares || 0}
+                        </span>
+                      </div>
+                      <span className="text-[8.5px] text-slate-450 block mt-1">Copied marketing links</span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-xl">
+                      <span className="text-[10px] text-slate-400 font-mono font-bold block uppercase tracking-wider">WhatsApp Chats</span>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <MessageCircle className="w-4 h-4 text-emerald-500 fill-emerald-100" />
+                        <span className="text-lg font-black text-slate-800 font-mono">
+                          {selectedVendor?.analytics?.whatsapp || 0}
+                        </span>
+                      </div>
+                      <span className="text-[8.5px] text-emerald-650 block mt-1">Checkout intentions</span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-xl">
+                      <span className="text-[10px] text-slate-400 font-mono font-bold block uppercase tracking-wider">Phone Calls</span>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Phone className="w-3.5 h-3.5 text-sky-505" />
+                        <span className="text-lg font-black text-slate-800 font-mono">
+                          {selectedVendor?.analytics?.calls || 0}
+                        </span>
+                      </div>
+                      <span className="text-[8.5px] text-sky-655 block mt-1">Urgent client callbacks</span>
+                    </div>
+                  </div>
+
+                  {/* Visual distribution density breakdown */}
+                  <div className="space-y-3 bg-slate-50/40 border border-slate-150 p-4 rounded-xl">
+                    <span className="block text-[10px] font-mono text-slate-450 uppercase font-bold tracking-wider">Stores engagement density breakdown:</span>
+                    <div className="space-y-2.5">
+                      {[
+                        { label: 'Merchant Storefront Views', count: selectedVendor?.analytics?.views || 0, color: 'bg-slate-700', activePct: (selectedVendor?.analytics?.views || 0) / Math.max(1, (selectedVendor?.analytics?.views || 0) + (selectedVendor?.analytics?.shares || 0) + (selectedVendor?.analytics?.whatsapp || 0) + (selectedVendor?.analytics?.calls || 0)) * 100 },
+                        { label: 'Direct Brand Social Shares', count: selectedVendor?.analytics?.shares || 0, color: 'bg-indigo-600', activePct: (selectedVendor?.analytics?.shares || 0) / Math.max(1, (selectedVendor?.analytics?.views || 0) + (selectedVendor?.analytics?.shares || 0) + (selectedVendor?.analytics?.whatsapp || 0) + (selectedVendor?.analytics?.calls || 0)) * 100 },
+                        { label: 'WhatsApp Checkout Cart Inquiries', count: selectedVendor?.analytics?.whatsapp || 0, color: 'bg-emerald-600', activePct: (selectedVendor?.analytics?.whatsapp || 0) / Math.max(1, (selectedVendor?.analytics?.views || 0) + (selectedVendor?.analytics?.shares || 0) + (selectedVendor?.analytics?.whatsapp || 0) + (selectedVendor?.analytics?.calls || 0)) * 100 },
+                        { label: 'Direct Emergency Call Dials', count: selectedVendor?.analytics?.calls || 0, color: 'bg-sky-500', activePct: (selectedVendor?.analytics?.calls || 0) / Math.max(1, (selectedVendor?.analytics?.views || 0) + (selectedVendor?.analytics?.shares || 0) + (selectedVendor?.analytics?.whatsapp || 0) + (selectedVendor?.analytics?.calls || 0)) * 100 }
+                      ].map((item, key) => (
+                        <div key={key} className="space-y-1">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-sans font-bold text-slate-750">{item.label}</span>
+                            <span className="font-mono text-slate-500 font-bold">{item.count} clicks ({Math.round(item.activePct)}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/40">
+                            <div className={`${item.color} h-full rounded-full`} style={{ width: `${Math.max(3, item.activePct)}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Interactive Storefront QR Code Generator */}
+                <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-205 p-6 shadow-3xs text-left flex flex-col justify-between space-y-4">
+                  <div className="border-b pb-3 border-slate-100">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                      <Sparkles className="w-4.5 h-4.5 text-indigo-650" /> Interactive Storefront QR Code
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">Vector-rendered QR code for packaging, flyers or stickers</p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-150 rounded-xl relative min-h-[220px]">
+                    {qrError ? (
+                      <span className="text-xs text-red-600 text-center font-medium">{qrError}</span>
+                    ) : (
+                      <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-3xs flex items-center justify-center">
+                        <canvas ref={qrCanvasRef} className="w-[145px] h-[145px]" />
+                      </div>
+                    )}
+                    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest mt-2">{selectedVendor?.vendorName || "SuuqHub Vendor"}</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-slate-450 leading-relaxed text-center">
+                      Customers scan this with their phone cameras to bypass search queries and open your verified storefront directly!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={downloadQrCode}
+                      className="cursor-pointer w-full text-center py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold text-[10.5px] uppercase tracking-wider rounded-xl transition-all shadow-3xs flex items-center justify-center gap-1.5"
+                    >
+                      <Upload className="w-3.5 h-3.5 rotate-180" /> Download QR Code PNG
+                    </button>
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -2977,105 +3455,211 @@ export default function VendorPortal({
 
           {/* 10. CLEARANCE SPECIAL SALES INCENTIVE */}
           {activeTab === 'promotions_clearance' && (
-            <div className="bg-white rounded-2xl border border-slate-205 p-6 space-y-4 text-left animate-in fade-in duration-200">
-              <div>
-                <h2 className="text-sm font-black text-indigo-650 uppercase tracking-wider font-mono flex items-center gap-1.5 animate-pulse">
-                  <Percent className="w-4.5 h-4.5" /> Clearance Special sales campaign
-                </h2>
-                <p className="text-[11.5px] text-slate-400">Set direct temporary discounts across your entire storefront to accelerate stock clearing cycles.</p>
-              </div>
-
-              <div className="space-y-4 max-w-md bg-slate-50 border border-slate-200 p-5 rounded-2xl">
-                {clearanceMsg && (
-                  <div className="p-3 text-xs bg-indigo-50 border border-indigo-150 text-indigo-850 rounded font-medium">
-                    {clearanceMsg}
-                  </div>
-                )}
-                
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left animate-in fade-in duration-200">
+              
+              {/* Left Widget: Clearance campaign */}
+              <div className="bg-white rounded-2xl border border-slate-205 p-6 space-y-4">
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Clearance Markdown rate (%)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="90"
-                    placeholder="e.g. 15"
-                    value={clearanceRate}
-                    onChange={(e) => setClearanceRate(e.target.value)}
-                    className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
-                  />
-                  <p className="text-[9px] text-slate-400 mt-1">This discount rate applies storewide to all products during the scheduled period.</p>
+                  <h2 className="text-sm font-black text-indigo-650 uppercase tracking-wider font-mono flex items-center gap-1.5 animate-pulse">
+                    <Percent className="w-4.5 h-4.5" /> Clearance Special sales campaign
+                  </h2>
+                  <p className="text-[11.5px] text-slate-400">Set direct temporary discounts across your entire storefront to accelerate stock clearing cycles.</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-4 bg-slate-50 border border-slate-205 p-5 rounded-2xl">
+                  {clearanceMsg && (
+                    <div className="p-3 text-xs bg-indigo-50 border border-indigo-150 text-indigo-850 rounded font-medium">
+                      {clearanceMsg}
+                    </div>
+                  )}
+                  
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Campaign Start Date</label>
+                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Clearance Markdown rate (%)</label>
                     <input
-                      type="date"
-                      value={clearanceStartDate}
-                      onChange={(e) => setClearanceStartDate(e.target.value)}
-                      className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                      type="number"
+                      min="1"
+                      max="90"
+                      placeholder="e.g. 15"
+                      value={clearanceRate}
+                      onChange={(e) => setClearanceRate(e.target.value)}
+                      className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                    />
+                    <p className="text-[9px] text-slate-400 mt-1">This discount rate applies storewide to all products during the scheduled period.</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Campaign Start Date</label>
+                      <input
+                        type="date"
+                        value={clearanceStartDate}
+                        onChange={(e) => setClearanceStartDate(e.target.value)}
+                        className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Campaign End Date</label>
+                      <input
+                        type="date"
+                        value={clearanceEndDate}
+                        onChange={(e) => setClearanceEndDate(e.target.value)}
+                        className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3.5 bg-indigo-50/40 rounded-xl border border-indigo-100">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">Activate Store-wide Clearance</span>
+                      <span className="text-[9.5px] text-slate-450 block">If unchecked, markdown is disabled immediately.</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={clearanceActive}
+                      onChange={(e) => setClearanceActive(e.target.checked)}
+                      className="w-5 h-5 accent-indigo-600 rounded cursor-pointer shrink-0"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Campaign End Date</label>
-                    <input
-                      type="date"
-                      value={clearanceEndDate}
-                      onChange={(e) => setClearanceEndDate(e.target.value)}
-                      className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
-                    />
-                  </div>
+
+                  {clearanceActive && clearanceStartDate && clearanceEndDate && (
+                    <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl text-[10px] text-amber-800 flex items-start gap-2">
+                      <span>💡</span>
+                      <span>
+                        Active schedule range: <strong className="font-mono">{clearanceStartDate}</strong> to <strong className="font-mono">{clearanceEndDate}</strong>. Outside this window, standard price ratios apply.
+                      </span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSaveClearance}
+                    className="w-full text-center py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wide rounded-lg transition-colors cursor-pointer shadow-3xs"
+                  >
+                    Save Store clearance
+                  </button>
                 </div>
-
-                <div className="flex items-center justify-between p-3.5 bg-indigo-50/40 rounded-xl border border-indigo-100">
-                  <div>
-                    <span className="text-xs font-bold text-slate-800 block">Activate Store-wide Clearance</span>
-                    <span className="text-[9.5px] text-slate-450 block">If unchecked, markdown is disabled immediately.</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={clearanceActive}
-                    onChange={(e) => setClearanceActive(e.target.checked)}
-                    className="w-5 h-5 accent-indigo-600 rounded cursor-pointer shrink-0"
-                  />
-                </div>
-
-                {clearanceActive && clearanceStartDate && clearanceEndDate && (
-                  <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl text-[10px] text-amber-800 flex items-start gap-2">
-                    <span>💡</span>
-                    <span>
-                      Active schedule range: <strong className="font-mono">{clearanceStartDate}</strong> to <strong className="font-mono">{clearanceEndDate}</strong>. Outside this window, standard price ratios apply.
-                    </span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleSaveClearance}
-                  className="w-full text-center py-2.5 bg-indigo-605 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wide rounded-lg transition-colors cursor-pointer shadow-3xs"
-                >
-                  Save Store clearance
-                </button>
               </div>
+
+              {/* Right Widget: Special CUSTOMER PROMO BANNER customized with gradient and slogan */}
+              <div className="bg-white rounded-2xl border border-slate-205 p-6 space-y-4">
+                <div>
+                  <h2 className="text-sm font-black text-violet-600 uppercase tracking-wider font-mono flex items-center gap-1.5 animate-pulse">
+                    <Sparkles className="w-4.5 h-4.5" /> Customized Storefront Promo Banner
+                  </h2>
+                  <p className="text-[11.5px] text-slate-400">Design a stunning, high-converting discount gradient hero banner at the top of your shop storefront.</p>
+                </div>
+
+                <div className="space-y-4 bg-slate-50 border border-slate-205 p-5 rounded-2xl">
+                  {promoMsgState && (
+                    <div className="p-3 text-xs bg-violet-50 border border-violet-150 text-violet-850 rounded font-medium">
+                      {promoMsgState}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Promo Slogan Message / Call-to-action text</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Premium Winter Sale! Huge discounts on clothing items."
+                      value={promoMessage}
+                      onChange={(e) => setPromoMessage(e.target.value)}
+                      className="w-full text-xs font-sans bg-white border border-slate-205 rounded px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                    />
+                    <p className="text-[9px] text-slate-400 mt-1">This text slogan is rendered inside the dynamic merchant storefront banner.</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Discount Rate (%)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="99"
+                        placeholder="e.g. 20"
+                        value={promoDiscount}
+                        onChange={(e) => setPromoDiscount(e.target.value)}
+                        className="w-full text-xs font-mono bg-white border border-slate-205 rounded px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">Banner Color Gradient</label>
+                      <select
+                        value={promoGradient}
+                        onChange={(e) => setPromoGradient(e.target.value)}
+                        className="w-full text-xs font-sans bg-white border border-slate-205 rounded px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                      >
+                        <option value="from-indigo-600 via-purple-600 to-pink-600">Magic Cosmic (Indigo / Pink)</option>
+                        <option value="from-emerald-600 to-teal-700">Tropical Mint (Emerald / Teal)</option>
+                        <option value="from-rose-600 to-orange-500">Volcanic Ember (Rose / Orange)</option>
+                        <option value="from-slate-900 via-slate-800 to-slate-900">Futurity Dark (Charcoal / Gold)</option>
+                        <option value="from-indigo-900 to-slate-900">Midnight Depths (Black / Blue)</option>
+                        <option value="from-amber-500 to-rose-600">Golden Sunset (Amber / Rose)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3.5 bg-violet-50/40 rounded-xl border border-violet-100">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">Activate Storefront Promo Banner</span>
+                      <span className="text-[9.5px] text-slate-450 block">Toggle active flag on live storefront page.</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={promoActive}
+                      onChange={(e) => setPromoActive(e.target.checked)}
+                      className="w-5 h-5 accent-indigo-600 rounded cursor-pointer shrink-0"
+                    />
+                  </div>
+
+                  {/* Banner LIVE visual mockup block */}
+                  <div className="space-y-1">
+                    <span className="block text-[9px] font-mono text-slate-400 uppercase tracking-wider">Live Banner Design Mockup:</span>
+                    <div className={`p-4 rounded-xl text-white bg-gradient-to-r ${promoGradient} relative overflow-hidden shadow-sm flex flex-col justify-center min-h-[75px]`}>
+                      <div className="absolute top-2 right-2 bg-white/20 backdrop-blur-md text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-widest text-white/90">
+                        {promoActive ? 'LIVE' : 'INACTIVE'}
+                      </div>
+                      <span className="text-[10px] font-mono font-black tracking-widest text-white/75 uppercase">STORE SPECIAL PROMO</span>
+                      <p className="text-xs font-black leading-snug tracking-tight mt-1">{promoMessage}</p>
+                      {promoDiscount && <span className="text-[10px] font-sans font-bold text-amber-300 mt-1">🏷️ Enjoy {promoDiscount}% Flat Savings Today</span>}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSavePromoBanner}
+                    className="w-full text-center py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wide rounded-lg transition-colors cursor-pointer shadow-3xs"
+                  >
+                    Save Promo Banner
+                  </button>
+                </div>
+              </div>
+
             </div>
           )}
 
 
-          {/* 11. ADVANCED TRANSACTION REPORTS (0:44) */}
+           {/* 11. ADVANCED TRANSACTION REPORTS (0:44) */}
           {activeTab === 'reports_transactions' && (
             <div className="bg-white rounded-2xl border border-slate-205 p-6 space-y-4 text-left animate-in fade-in duration-200">
-              <div className="border-b pb-4 block sm:flex sm:items-center sm:justify-between gap-4">
+              <div className="border-b pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="space-y-1">
                   <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Marketplace Transaction Report</h2>
                   <p className="text-[11.5px] text-slate-420">Overview metrics, customer cash vs wallet flows, and tax summaries.</p>
                 </div>
                 
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => handlePrintReport('SuuqHub Transaction Report', 'trans-table-elem')}
+                    className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-3.5 py-1.8 text-[11px] font-bold rounded-lg cursor-pointer hover:bg-indigo-100 transition flex items-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Print PDF Report
+                  </button>
                   <select
                     value={reportPeriod}
                     onChange={(e) => setReportPeriod(e.target.value)}
-                    className="bg-slate-50 text-[10px] font-semibold border rounded-lg px-3 py-1.5 text-slate-650 cursor-pointer focus:outline-none"
+                    className="bg-slate-50 text-[10px] font-semibold border rounded-lg px-3 py-1.5 text-slate-655 cursor-pointer focus:outline-none"
                   >
+                    <option value="all">All Dates</option>
                     <option value="year">This Calendar Year</option>
                     <option value="month">This Month</option>
                     <option value="today">Today</option>
@@ -3083,64 +3667,81 @@ export default function VendorPortal({
                 </div>
               </div>
 
+              {/* Filtering & Searching Controls Bar */}
+              <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-3 flex flex-wrap gap-2.5 items-center">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search transactions by customer or product..."
+                    value={reportSearchQuery}
+                    onChange={(e) => setReportSearchQuery(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-550 text-slate-800"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold font-mono text-slate-400 uppercase">Status:</span>
+                  <select
+                    value={reportFilterStatus}
+                    onChange={(e) => setReportFilterStatus(e.target.value)}
+                    className="bg-white text-xs border rounded-lg px-2.5 py-1.5 text-slate-700 cursor-pointer focus:outline-none"
+                  >
+                    <option value="all">All Orders</option>
+                    <option value="pending">Pending Payment</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Stats panel nested inside report */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pb-2">
                 {[
-                  { label: "Total Products", count: "20 items" },
-                  { label: "Active Products", count: "19 items" },
-                  { label: "Inactive Products", count: "1 item" },
-                  { label: "Draft Products", count: "0 items" }
+                  { label: "Partner Items Scoped", count: `${vendorProducts.length} list items` },
+                  { label: "Sales Transactions Found", count: `${transactionReportRows.length} matches` },
+                  { label: "Total Sales Amount Computed", count: `$${transactionReportRows.reduce((a, r) => a + r.amt, 0).toFixed(2)} USD` },
+                  { label: "Platform Comm. Charged", count: `$${transactionReportRows.reduce((a, r) => a + r.commission, 0).toFixed(2)} USD` }
                 ].map((cl, idx) => (
-                  <div key={idx} className="bg-slate-50 border p-3 rounded-lg text-left">
+                  <div key={idx} className="bg-slate-50/50 border p-3 rounded-lg text-left">
                     <span className="text-[9px] uppercase font-mono text-slate-400 block">{cl.label}</span>
                     <span className="text-sm font-sans font-black text-slate-900 mt-1 block">{cl.count}</span>
                   </div>
                 ))}
               </div>
 
-              {/* Payment Statistics radial/circle details (0:45) */}
-              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 grid grid-cols-1 md:grid-cols-4 gap-4 divide-y md:divide-y-0 md:divide-x divide-slate-250">
-                {[
-                  { label: "Digital Payments", value: "$53,101.00", color: "text-blue-600" },
-                  { label: "Cash On Delivery", value: "$12,121.00", color: "text-emerald-500" },
-                  { label: "Wallet Deducted", value: "$3,101.00", color: "text-indigo-650" },
-                  { label: "Refunded/Returned", value: "$1,200.00", color: "text-rose-500" }
-                ].map((pay, i) => (
-                  <div key={i} className="text-left pt-3 md:pt-0 md:pl-4 first:pl-0">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">{pay.label}</span>
-                    <span className={`text-base font-black font-sans tracking-tight mt-1 block ${pay.color}`}>{pay.value}</span>
-                  </div>
-                ))}
-              </div>
-
               {/* Printable Table Grid */}
-              <div className="overflow-x-auto pt-2">
+              <div className="overflow-x-auto pt-2" id="trans-table-elem">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-mono uppercase tracking-wider">
-                      <th className="p-2.5">SL</th>
+                      <th className="p-2.5 text-center">SL</th>
+                      <th className="p-2.5 text-left">Order Reference ID</th>
                       <th className="p-2.5 text-left">Customer Name</th>
                       <th className="p-2.5 text-left">Product Title</th>
-                      <th className="p-2.5 text-right">Product Amount</th>
-                      <th className="p-2.5 text-center">Referral/Discount</th>
-                      <th className="p-2.5 text-right">Commissions</th>
+                      <th className="p-2.5 text-right">Raw price</th>
+                      <th className="p-2.5 text-center">Allocated Discount</th>
+                      <th className="p-2.5 text-right">Commissions (10%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-[11px] font-mono text-slate-655">
-                    {[
-                      { sl: "01", user: "Khadar Ahmed", prod: "Kill Code Fictional Novel", amt: "$15.00", disc: "$2.00", status: "Paid" },
-                      { sl: "02", user: "Suhur Hersi", prod: "Science Fiction Volume", amt: "$30.00", disc: "$0.00", status: "Paid" },
-                      { sl: "03", user: "Mohamed Rage", prod: "Garnier Professional Pack", amt: "$25.00", disc: "$3.50", status: "Paid" }
-                    ].map((tx, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50">
-                        <td className="p-2.5 text-center font-bold">{tx.sl}</td>
+                    {transactionReportRows.map((tx, idx) => (
+                      <tr key={tx.id} className="hover:bg-slate-50/50">
+                        <td className="p-2.5 text-center font-bold">{String(idx + 1).padStart(2, '0')}</td>
+                        <td className="p-2.5 font-bold text-slate-900">#{tx.orderId.substring(0, 10)}</td>
                         <td className="p-2.5 font-sans font-bold text-slate-800">{tx.user}</td>
-                        <td className="p-2.5 font-sans line-clamp-1">{tx.prod}</td>
-                        <td className="p-2.5 text-right font-bold text-slate-700">{tx.amt}</td>
-                        <td className="p-2.5 text-center text-rose-600">{tx.disc}</td>
-                        <td className="p-2.5 text-right font-black text-indigo-700">$2.50</td>
+                        <td className="p-2.5 font-sans">{tx.prod}</td>
+                        <td className="p-2.5 text-right font-bold text-slate-700">${tx.amt.toFixed(2)}</td>
+                        <td className="p-2.5 text-center text-rose-600">-${tx.disc.toFixed(2)}</td>
+                        <td className="p-2.5 text-right font-black text-indigo-700">${tx.commission.toFixed(2)}</td>
                       </tr>
                     ))}
+                    {transactionReportRows.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400 italic">No transactions matched your filtering criteria. Check filters or try keyword queries.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -3151,34 +3752,83 @@ export default function VendorPortal({
           {/* 12. PRODUCT SALES VOLUMES REPORT (0:49) */}
           {activeTab === 'reports_products' && (
             <div className="bg-white rounded-2xl border border-slate-205 p-6 space-y-4 text-left animate-in fade-in duration-200">
-              <div className="border-b pb-4 block sm:flex sm:items-center sm:justify-between gap-2">
+              <div className="border-b pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Bestselling Volumes Graph</h2>
+                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Product Sales Volumes Report</h2>
                   <p className="text-[11.5px] text-slate-400">Total units sold, revenue margins, and inventory performance statistics.</p>
+                </div>
+                <div>
+                  <button
+                    onClick={() => handlePrintReport('SuuqHub Product Performance Report', 'prod-table-elem')}
+                    className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-3.5 py-1.8 text-[11px] font-bold rounded-lg cursor-pointer hover:bg-indigo-100 transition flex items-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Print Product Ledger
+                  </button>
                 </div>
               </div>
 
-              {/* Visual Performance Stats Bars */}
-              <div className="space-y-4 max-w-xl">
-                {products.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-405 italic">Add some products to populate sales volume ratios.</p>
-                ) : (
-                  products.map((p, i) => {
-                    const salesWeight = Math.max(15 - i * 3, 2);
-                    const pct = (salesWeight / 20) * 100;
-                    return (
-                      <div key={p.id} className="space-y-1.5 text-xs text-slate-655 font-sans">
-                        <div className="flex justify-between items-center text-[11px]">
-                          <span className="font-bold text-slate-800 line-clamp-1">{p.title}</span>
-                          <span className="font-mono text-slate-500 font-bold">{salesWeight} sold (${(salesWeight * p.price).toFixed(2)})</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                          <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+              {/* Filtering & Searching Controls Bar */}
+              <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-3 flex flex-wrap gap-2.5 items-center">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search products by title or category..."
+                    value={reportSearchQuery}
+                    onChange={(e) => setReportSearchQuery(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-550 text-slate-800"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold font-mono text-slate-400 uppercase">Category:</span>
+                  <select
+                    value={reportSelectedCategory}
+                    onChange={(e) => setReportSelectedCategory(e.target.value)}
+                    className="bg-white text-xs border rounded-lg px-2.5 py-1.5 text-slate-700 cursor-pointer focus:outline-none font-mono"
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Clothing">Clothing</option>
+                    <option value="Groceries">Groceries</option>
+                    <option value="Health">Health & Beauty</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Visual Performance Stats Bars or full lists table */}
+              <div className="space-y-4 max-w-2xl" id="prod-table-elem">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-mono uppercase tracking-wider">
+                      <th className="p-2.5 text-left">SL</th>
+                      <th className="p-2.5 text-left">Product Title</th>
+                      <th className="p-2.5 text-left">Category</th>
+                      <th className="p-2.5 text-center">Retail Price</th>
+                      <th className="p-2.5 text-center">Units Sold</th>
+                      <th className="p-2.5 text-right">Revenue Yield</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {productReportRows.map((prd, idx) => {
+                      const totalAccrued = prd.sales * prd.price;
+                      return (
+                        <tr key={prd.id} className="hover:bg-slate-50/50">
+                          <td className="p-2.5 font-mono text-slate-400">{String(idx + 1).padStart(2, '0')}</td>
+                          <td className="p-2.5 font-sans font-bold text-slate-800">{prd.title}</td>
+                          <td className="p-2.5 font-sans font-medium text-slate-500">{prd.category}</td>
+                          <td className="p-2.5 text-center font-mono text-slate-600">${prd.price.toFixed(2)}</td>
+                          <td className="p-2.5 text-center font-sans font-black text-indigo-700">{prd.sales} units</td>
+                          <td className="p-2.5 text-right font-mono font-bold text-emerald-700">${totalAccrued.toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
+                    {productReportRows.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-slate-400 italic">No products match specified queries.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -3187,22 +3837,88 @@ export default function VendorPortal({
           {/* 13. TIMELINE ORDERS RECRUITMENT REPORTS (0:52) */}
           {activeTab === 'reports_orders' && (
             <div className="bg-white rounded-2xl border border-slate-205 p-6 space-y-4 text-left animate-in fade-in duration-200">
-              <div>
-                <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Store Intake Progressions</h2>
-                <p className="text-[11.5px] text-slate-400">Chronological timeline orders status analytics, dispatch delays, and cancellation diagnostics.</p>
+              <div className="border-b pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Store Intake Progressions</h2>
+                  <p className="text-[11.5px] text-slate-400">Chronological timeline orders status analytics, dispatch delays, and cancellation diagnostics.</p>
+                </div>
+                <div>
+                  <button
+                    onClick={() => handlePrintReport('SuuqHub Partner Order Timeline Report', 'order-table-elem')}
+                    className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-3.5 py-1.8 text-[11px] font-bold rounded-lg cursor-pointer hover:bg-indigo-100 transition flex items-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Print Timeline Ledger
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { label: "Completed Success rate", status: "94.5%", color: "text-emerald-600" },
-                  { label: "Average Dispatch Turnaround", status: "1.4 Hours", color: "text-indigo-600" },
-                  { label: "Cancellation / Return rate", status: "2.1%", color: "text-rose-600" }
-                ].map((stat, i) => (
-                  <div key={i} className="bg-slate-50 border p-4 rounded-xl text-left">
-                    <span className="text-[10px] uppercase font-mono text-slate-400 block tracking-wider">{stat.label}</span>
-                    <span className={`text-xl font-sans font-black mt-2 block ${stat.color}`}>{stat.status}</span>
-                  </div>
-                ))}
+              {/* Filtering & Searching Controls Bar */}
+              <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-3 flex flex-wrap gap-2.5 items-center">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search timeline orders by ID or customer..."
+                    value={reportSearchQuery}
+                    onChange={(e) => setReportSearchQuery(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-550 text-slate-800"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold font-mono text-slate-400 uppercase">Status:</span>
+                  <select
+                    value={reportFilterStatus}
+                    onChange={(e) => setReportFilterStatus(e.target.value)}
+                    className="bg-white text-xs border rounded-lg px-2.5 py-1.5 text-slate-700 cursor-pointer focus:outline-none font-mono"
+                  >
+                    <option value="all">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="canceled">Canceled</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto" id="order-table-elem">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-mono uppercase tracking-wider">
+                      <th className="p-2.5 text-left">SL</th>
+                      <th className="p-2.5 text-left">Order ID</th>
+                      <th className="p-2.5 text-left">Consumer Profile</th>
+                      <th className="p-2.5 text-center">Fulfillment System</th>
+                      <th className="p-2.5 text-center">Fulfillment Status</th>
+                      <th className="p-2.5 text-right font-bold">Gross Subtotal Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[11px] font-mono">
+                    {orderReportRows.map((ord, idx) => (
+                      <tr key={ord.id} className="hover:bg-slate-50/50">
+                        <td className="p-2.5 text-slate-400">{String(idx + 1).padStart(2, '0')}</td>
+                        <td className="p-2.5 font-bold text-indigo-755">#{ord.id.substring(0, 8).toUpperCase()}</td>
+                        <td className="p-2.5 font-sans font-semibold text-slate-800">{ord.customerName}</td>
+                        <td className="p-2.5 text-center font-sans font-semibold">{ord.method}</td>
+                        <td className="p-2.5 text-center">
+                          <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${
+                            ord.status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                            ord.status === 'canceled' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                            'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {ord.status}
+                          </span>
+                        </td>
+                        <td className="p-2.5 text-right font-black font-sans text-slate-905">${ord.amount.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    {orderReportRows.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-slate-400 italic">No orders match filter query parameters.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -3211,37 +3927,61 @@ export default function VendorPortal({
           {/* 14. INVOICING TAX LEDGER VAT RECORD */}
           {activeTab === 'reports_vat' && (
             <div className="bg-white rounded-2xl border border-slate-205 p-6 space-y-4 text-left animate-in fade-in duration-200">
-              <div>
-                <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Somalia / Somaliland VAT Taxation Ledger</h2>
-                <p className="text-[11.5px] text-slate-400">Mandated record log for legal accounting, calculating standard 15% VAT amounts.</p>
+              <div className="border-b pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider font-mono">Somalia / Somaliland VAT Taxation Ledger</h2>
+                  <p className="text-[11.5px] text-slate-400">Mandated record log for legal accounting, calculating standard 15% VAT amounts.</p>
+                </div>
+                <div>
+                  <button
+                    onClick={() => handlePrintReport('Somalia Standard VAT Taxation Ledger', 'vat-table-elem')}
+                    className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-3.5 py-1.8 text-[11px] font-bold rounded-lg cursor-pointer hover:bg-indigo-100 transition flex items-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Print Tax Ledger
+                  </button>
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
+              {/* Filtering & Searching Controls Bar */}
+              <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-3 flex flex-wrap gap-2.5 items-center">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search invoices by code or customer..."
+                    value={reportSearchQuery}
+                    onChange={(e) => setReportSearchQuery(e.target.value)}
+                    className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-550 text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto" id="vat-table-elem">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-mono uppercase tracking-wider">
+                      <th className="p-3 text-left">SL</th>
                       <th className="p-3 text-left">Reference Invoice</th>
+                      <th className="p-3 text-left">Customer Profile Name</th>
                       <th className="p-3 text-right">Net Value</th>
                       <th className="p-3 text-right">VAT Rate Applied</th>
-                      <th className="p-3 text-right">Total VAT Amount</th>
+                      <th className="p-3 text-right">Total VAT Amount (15%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-mono text-slate-655">
-                    {orders.slice(0, 5).map((o, idx) => {
-                      const net = o.subtotal || 25;
-                      const calculatedTax = net * 0.15;
-                      return (
-                        <tr key={idx}>
-                          <td className="p-3">#{o.id.substring(0, 8)}</td>
-                          <td className="p-3 text-right">${net.toFixed(2)}</td>
-                          <td className="p-3 text-right">15% Somali Standard</td>
-                          <td className="p-3 text-right font-bold text-slate-900">+${calculatedTax.toFixed(2)}</td>
-                        </tr>
-                      );
-                    })}
-                    {orders.length === 0 && (
+                    {vatReportRows.map((vt, idx) => (
+                      <tr key={vt.id} className="hover:bg-slate-50/50">
+                        <td className="p-3 text-slate-400">{String(idx + 1).padStart(2, '0')}</td>
+                        <td className="p-3 font-bold text-slate-900">#INV-{vt.id.substring(0, 8).toUpperCase()}</td>
+                        <td className="p-3 font-sans font-bold text-slate-800">{vt.customerName}</td>
+                        <td className="p-3 text-right">${vt.net.toFixed(2)}</td>
+                        <td className="p-3 text-right">15% Somali Standard</td>
+                        <td className="p-3 text-right font-black text-rose-650">+${vt.vat.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    {vatReportRows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="text-center py-12 text-slate-400 italic">No taxation sales transacted yet to compute VAT weights.</td>
+                        <td colSpan={6} className="text-center py-12 text-slate-450 italic">No taxation transactions matched your criteria.</td>
                       </tr>
                     )}
                   </tbody>
@@ -4615,11 +5355,32 @@ export default function VendorPortal({
           {/* Left Column: Form */}
           <div className="lg:col-span-5 bg-white rounded-xl p-6 border border-slate-200 shadow-xs space-y-4 text-left">
             <h2 className="font-sans font-bold text-sm uppercase tracking-wider text-indigo-600 flex items-center gap-1.5 mb-1">
-              <Sparkles className="w-4.5 h-4.5" /> Request Hero Banner Promo
+              <Sparkles className="w-4.5 h-4.5" />
+              {editingCampaignId ? 'Edit & Reapply Image Banner' : 'Request Hero Banner Promo'}
             </h2>
-            <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
-              Feature products on the primary landing page carousel slider of SuuqHub! Superadmin charges a promo service fee of <b>$25.00 AED/USD per day</b>.
-            </p>
+            <div className="text-[11px] text-slate-500 leading-relaxed mb-4">
+              {editingCampaignId ? (
+                <div className="bg-indigo-50 border border-indigo-150 p-2.5 rounded-lg flex items-center justify-between font-medium">
+                  <span className="text-indigo-950">Editing Campaign ID: #{editingCampaignId}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCampaignId('');
+                      setCampTitle('');
+                      setCampSubtitle('');
+                      setCampImage('');
+                    }}
+                    className="text-rose-600 hover:text-rose-800 font-bold hover:underline cursor-pointer uppercase text-[9.5px]"
+                  >
+                    Cancel Edit
+                  </button>
+                </div>
+              ) : (
+                <p>
+                  Feature products on the primary landing page carousel slider of SuuqHub! Superadmin charges a promo service fee of <b>$25.00 AED/USD per day</b>.
+                </p>
+              )}
+            </div>
 
             {!selectedVendor || selectedVendor.status !== 'approved' ? (
               <div className="p-4 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500 font-mono space-y-2">
@@ -4730,7 +5491,7 @@ export default function VendorPortal({
                   </div>
 
                   <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5">
-                    <CreditCard className="w-4 h-4" /> Submit Campaign Banner
+                    <CreditCard className="w-4 h-4" /> {editingCampaignId ? 'Update & Reapply Campaign' : 'Submit Campaign Banner'}
                   </button>
                 </div>
               </form>
@@ -4785,6 +5546,8 @@ export default function VendorPortal({
                           ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
                           : camp.status === 'rejected'
                           ? 'bg-red-50 border border-red-200 text-red-700'
+                          : camp.status === 'suspended'
+                          ? 'bg-rose-55 bg-rose-50 border border-rose-200 text-rose-700'
                           : 'bg-amber-50 border border-amber-200 text-amber-700'
                       }`}>
                         {camp.status}
@@ -4793,6 +5556,42 @@ export default function VendorPortal({
                         <span className="text-[9.5px] font-mono text-red-605 block max-w-[150px] text-wrap text-right leading-tight">Reason: {camp.rejectionReason}</span>
                       )}
                       <span className="text-[8.5px] font-mono text-slate-400">{new Date(camp.createdAt).toLocaleDateString()}</span>
+
+                      {/* Vendor actions panel */}
+                      <div className="flex flex-wrap gap-1.5 mt-1 sm:justify-end">
+                        {camp.status === 'approved' && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCampaignSuspension(camp)}
+                            className="px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-705 text-[9px] font-black uppercase tracking-wide rounded cursor-pointer transition active:scale-95 shadow-3xs font-mono"
+                          >
+                            Suspend
+                          </button>
+                        )}
+                        {camp.status === 'suspended' && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCampaignSuspension(camp)}
+                            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-705 text-[9px] font-black uppercase tracking-wide rounded cursor-pointer transition active:scale-95 shadow-3xs font-mono"
+                          >
+                            Activate
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditCampaign(camp)}
+                          className="px-2 py-1 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-705 text-[9px] font-black uppercase tracking-wide rounded cursor-pointer transition active:scale-95 shadow-3xs font-mono"
+                        >
+                          Edit/Reapply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCampaign(camp.id)}
+                          className="px-2 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-705 text-[9px] font-black uppercase tracking-wide rounded cursor-pointer transition active:scale-95 shadow-3xs font-mono"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))

@@ -628,6 +628,47 @@ const getVendorForProduct = (product: any) => {
 
     // 2. PRODUCTS
     if (pathname.startsWith('/api/products')) {
+      if (pathname.includes('/reviews')) {
+        const productId = pathname.replace('/api/products/', '').replace('/reviews', '');
+        if (method === 'GET') {
+          const list = await getCollectionDocs('product-reviews', []);
+          const prodReviews = list.filter((r: any) => r.productId === productId);
+          return jsonResponse(prodReviews);
+        } else if (method === 'POST') {
+          const newReview = {
+            id: `rev-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            productId,
+            userName: bodyObj.userName,
+            comment: bodyObj.comment || "",
+            rating: Number(bodyObj.rating),
+            date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+            verified: bodyObj.verified !== undefined ? !!bodyObj.verified : true
+          };
+          const rDocRef = doc(db, 'product-reviews', newReview.id);
+          await setDoc(rDocRef, newReview);
+          clearFallbackCache('product-reviews');
+
+          // Update product summary stats
+          const prodDocRef = doc(db, 'products', productId);
+          const pSnap = await getDoc(prodDocRef);
+          if (pSnap.exists()) {
+            const pData = pSnap.data();
+            const list = await getCollectionDocs('product-reviews', []);
+            const currentReviews = [...list.filter((r: any) => r.productId === productId), newReview];
+            const total = currentReviews.reduce((sum: number, r: any) => sum + r.rating, 0);
+            const avg = total / currentReviews.length;
+            
+            await setDoc(prodDocRef, {
+              ...pData,
+              ratingCount: currentReviews.length,
+              rating: avg
+            });
+            clearFallbackCache('products');
+          }
+          return jsonResponse(newReview, 201);
+        }
+      }
+
       const id = pathname.replace('/api/products', '').replace('/', '');
       if (id) {
         const docRef = doc(db, 'products', id);
@@ -910,6 +951,26 @@ const getVendorForProduct = (product: any) => {
         await setDoc(docRef, merged);
         clearFallbackCache('vendors');
         return jsonResponse(merged);
+      } else if (routePath.includes('/analytics')) {
+        const vendorId = routePath.replace('/analytics', '').replace('/', '');
+        const docRef = doc(db, 'vendors', vendorId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return jsonResponse({ error: "Vendor account not found" }, 404);
+        
+        const existing = snap.data();
+        const currentAnalytics = existing.analytics || { views: 0, shares: 0, whatsapp: 0, calls: 0 };
+        const action = bodyObj.action; // 'view' | 'share' | 'whatsapp' | 'call'
+        if (action && ['view', 'share', 'whatsapp', 'call'].includes(action)) {
+          currentAnalytics[action] = (currentAnalytics[action] || 0) + 1;
+        }
+        
+        const merged = {
+          ...existing,
+          analytics: currentAnalytics
+        };
+        await setDoc(docRef, merged);
+        clearFallbackCache('vendors');
+        return jsonResponse(merged);
       } else if (routePath.includes('/credentials')) {
         const vendorId = routePath.replace('/credentials', '').replace('/', '');
         const docRef = doc(db, 'vendors', vendorId);
@@ -933,7 +994,11 @@ const getVendorForProduct = (product: any) => {
           clearanceRate: bodyObj.clearanceRate !== undefined ? (bodyObj.clearanceRate === null ? null : Number(bodyObj.clearanceRate)) : existing.clearanceRate,
           clearanceActive: bodyObj.clearanceActive !== undefined ? !!bodyObj.clearanceActive : existing.clearanceActive,
           clearanceStartDate: bodyObj.clearanceStartDate !== undefined ? bodyObj.clearanceStartDate : existing.clearanceStartDate,
-          clearanceEndDate: bodyObj.clearanceEndDate !== undefined ? bodyObj.clearanceEndDate : existing.clearanceEndDate
+          clearanceEndDate: bodyObj.clearanceEndDate !== undefined ? bodyObj.clearanceEndDate : existing.clearanceEndDate,
+          promoActive: bodyObj.promoActive !== undefined ? !!bodyObj.promoActive : existing.promoActive,
+          promoDiscount: bodyObj.promoDiscount !== undefined ? (bodyObj.promoDiscount === null ? null : Number(bodyObj.promoDiscount)) : existing.promoDiscount,
+          promoMessage: bodyObj.promoMessage !== undefined ? bodyObj.promoMessage : existing.promoMessage,
+          promoGradient: bodyObj.promoGradient !== undefined ? bodyObj.promoGradient : existing.promoGradient
         };
         await setDoc(docRef, merged);
         clearFallbackCache('vendors');
@@ -1030,18 +1095,67 @@ const getVendorForProduct = (product: any) => {
         const current = snap.data();
         const updated = {
           ...current,
-          status: bodyObj.status,
+          status: bodyObj.status !== undefined ? bodyObj.status : current.status,
           rejectionReason: bodyObj.rejectionReason !== undefined ? bodyObj.rejectionReason : current.rejectionReason,
-          approvedAt: bodyObj.status === "approved" ? new Date().toISOString() : current.approvedAt
+          approvedAt: bodyObj.status === "approved" ? new Date().toISOString() : current.approvedAt,
+          startDate: bodyObj.startDate !== undefined ? bodyObj.startDate : (current.startDate || new Date().toISOString().split('T')[0]),
+          endDate: bodyObj.endDate !== undefined ? bodyObj.endDate : (current.endDate || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]),
+          feeUSD: bodyObj.feeUSD !== undefined ? Number(bodyObj.feeUSD) : current.feeUSD,
         };
         await setDoc(docRef, updated);
+        clearFallbackCache('hero-campaigns');
         return jsonResponse(updated);
       } else {
         if (method === 'GET') {
           const list = await getCollectionDocs('hero-campaigns', initialHeroCampaigns);
+          const todayStr = new Date().toISOString().split('T')[0];
+          let updatedAny = false;
+          
+          for (const camp of list) {
+            if (camp.status === 'approved' && camp.endDate && camp.endDate < todayStr) {
+              camp.status = 'suspended';
+              camp.endedAt = new Date().toISOString();
+              
+              const docRef = doc(db, 'hero-campaigns', camp.id);
+              await setDoc(docRef, camp);
+
+              // Notify Vendor
+              const vendorNoticeId = `notice-vendor-${camp.id}-${Date.now()}`;
+              await setDoc(doc(db, 'system-notifications', vendorNoticeId), {
+                id: vendorNoticeId,
+                recipientId: camp.vendorId,
+                title: 'Showcase Slider Suspended (Expired)',
+                message: `Your storefront slider showcase "${camp.title}" has ended as its scheduled display period reached its end date (${camp.endDate}).`,
+                createdAt: new Date().toISOString(),
+                read: false,
+                type: 'campaign_expired'
+              });
+
+              // Notify Admin
+              const adminNoticeId = `notice-admin-${camp.id}-${Date.now()}`;
+              await setDoc(doc(db, 'system-notifications', adminNoticeId), {
+                id: adminNoticeId,
+                recipientId: 'superadmin',
+                title: 'Showcase Slider Expired',
+                message: `The storefront campaign "${camp.title}" from partner "${camp.vendorName}" has automatically been suspended due to passing its scheduled end date (${camp.endDate}).`,
+                createdAt: new Date().toISOString(),
+                read: false,
+                type: 'campaign_expired'
+              });
+
+              updatedAny = true;
+            }
+          }
+
+          if (updatedAny) {
+            clearFallbackCache('hero-campaigns');
+            const newList = await getCollectionDocs('hero-campaigns', initialHeroCampaigns);
+            return jsonResponse(newList);
+          }
           return jsonResponse(list);
         } else if (method === 'POST') {
           const campId = `camp-${Math.floor(100 + Math.random() * 900)}`;
+          const todayStr = new Date().toISOString().split('T')[0];
           const newCampaign = {
             id: campId,
             vendorId: bodyObj.vendorId || "usr-vendor-02",
@@ -1053,11 +1167,70 @@ const getVendorForProduct = (product: any) => {
             durationDays: bodyObj.durationDays || 7,
             feeUSD: bodyObj.feeUSD || 150,
             status: "pending",
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            startDate: todayStr,
+            endDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
           };
           await setDoc(doc(db, 'hero-campaigns', campId), newCampaign);
+          clearFallbackCache('hero-campaigns');
           return jsonResponse(newCampaign, 201);
+        } else if (method === 'PUT') {
+          const campId = routePath.replace('/', '');
+          if (!campId) return jsonResponse({ error: "Campaign ID required" }, 400);
+          const docRef = doc(db, 'hero-campaigns', campId);
+          const snap = await getDoc(docRef);
+          if (!snap.exists()) return jsonResponse({ error: "Campaign not found" }, 404);
+          
+          const current = snap.data();
+          const updated = {
+            ...current,
+            title: bodyObj.title !== undefined ? bodyObj.title : current.title,
+            subtitle: bodyObj.subtitle !== undefined ? bodyObj.subtitle : current.subtitle,
+            image: bodyObj.image !== undefined ? bodyObj.image : current.image,
+            pricingTier: bodyObj.pricingTier !== undefined ? bodyObj.pricingTier : current.pricingTier,
+            durationDays: bodyObj.durationDays !== undefined ? Number(bodyObj.durationDays) : current.durationDays,
+            feeUSD: bodyObj.feeUSD !== undefined ? Number(bodyObj.feeUSD) : current.feeUSD,
+            status: bodyObj.status !== undefined ? bodyObj.status : current.status,
+            rejectionReason: bodyObj.rejectionReason !== undefined ? bodyObj.rejectionReason : null,
+            startDate: bodyObj.startDate !== undefined ? bodyObj.startDate : current.startDate,
+            endDate: bodyObj.endDate !== undefined ? bodyObj.endDate : current.endDate,
+          };
+          await setDoc(docRef, updated);
+          clearFallbackCache('hero-campaigns');
+          return jsonResponse(updated);
+        } else if (method === 'DELETE') {
+          const campId = routePath.replace('/', '');
+          if (!campId) return jsonResponse({ error: "Campaign ID required" }, 400);
+          const docRef = doc(db, 'hero-campaigns', campId);
+          const snap = await getDoc(docRef);
+          if (!snap.exists()) return jsonResponse({ error: "Campaign not found" }, 404);
+          await deleteDoc(docRef);
+          clearFallbackCache('hero-campaigns');
+          return jsonResponse({ success: true, message: "Campaign deleted successfully" });
         }
+      }
+    }
+
+    // 7B. SYSTEM NOTIFICATIONS
+    if (pathname.startsWith('/api/system-notifications')) {
+      const routePath = pathname.replace('/api/system-notifications', '');
+      
+      if (routePath.includes('/read')) {
+        const noticeId = routePath.replace('/read', '').replace('/', '');
+        const docRef = doc(db, 'system-notifications', noticeId);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const updated = { ...snap.data(), read: true };
+          await setDoc(docRef, updated);
+          clearFallbackCache('system-notifications');
+          return jsonResponse(updated);
+        }
+        return jsonResponse({ error: "Notification not found" }, 404);
+      }
+      
+      if (method === 'GET') {
+        const list = await getCollectionDocs('system-notifications', []);
+        return jsonResponse(list);
       }
     }
 

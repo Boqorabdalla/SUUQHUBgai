@@ -65,6 +65,11 @@ export default function AdminPortal({
   const [heroCampaigns, setHeroCampaigns] = useState<HeroCampaign[]>([]);
   const [auditingCampaignId, setAuditingCampaignId] = useState<string | null>(null);
   const [rejectReasonText, setRejectReasonText] = useState('');
+  const [adminEditingCampaignId, setAdminEditingCampaignId] = useState<string | null>(null);
+  const [adminEditStartDate, setAdminEditStartDate] = useState('');
+  const [adminEditEndDate, setAdminEditEndDate] = useState('');
+  const [adminEditFeeUSD, setAdminEditFeeUSD] = useState<number>(0);
+  const [adminEditStatus, setAdminEditStatus] = useState<'pending' | 'approved' | 'rejected' | 'suspended'>('pending');
 
   // Coupon form states
   const [newCouponCode, setNewCouponCode] = useState('');
@@ -304,6 +309,32 @@ export default function AdminPortal({
       }
     } catch (err) {
       console.error('Failed to update campaign:', err);
+    }
+  };
+
+  const handleUpdateCampaignDetails = async (
+    id: string,
+    status: 'pending' | 'approved' | 'rejected' | 'suspended',
+    startDate: string,
+    endDate: string,
+    feeUSD: number,
+    reason?: string
+  ) => {
+    try {
+      const res = await fetch(`/api/hero-campaigns/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, startDate, endDate, feeUSD, rejectionReason: reason })
+      });
+      if (res.ok) {
+        setAdminEditingCampaignId(null);
+        setAuditingCampaignId(null);
+        await fetchHeroCampaigns();
+      } else {
+        alert('Failed to save showcase parameters.');
+      }
+    } catch (err) {
+      console.error('Failed to update campaign parameters:', err);
     }
   };
 
@@ -2718,99 +2749,203 @@ export default function AdminPortal({
               ) : (
                 <div className="divide-y divide-slate-200 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                   {heroCampaigns.map((camp) => (
-                    <div key={camp.id} className="p-5 flex flex-col md:flex-row gap-5 items-start md:items-center justify-between hover:bg-slate-50/40 transition">
+                    <div key={camp.id} className="p-5 flex flex-col hover:bg-slate-50/40 transition gap-4">
                       
-                      {/* Left Block: Image Banner and Info details */}
-                      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                        <div className="w-28 h-16 rounded border border-slate-300 bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center relative shadow-3xs">
-                          <img src={camp.image} alt="Showcase Thumbnail" className="w-full h-full object-cover" />
+                      <div className="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
+                        {/* Left Block: Image Banner and Info details */}
+                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                          <div className="w-28 h-16 rounded border border-slate-300 bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center relative shadow-3xs">
+                            <img src={camp.image} alt="Showcase Thumbnail" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="space-y-1 text-left">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-900">{camp.title}</span>
+                              <span className="text-[9px] font-mono bg-indigo-50 border border-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Requested by: <b>{camp.vendorName}</b></span>
+                            </div>
+                            <p className="text-xs text-slate-550 italic">"{camp.subtitle || 'No description subtitle provided'}"</p>
+                            
+                            <div className="flex flex-wrap gap-2.5 pt-1 text-[10px] font-mono text-slate-500">
+                              <span>Tier: <b className="text-indigo-600">{camp.pricingTier}</b></span>
+                              <span>•</span>
+                              <span>Duration: <b className="text-slate-800">{camp.durationDays} Days</b></span>
+                              <span>•</span>
+                              <span>Accrued Rate: <b className="text-emerald-700">${camp.feeUSD} USD</b></span>
+                              {camp.startDate && (
+                                <>
+                                  <span>•</span>
+                                  <span>Start: <b className="text-indigo-600">{camp.startDate}</b></span>
+                                </>
+                              )}
+                              {camp.endDate && (
+                                <>
+                                  <span>•</span>
+                                  <span>End: <b className="text-rose-600">{camp.endDate}</b></span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="space-y-1 text-left">
+
+                        {/* Right Block: Status Display and Verification controls */}
+                        <div className="flex flex-col items-start sm:items-end gap-2.5 shrink-0 self-stretch md:self-auto justify-between md:justify-start">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900">{camp.title}</span>
-                            <span className="text-[9px] font-mono bg-indigo-50 border border-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Requested by: <b>{camp.vendorName}</b></span>
+                            <span className={`px-2 py-0.5 text-[8.5px] font-mono font-black uppercase rounded tracking-wider ${
+                              camp.status === 'approved'
+                                ? 'bg-emerald-50 border border-emerald-250 text-emerald-700'
+                                : camp.status === 'rejected'
+                                ? 'bg-rose-50 border border-rose-250 text-rose-700'
+                                : camp.status === 'suspended'
+                                ? 'bg-slate-100 border border-slate-300 text-slate-600'
+                                : 'bg-amber-50 border border-amber-250 text-amber-705'
+                            }`}>
+                              {camp.status}
+                            </span>
+                            <span className="text-[9px] font-mono text-slate-400">{new Date(camp.createdAt).toLocaleDateString()}</span>
                           </div>
-                          <p className="text-xs text-slate-550 italic">"{camp.subtitle || 'No description subtitle provided'}"</p>
-                          
-                          <div className="flex flex-wrap gap-2.5 pt-1 text-[10px] font-mono text-slate-500">
-                            <span>Tier: <b className="text-indigo-600">{camp.pricingTier}</b></span>
-                            <span>•</span>
-                            <span>Duration: <b className="text-slate-800">{camp.durationDays} Days</b></span>
-                            <span>•</span>
-                            <span>Accrued Rate: <b className="text-emerald-700">${camp.feeUSD} USD</b></span>
-                          </div>
+
+                          {camp.status === 'pending' && (
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                              {auditingCampaignId === camp.id ? (
+                                <div className="p-3 bg-rose-50 border border-rose-150 rounded-lg space-y-2 mt-1 w-full max-w-xs text-left">
+                                  <span className="block text-[9px] uppercase font-mono font-black text-rose-700">Submit rejection reason:</span>
+                                  <input
+                                    type="text"
+                                    placeholder="e.g. Blurry logo visual quality..."
+                                    value={rejectReasonText}
+                                    onChange={(e) => setRejectReasonText(e.target.value)}
+                                    className="w-full text-xs font-sans bg-white border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-rose-500 text-slate-800"
+                                  />
+                                  <div className="flex gap-2 justify-end">
+                                    <button
+                                      onClick={() => setAuditingCampaignId(null)}
+                                      type="button"
+                                      className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-705 rounded text-[10px] font-bold cursor-pointer transition"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={() => handleUpdateCampaignStatus(camp.id, 'rejected', rejectReasonText)}
+                                      type="button"
+                                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold cursor-pointer transition"
+                                    >
+                                      Confirm Reject
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateCampaignStatus(camp.id, 'approved')}
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10.5px] cursor-pointer transition active:scale-95 flex items-center gap-1.5"
+                                  >
+                                    <Check className="w-3.5 h-3.5 stroke-3" /> Approve & Display
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setAuditingCampaignId(camp.id); setRejectReasonText(''); }}
+                                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded font-bold text-[10.5px] cursor-pointer transition flex items-center gap-1"
+                                  >
+                                    Reject Slot
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {camp.status === 'rejected' && camp.rejectionReason && (
+                            <div className="bg-rose-50 text-[10px] text-rose-800 px-2.5 py-1.5 border border-rose-150 rounded text-right font-mono max-w-xs">
+                              <span className="font-extrabold uppercase mr-1">Rejection reason:</span>
+                              {camp.rejectionReason}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Right Block: Status Display and Verification controls */}
-                      <div className="flex flex-col items-start sm:items-end gap-2.5 shrink-0 self-stretch md:self-auto justify-between md:justify-start">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 text-[8.5px] font-mono font-black uppercase rounded tracking-wider ${
-                            camp.status === 'approved'
-                              ? 'bg-emerald-50 border border-emerald-250 text-emerald-700'
-                              : camp.status === 'rejected'
-                              ? 'bg-rose-50 border border-rose-200 text-rose-705 text-red-700'
-                              : 'bg-amber-50 border border-amber-250 text-amber-705'
-                          }`}>
-                            {camp.status}
-                          </span>
-                          <span className="text-[9px] font-mono text-slate-400">{new Date(camp.createdAt).toLocaleDateString()}</span>
-                        </div>
-
-                        {camp.status === 'pending' && (
-                          <div className="flex items-center gap-2 w-full sm:w-auto">
-                            {auditingCampaignId === camp.id ? (
-                              <div className="p-3 bg-rose-50 border border-rose-150 rounded-lg space-y-2 mt-1 w-full max-w-xs">
-                                <span className="block text-[9px] uppercase font-mono font-black text-rose-700">Submit rejection reason:</span>
+                      {/* Super Admin Parameters Configuration Panel */}
+                      <div className="border-t border-slate-100 pt-3 flex flex-wrap gap-2 items-center justify-between w-full">
+                        {adminEditingCampaignId === camp.id ? (
+                          <div className="bg-slate-50 border border-slate-205 p-4 rounded-xl w-full text-left space-y-3">
+                            <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                              <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-650" /> Configure Showcase Parameters (Active Dates & Rate)
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                              <div>
+                                <label className="block text-[9px] uppercase font-mono font-bold text-slate-400 mb-1">Start Date</label>
                                 <input
-                                  type="text"
-                                  placeholder="e.g. Blurry logo visual quality..."
-                                  value={rejectReasonText}
-                                  onChange={(e) => setRejectReasonText(e.target.value)}
-                                  className="w-full text-xs font-sans bg-white border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-rose-500 text-slate-800"
+                                  type="date"
+                                  value={adminEditStartDate}
+                                  onChange={(e) => setAdminEditStartDate(e.target.value)}
+                                  className="w-full text-xs bg-white border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
                                 />
-                                <div className="flex gap-2 justify-end">
-                                  <button
-                                    onClick={() => setAuditingCampaignId(null)}
-                                    type="button"
-                                    className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-705 rounded text-[10px] font-bold cursor-pointer transition"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={() => handleUpdateCampaignStatus(camp.id, 'rejected', rejectReasonText)}
-                                    type="button"
-                                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold cursor-pointer transition"
-                                  >
-                                    Confirm Reject
-                                  </button>
-                                </div>
                               </div>
-                            ) : (
-                              <div className="flex gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateCampaignStatus(camp.id, 'approved')}
-                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10.5px] cursor-pointer transition active:scale-95 flex items-center gap-1.5"
-                                >
-                                  <Check className="w-3.5 h-3.5 stroke-3" /> Approve & Display
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => { setAuditingCampaignId(camp.id); setRejectReasonText(''); }}
-                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded font-bold text-[10.5px] cursor-pointer transition flex items-center gap-1"
-                                >
-                                  Reject Slot
-                                </button>
+                              <div>
+                                <label className="block text-[9px] uppercase font-mono font-bold text-slate-400 mb-1">End Date</label>
+                                <input
+                                  type="date"
+                                  value={adminEditEndDate}
+                                  onChange={(e) => setAdminEditEndDate(e.target.value)}
+                                  className="w-full text-xs bg-white border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                                />
                               </div>
-                            )}
+                              <div>
+                                <label className="block text-[9px] uppercase font-mono font-bold text-slate-400 mb-1">Showcase Fee Amount ($ USD)</label>
+                                <input
+                                  type="number"
+                                  value={adminEditFeeUSD}
+                                  onChange={(e) => setAdminEditFeeUSD(Number(e.target.value))}
+                                  className="w-full text-xs bg-white border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] uppercase font-mono font-bold text-slate-400 mb-1">Status Policy</label>
+                                <select
+                                  value={adminEditStatus}
+                                  onChange={(e: any) => setAdminEditStatus(e.target.value)}
+                                  className="w-full text-xs bg-white border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800 font-mono font-bold"
+                                >
+                                  <option value="pending">Pending Audit</option>
+                                  <option value="approved">Approved & Active (Display)</option>
+                                  <option value="suspended">Suspended (Offline)</option>
+                                  <option value="rejected">Rejected Layout</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-1 border-t border-slate-200/50">
+                              <button
+                                type="button"
+                                onClick={() => setAdminEditingCampaignId(null)}
+                                className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-705 rounded text-[10px] font-bold cursor-pointer font-mono uppercase"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateCampaignDetails(camp.id, adminEditStatus, adminEditStartDate, adminEditEndDate, adminEditFeeUSD)}
+                                className="px-3 py-1 bg-indigo-650 hover:bg-indigo-700 text-white rounded text-[10px] font-bold cursor-pointer font-mono uppercase shadow-3xs"
+                              >
+                                Save campaign settings
+                              </button>
+                            </div>
                           </div>
-                        )}
-
-                        {camp.status === 'rejected' && camp.rejectionReason && (
-                          <div className="bg-rose-50 text-[10px] text-rose-800 px-2.5 py-1.5 border border-rose-150 rounded text-right font-mono max-w-xs">
-                            <span className="font-extrabold uppercase mr-1">Rejection reason:</span>
-                            {camp.rejectionReason}
+                        ) : (
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Scheduled Span: <span className="font-bold text-slate-650">{camp.startDate || 'N/A'}</span> to <span className="font-bold text-slate-650">{camp.endDate || 'N/A'}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAdminEditingCampaignId(camp.id);
+                                setAdminEditStartDate(camp.startDate || new Date().toISOString().split('T')[0]);
+                                setAdminEditEndDate(camp.endDate || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]);
+                                setAdminEditFeeUSD(camp.feeUSD || 150);
+                                setAdminEditStatus(camp.status);
+                              }}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-indigo-650 rounded text-[9.5px] font-mono font-bold cursor-pointer flex items-center gap-1.5 transition"
+                            >
+                              <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-550" /> Manage Showcase
+                            </button>
                           </div>
                         )}
                       </div>

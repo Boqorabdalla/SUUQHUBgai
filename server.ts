@@ -16,7 +16,7 @@ import { getAuth as getAdminAuth } from "firebase-admin/auth";
 // Load environment variables
 dotenv.config();
 
-import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign, ProductCategory } from "./src/types";
+import { Product, Order, Coupon, SupportTicket, OrderStatus, Vendor, HeroCampaign, ProductCategory, Review } from "./src/types";
 import { initialProducts, initialCoupons } from "./src/initialData";
 
 const app = express();
@@ -210,6 +210,18 @@ async function saveSupportTicketToFirestore(ticket: SupportTicket) {
     console.log(`Successfully persisted support ticket ${ticket.id} to Cloud Firestore.`);
   } catch (err) {
     console.error(`Failed to persist ticket ${ticket.id} to Firestore:`, err);
+  }
+}
+
+// Persist product reviews to Cloud Firestore helper
+async function saveReviewToFirestore(review: Review) {
+  if (!fbDbAdmin) return;
+  try {
+    const docRef = fbDbAdmin.collection("product-reviews").doc(review.id);
+    await docRef.set(review);
+    console.log(`Successfully persisted product review ${review.id} to Cloud Firestore.`);
+  } catch (err) {
+    console.error(`Failed to persist review ${review.id} to Firestore:`, err);
   }
 }
 
@@ -436,6 +448,27 @@ async function syncAllFromFirestore() {
     console.error("Failed syncing categories from Firestore:", err);
   }
 
+  // 8. Sync Product Reviews
+  try {
+    console.log("Syncing product-reviews...");
+    const snapshot = await fbDbAdmin.collection("product-reviews").get();
+    const loadedReviews: Review[] = [];
+    snapshot.forEach((docSnap: any) => {
+      const data = docSnap.data() as Review;
+      loadedReviews.push({ ...data, id: docSnap.id });
+    });
+
+    if (loadedReviews.length > 0) {
+      dbReviews = loadedReviews;
+      console.log(`Successfully synced ${loadedReviews.length} product reviews from Firestore.`);
+    } else {
+      console.log("Firestore product-reviews collection is empty. Initializing empty array...");
+      dbReviews = [];
+    }
+  } catch (err) {
+    console.error("Failed syncing product reviews from Firestore:", err);
+  }
+
   // 10. Automated merchant registration repair for Dabiicicompany@gmail.com
   try {
     const targetEmail = "dabiicicompany@gmail.com";
@@ -500,6 +533,7 @@ let enableCod = true;
 let fallbackGeminiKey = "";
 let dbProducts: Product[] = [...initialProducts];
 let dbCoupons: Coupon[] = [...initialCoupons];
+let dbReviews: Review[] = [];
 let dbHeroCampaigns: HeroCampaign[] = [
   {
     id: "camp-01",
@@ -685,6 +719,7 @@ function saveDbToFile() {
       dbOrders,
       dbTickets,
       dbHeroCampaigns,
+      dbReviews,
       deliveryFee,
       enableCard,
       enableCod,
@@ -708,6 +743,7 @@ function loadDbFromFile() {
       if (state.dbOrders) dbOrders = state.dbOrders;
       if (state.dbTickets) dbTickets = state.dbTickets;
       if (state.dbHeroCampaigns) dbHeroCampaigns = state.dbHeroCampaigns;
+      if (state.dbReviews) dbReviews = state.dbReviews;
       if (typeof state.deliveryFee === "number") deliveryFee = state.deliveryFee;
       if (typeof state.enableCard === "boolean") enableCard = state.enableCard;
       if (typeof state.enableCod === "boolean") enableCod = state.enableCod;
@@ -878,6 +914,54 @@ app.get("/api/products/:id", (req, res) => {
   } else {
     res.status(404).json({ error: "Product not found" });
   }
+});
+
+// GET list of reviews for a product
+app.get("/api/products/:id/reviews", (req, res) => {
+  const { id } = req.params;
+  const prodReviews = dbReviews.filter(r => r.productId === id);
+  res.json(prodReviews);
+});
+
+// POST a review for a product and recalculate summary rating score
+app.post("/api/products/:id/reviews", (req, res) => {
+  const { id } = req.params;
+  const { userName, comment, rating, verified } = req.body;
+  if (!userName || !rating) {
+    return res.status(400).json({ error: "Missing required fields (userName, rating)" });
+  }
+
+  const pIdx = dbProducts.findIndex(p => p.id === id);
+  if (pIdx === -1) {
+    return res.status(404).json({ error: "Product not found" });
+  }
+
+  const newReview: Review = {
+    id: `rev-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    productId: id,
+    userName,
+    comment: comment || "",
+    rating: Number(rating),
+    date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+    verified: verified !== undefined ? !!verified : true
+  };
+
+  dbReviews.push(newReview);
+  
+  // Recalculate average stars and count for the product
+  const product = dbProducts[pIdx];
+  const prodReviews = dbReviews.filter(r => r.productId === id);
+  const totalRating = prodReviews.reduce((sum, r) => sum + r.rating, 0);
+  
+  product.ratingCount = prodReviews.length;
+  product.rating = totalRating / prodReviews.length;
+
+  saveDbToFile();
+  
+  saveReviewToFirestore(newReview);
+  saveProductToFirestore(product);
+
+  res.status(201).json({ review: newReview, product });
 });
 
 // Admin SDK Authentication Sync & Token Bridge Endpoint
@@ -1342,6 +1426,20 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
   }
   if (alreadyWithdrawnAmount !== undefined) {
     (vendor as any).alreadyWithdrawnAmount = Number(alreadyWithdrawnAmount);
+  }
+
+  // Promotional Banner Fields
+  if (req.body.promoActive !== undefined) {
+    (vendor as any).promoActive = !!req.body.promoActive;
+  }
+  if (req.body.promoDiscount !== undefined) {
+    (vendor as any).promoDiscount = req.body.promoDiscount === null ? undefined : Number(req.body.promoDiscount);
+  }
+  if (req.body.promoMessage !== undefined) {
+    (vendor as any).promoMessage = req.body.promoMessage;
+  }
+  if (req.body.promoGradient !== undefined) {
+    (vendor as any).promoGradient = req.body.promoGradient;
   }
 
   saveDbToFile();

@@ -93,12 +93,41 @@ export default function ProductDetailsModal({
     onClose();
   };
 
-  // Simulated reviews generator based on product ID
+  // Real and simulated reviews handling
+  const [loadedReviews, setLoadedReviews] = useState<any[]>([]);
+  const [fetchingReviews, setFetchingReviews] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (!product) return;
+    setFetchingReviews(true);
+    fetch(`/api/products/${product.id}/reviews`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setLoadedReviews(data);
+        }
+      })
+      .catch(err => console.error("Error loading reviews:", err))
+      .finally(() => setFetchingReviews(false));
+  }, [product?.id]);
+
   const simulatedComments = [
     { name: 'Khaled J.', rating: 5, date: '2026-05-14', text: 'Stunning premium feel. Exceeded expectations.' },
     { name: 'Maria S.', rating: 4, date: '2026-05-20', text: 'Excellent specifications. Delivery was delayed by 1 day but product is top notch.' },
     { name: 'Ismael A.', rating: 5, date: '2026-05-28', text: 'Incredibly comfortable and performs exactly as described by the seller.' }
   ];
+
+  const allReviews = React.useMemo(() => {
+    const formattedSimulated = simulatedComments.map((sc, i) => ({
+      id: `sim-${i}`,
+      userName: sc.name,
+      rating: sc.rating,
+      date: sc.date,
+      comment: sc.text,
+      verified: true
+    }));
+    return [...loadedReviews, ...formattedSimulated];
+  }, [loadedReviews, product?.id]);
 
   if (!isOpen || !product) return null;
 
@@ -317,7 +346,7 @@ export default function ProductDetailsModal({
                   onClick={() => setActiveTab('reviews')}
                   className={`cursor-pointer px-4 py-2 text-xs font-semibold border-b-2 transition ${activeTab === 'reviews' ? 'border-amber-400 text-amber-400' : 'border-transparent text-gray-500 hover:text-white'}`}
                 >
-                  Verified Reviews ({simulatedComments.length})
+                  Verified Reviews ({allReviews.length})
                 </button>
               </div>
 
@@ -337,10 +366,20 @@ export default function ProductDetailsModal({
                 )}
                 {activeTab === 'reviews' && (
                   <div className="flex flex-col gap-3">
-                    {simulatedComments.map((review, idx) => (
-                      <div key={idx} className="p-3 bg-gray-900/30 rounded-xl border border-gray-800/80 text-left text-xs text-gray-300">
+                    {fetchingReviews && (
+                      <p className="text-[10px] text-gray-500 font-mono text-center animate-pulse py-2">Loading latest platform feedback...</p>
+                    )}
+                    {allReviews.map((review, idx) => (
+                      <div key={review.id || idx} className="p-3 bg-gray-900/30 rounded-xl border border-gray-800/80 text-left text-xs text-gray-300">
                         <div className="flex justify-between items-center mb-1.5">
-                          <span className="font-semibold text-gray-100">{review.name}</span>
+                          <span className="font-semibold text-gray-100 flex items-center gap-1.5">
+                            {review.userName}
+                            {review.verified && (
+                              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] font-black uppercase px-1 py-0.2 rounded scale-95 origin-left">
+                                Verified Buy
+                              </span>
+                            )}
+                          </span>
                           <span className="text-[10px] text-gray-500 font-mono">{review.date}</span>
                         </div>
                         <div className="flex text-amber-400 mb-1.5">
@@ -348,7 +387,7 @@ export default function ProductDetailsModal({
                             <Star key={i} className="w-3 h-3 fill-amber-400" />
                           ))}
                         </div>
-                        <p className="text-gray-400 text-[11px] leading-relaxed">{review.text}</p>
+                        <p className="text-gray-400 text-[11px] leading-relaxed">{review.comment}</p>
                       </div>
                     ))}
                   </div>
