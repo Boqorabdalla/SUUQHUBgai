@@ -1035,7 +1035,8 @@ const getVendorForProduct = (product: any) => {
           promoDiscount: bodyObj.promoDiscount !== undefined ? (bodyObj.promoDiscount === null ? null : Number(bodyObj.promoDiscount)) : existing.promoDiscount,
           promoMessage: bodyObj.promoMessage !== undefined ? bodyObj.promoMessage : existing.promoMessage,
           promoGradient: bodyObj.promoGradient !== undefined ? bodyObj.promoGradient : existing.promoGradient,
-          bypassProductApproval: bodyObj.bypassProductApproval !== undefined ? !!bodyObj.bypassProductApproval : existing.bypassProductApproval
+          bypassProductApproval: bodyObj.bypassProductApproval !== undefined ? !!bodyObj.bypassProductApproval : existing.bypassProductApproval,
+          subUsersEmails: existing.subUsers ? existing.subUsers.map((su: any) => su.email ? su.email.toLowerCase() : "") : []
         };
         await setDoc(docRef, merged);
         clearFallbackCache('vendors');

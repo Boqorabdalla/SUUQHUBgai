@@ -117,7 +117,10 @@ async function saveVendorToFirestore(vendor: Vendor) {
     if (vendor.password) payload.password = vendor.password;
     if (vendor.zaadNumber !== undefined) payload.zaadNumber = vendor.zaadNumber;
     if (vendor.edahabNumber !== undefined) payload.edahabNumber = vendor.edahabNumber;
-    if (vendor.subUsers !== undefined) payload.subUsers = vendor.subUsers;
+    if (vendor.subUsers !== undefined) {
+      payload.subUsers = vendor.subUsers;
+      payload.subUsersEmails = vendor.subUsers.map((su: any) => su.email ? su.email.toLowerCase() : "");
+    }
     if (vendor.rating !== undefined) payload.rating = Number(vendor.rating);
     if (vendor.reviewsCount !== undefined) payload.reviewsCount = Number(vendor.reviewsCount);
     if (vendor.productsCount !== undefined) payload.productsCount = Number(vendor.productsCount);

@@ -56,7 +56,13 @@ service cloud.firestore {
           request.auth.token != null &&
           request.auth.token.email != null &&
           exists(/databases/$(database)/documents/vendors/$(vendorId)) &&
-          get(/databases/$(database)/documents/vendors/$(vendorId)).data.email == request.auth.token.email
+          (
+            get(/databases/$(database)/documents/vendors/$(vendorId)).data.email.lower() == request.auth.token.email.lower()
+            || (
+              get(/databases/$(database)/documents/vendors/$(vendorId)).data.keys().contains('subUsersEmails') &&
+              request.auth.token.email.lower() in get(/databases/$(database)/documents/vendors/$(vendorId)).data.subUsersEmails
+            )
+          )
         )
       );
     }

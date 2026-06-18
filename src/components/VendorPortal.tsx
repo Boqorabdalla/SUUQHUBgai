@@ -1791,9 +1791,15 @@ export default function VendorPortal({
         if (selectedVendor) {
           fetchVendorProducts(selectedVendor.id);
         }
+      } else {
+        const errorMsg = await safeParseError(res, "Failed to delete listing.");
+        setFormMsg(errorMsg);
+        setIsSuccess(false);
       }
     } catch (err) {
       console.error(err);
+      setFormMsg("Network error trying to contact merchant registry.");
+      setIsSuccess(false);
     }
   };
 

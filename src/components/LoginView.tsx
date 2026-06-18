@@ -258,6 +258,7 @@ export default function LoginView({
     setErrorMessage('');
     setSuccessMessage('');
 
+    let alreadySynced = false;
     if (isSignUp) {
       sessionStorage.setItem('pendingSignUpRole', role);
       sessionStorage.setItem('pendingSignUpName', name);
@@ -310,6 +311,7 @@ export default function LoginView({
           const result = await createUserWithEmailAndPassword(auth, email, password);
           user = result.user;
           await syncUserToFirestore(user.uid, email, name, assignedRole);
+          alreadySynced = true;
         } else {
           // Intercept Delivery Manager credentials login (local bypass detection)
           let matchingDM = null;
@@ -435,22 +437,26 @@ export default function LoginView({
 
       // 3. Post-Auth Sync & Success Callback
       let finalRole: any = email.toLowerCase() === 'boqorapps@gmail.com' ? 'superadmin' : (email.toLowerCase() === 'delivery@suuqhub.com' ? 'delivery_manager' : 'customer');
-      try {
-        const docSnap = await getDoc(doc(db, 'users', user.uid));
-        if (docSnap.exists()) {
-          const fetchedRole = docSnap.data().role || 'customer';
-          if (email.toLowerCase() === 'delivery@suuqhub.com' && fetchedRole !== 'delivery_manager') {
-            await setDoc(doc(db, 'users', user.uid), { role: 'delivery_manager' }, { merge: true });
-            finalRole = 'delivery_manager';
+      if (alreadySynced) {
+        finalRole = assignedRole;
+      } else {
+        try {
+          const docSnap = await getDoc(doc(db, 'users', user.uid));
+          if (docSnap.exists()) {
+            const fetchedRole = docSnap.data().role || 'customer';
+            if (email.toLowerCase() === 'delivery@suuqhub.com' && fetchedRole !== 'delivery_manager') {
+              await setDoc(doc(db, 'users', user.uid), { role: 'delivery_manager' }, { merge: true });
+              finalRole = 'delivery_manager';
+            } else {
+              finalRole = fetchedRole;
+            }
           } else {
-            finalRole = fetchedRole;
+            // Make sure user data is replicated to firestore database
+            finalRole = await syncUserToFirestore(user.uid, email, name || email.split('@')[0], assignedRole) as any;
           }
-        } else {
-          // Make sure user data is replicated to firestore database
-          finalRole = await syncUserToFirestore(user.uid, email, name || email.split('@')[0], assignedRole) as any;
+        } catch (dbErr) {
+          console.warn("Could not load user document from rules. Falling back:", dbErr);
         }
-      } catch (dbErr) {
-        console.warn("Could not load user document from rules. Falling back:", dbErr);
       }
 
       if (email.toLowerCase() === 'boqorapps@gmail.com') {
