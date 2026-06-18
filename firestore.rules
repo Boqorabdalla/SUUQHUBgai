@@ -75,7 +75,15 @@ service cloud.firestore {
           isSuperadminEmail()
           || (
             request.resource.data.keys().hasAll(['id', 'title', 'price', 'category', 'stock', 'isApproved'])
-            && request.resource.data.isApproved == false
+            && (
+              request.resource.data.isApproved == false
+              || (
+                request.resource.data.vendorId != null
+                && request.resource.data.vendorId is string
+                && exists(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId))
+                && get(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId)).data.bypassProductApproval == true
+              )
+            )
             && request.resource.data.price is number
             && request.resource.data.price >= 0
           )
@@ -83,8 +91,17 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && (
           isAdminOrSuperadmin()
-          || (request.resource.data.isApproved == resource.data.isApproved && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isApproved', 'id']))
-          || (resource.data.vendorId == request.auth.uid)
+          || (
+            (resource.data.vendorId == request.auth.uid)
+            && (
+              request.resource.data.isApproved == resource.data.isApproved
+              || (
+                exists(/databases/$(database)/documents/vendors/$(resource.data.vendorId))
+                && get(/databases/$(database)/documents/vendors/$(resource.data.vendorId)).data.bypassProductApproval == true
+              )
+            )
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['id', 'vendorId'])
+          )
         );
       allow delete: if isSignedIn() && (isAdminOrSuperadmin() || resource.data.vendorId == request.auth.uid);
     }
@@ -101,7 +118,14 @@ service cloud.firestore {
     match /vendors/{vendorId} {
       allow read: if true;
       allow create: if isSignedIn() && request.resource.data.status == 'pending';
-      allow update: if isSignedIn();
+      allow update: if isSignedIn()
+        && (
+          isAdminOrSuperadmin()
+          || (
+            (request.auth.uid == vendorId)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'bypassProductApproval', 'earnings', 'id'])
+          )
+        );
       allow delete: if false;
     }
 
