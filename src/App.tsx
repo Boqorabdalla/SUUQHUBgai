@@ -370,8 +370,19 @@ export default function App() {
     setPwaModalOpen(true);
   };
 
+  // Enrich products with their live up-to-date vendor names
+  const enrichedProducts = React.useMemo(() => {
+    return products.map(p => {
+      const v = vendors.find(vend => vend.id === p.vendorId);
+      if (v && v.vendorName) {
+        return { ...p, brand: v.vendorName, vendorName: v.vendorName };
+      }
+      return p;
+    });
+  }, [products, vendors]);
+
   // Filtering + Sorting mapping logic
-  let filteredProducts = products.filter(p => p.isActive && p.isApproved);
+  let filteredProducts = enrichedProducts.filter(p => p.isActive && p.isApproved);
   
   if (selectedCategory !== 'All') {
     filteredProducts = filteredProducts.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
@@ -1169,7 +1180,7 @@ export default function App() {
       return (
         <AllVendorsView
           vendors={vendors}
-          products={products}
+          products={enrichedProducts}
           currency={currency}
           onProductClick={(p) => setDetailedProduct(p)}
           onAddToCart={handleAddToCart}
@@ -1558,7 +1569,7 @@ export default function App() {
         onCheckout={(coupon) => {
           // Check if any cart item has a closed vendor
           for (const item of cart) {
-            const prod = products.find(p => p.id === item.productId);
+            const prod = enrichedProducts.find(p => p.id === item.productId);
             if (prod) {
               const vendor = vendors.find(v => v.id === prod.vendorId);
               if (vendor && vendor.isClosed) {
@@ -1571,30 +1582,36 @@ export default function App() {
           setCartOpen(false);
           setActiveTab('checkout');
         }}
-        products={products}
+        products={enrichedProducts}
         vendors={vendors}
       />
 
       {/* Floating Sparkles Personal AI shopper Bot element */}
       <AIChatAgent
-        products={products}
+        products={enrichedProducts}
         onAddToCart={(p) => handleAddToCart(p, undefined, undefined, 1)}
         lang={lang}
         currency={currency}
       />
 
       {/* Product detailed modal specs view overlay */}
-      {detailedProduct && (
-        <ProductDetailsModal
-          product={detailedProduct}
-          isOpen={true}
-          onClose={() => setDetailedProduct(null)}
-          currency={currency}
-          lang={lang}
-          onAddToCart={handleAddToCart}
-          isVendorClosed={vendors.find(v => v.id === detailedProduct.vendorId)?.isClosed}
-        />
-      )}
+      {detailedProduct && (() => {
+        const matchedVendor = vendors.find(v => v.id === detailedProduct.vendorId);
+        const enrichedDetailedProduct = matchedVendor && matchedVendor.vendorName 
+          ? { ...detailedProduct, brand: matchedVendor.vendorName, vendorName: matchedVendor.vendorName } 
+          : detailedProduct;
+        return (
+          <ProductDetailsModal
+            product={enrichedDetailedProduct}
+            isOpen={true}
+            onClose={() => setDetailedProduct(null)}
+            currency={currency}
+            lang={lang}
+            onAddToCart={handleAddToCart}
+            isVendorClosed={matchedVendor?.isClosed}
+          />
+        );
+      })()}
 
       {/* PWA Simulation installer popup wrapper */}
       <PwaInstallModal

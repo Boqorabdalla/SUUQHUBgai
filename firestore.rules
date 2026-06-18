@@ -49,6 +49,18 @@ service cloud.firestore {
       );
     }
 
+    function isVendorRepresentative(vendorId) {
+      return isSignedIn() && (
+        vendorId == request.auth.uid
+        || (
+          request.auth.token != null &&
+          request.auth.token.email != null &&
+          exists(/databases/$(database)/documents/vendors/$(vendorId)) &&
+          get(/databases/$(database)/documents/vendors/$(vendorId)).data.email == request.auth.token.email
+        )
+      );
+    }
+
     // 2. User Accounts collection path
     match /users/{userId} {
       allow read: if isSignedIn() && (isOwner(userId) || isSuperadminEmail() || resource.data.role == 'admin' || resource.data.role == 'superadmin');
@@ -80,20 +92,21 @@ service cloud.firestore {
               || (
                 request.resource.data.vendorId != null
                 && request.resource.data.vendorId is string
-                && exists(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId))
+                && isVendorRepresentative(request.resource.data.vendorId)
                 && 'bypassProductApproval' in get(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId)).data
                 && get(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId)).data.bypassProductApproval == true
               )
             )
             && request.resource.data.price is number
             && request.resource.data.price >= 0
+            && (request.resource.data.vendorId == null || isVendorRepresentative(request.resource.data.vendorId))
           )
         );
       allow update: if isSignedIn()
         && (
           isAdminOrSuperadmin()
           || (
-            (resource.data.vendorId == request.auth.uid)
+            (resource.data.vendorId != null && isVendorRepresentative(resource.data.vendorId))
             && (
               request.resource.data.isApproved == resource.data.isApproved
               || (
@@ -105,7 +118,7 @@ service cloud.firestore {
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['id', 'vendorId'])
           )
         );
-      allow delete: if isSignedIn() && (isAdminOrSuperadmin() || resource.data.vendorId == request.auth.uid);
+      allow delete: if isSignedIn() && (isAdminOrSuperadmin() || (resource.data.vendorId != null && isVendorRepresentative(resource.data.vendorId)));
     }
 
     // 4. Purchasing Orders
@@ -124,7 +137,7 @@ service cloud.firestore {
         && (
           isAdminOrSuperadmin()
           || (
-            (request.auth.uid == vendorId)
+            (request.auth.uid == vendorId || isVendorRepresentative(vendorId))
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'bypassProductApproval', 'earnings', 'id'])
           )
         );

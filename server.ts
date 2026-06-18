@@ -881,7 +881,21 @@ app.delete("/api/categories/:id", async (req, res) => {
 // Products API
 app.get("/api/products", (req, res) => {
   const { category, search, approval, filterStatus } = req.query;
-  let results = [...dbProducts];
+  
+  // Enrich products with live updated vendor names first so that brand-specific queries work on up-to-date data!
+  let results = dbProducts.map(p => {
+    if (p.vendorId) {
+      const v = dbVendors.find(vend => vend.id === p.vendorId);
+      if (v && v.vendorName) {
+        return {
+          ...p,
+          brand: v.vendorName,
+          vendorName: v.vendorName
+        };
+      }
+    }
+    return p;
+  });
 
   if (category && category !== "All") {
     results = results.filter(p => p.category.toLowerCase() === String(category).toLowerCase());
@@ -913,7 +927,15 @@ app.get("/api/products", (req, res) => {
 app.get("/api/products/:id", (req, res) => {
   const product = dbProducts.find(p => p.id === req.params.id);
   if (product) {
-    res.json(product);
+    const enrichedProduct = { ...product };
+    if (enrichedProduct.vendorId) {
+      const v = dbVendors.find(vend => vend.id === enrichedProduct.vendorId);
+      if (v && v.vendorName) {
+        enrichedProduct.brand = v.vendorName;
+        enrichedProduct.vendorName = v.vendorName;
+      }
+    }
+    res.json(enrichedProduct);
   } else {
     res.status(404).json({ error: "Product not found" });
   }

@@ -681,6 +681,13 @@ const getVendorForProduct = (product: any) => {
               productData.vendorId = info.id;
               productData.vendorName = info.name;
             }
+            // Overwrite with live vendor name from the vendors table if it exists
+            const vList = await getCollectionDocs('vendors', []);
+            const matchedVendor = vList.find((v: any) => v.id === productData.vendorId);
+            if (matchedVendor && matchedVendor.vendorName) {
+              productData.brand = matchedVendor.vendorName;
+              productData.vendorName = matchedVendor.vendorName;
+            }
             return jsonResponse(productData);
           } else {
             return jsonResponse({ error: "Product not found" }, 404);
@@ -705,12 +712,19 @@ const getVendorForProduct = (product: any) => {
       } else {
         if (method === 'GET') {
           const rawProducts = await getCollectionDocs('products', initialProducts);
+          const vList = await getCollectionDocs('vendors', []);
           let filtered = rawProducts.map((p: any) => {
             const mapped = { ...p };
             if (!mapped.vendorId) {
               const info = getVendorForProduct(mapped);
               mapped.vendorId = info.id;
               mapped.vendorName = info.name;
+            }
+            // Overwrite with live vendor name from the vendors table if it exists
+            const matchedVendor = vList.find((v: any) => v.id === mapped.vendorId);
+            if (matchedVendor && matchedVendor.vendorName) {
+              mapped.brand = matchedVendor.vendorName;
+              mapped.vendorName = matchedVendor.vendorName;
             }
             return mapped;
           });
