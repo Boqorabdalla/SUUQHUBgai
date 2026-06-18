@@ -941,7 +941,27 @@ const getVendorForProduct = (product: any) => {
     if (pathname.startsWith('/api/vendors')) {
       const routePath = pathname.replace('/api/vendors', '');
       
-      if (routePath.includes('/status')) {
+      if (routePath.includes('/approve-name-change')) {
+        const vendorId = routePath.replace('/approve-name-change', '').replace('/', '');
+        const docRef = doc(db, 'vendors', vendorId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return jsonResponse({ error: "Vendor account not found" }, 404);
+        
+        const existing = snap.data();
+        const action = bodyObj.action; // 'approve' | 'reject'
+        let merged = { ...existing };
+        if (action === 'approve' && existing.pendingVendorName) {
+          merged.vendorName = existing.pendingVendorName;
+          merged.pendingVendorName = null;
+          merged.vendorNameStatus = 'approved';
+        } else if (action === 'reject') {
+          merged.pendingVendorName = null;
+          merged.vendorNameStatus = 'rejected';
+        }
+        await setDoc(docRef, merged);
+        clearFallbackCache('vendors');
+        return jsonResponse(merged);
+      } else if (routePath.includes('/status')) {
         const vendorId = routePath.replace('/status', '').replace('/', '');
         const docRef = doc(db, 'vendors', vendorId);
         const snap = await getDoc(docRef);
@@ -991,6 +1011,8 @@ const getVendorForProduct = (product: any) => {
           description: bodyObj.description !== undefined ? bodyObj.description : existing.description,
           whatsapp: bodyObj.whatsapp !== undefined ? bodyObj.whatsapp : existing.whatsapp,
           callContact: bodyObj.callContact !== undefined ? bodyObj.callContact : existing.callContact,
+          pendingVendorName: bodyObj.pendingVendorName !== undefined ? bodyObj.pendingVendorName : existing.pendingVendorName,
+          vendorNameStatus: bodyObj.vendorNameStatus !== undefined ? bodyObj.vendorNameStatus : existing.vendorNameStatus,
           clearanceRate: bodyObj.clearanceRate !== undefined ? (bodyObj.clearanceRate === null ? null : Number(bodyObj.clearanceRate)) : existing.clearanceRate,
           clearanceActive: bodyObj.clearanceActive !== undefined ? !!bodyObj.clearanceActive : existing.clearanceActive,
           clearanceStartDate: bodyObj.clearanceStartDate !== undefined ? bodyObj.clearanceStartDate : existing.clearanceStartDate,
@@ -998,7 +1020,8 @@ const getVendorForProduct = (product: any) => {
           promoActive: bodyObj.promoActive !== undefined ? !!bodyObj.promoActive : existing.promoActive,
           promoDiscount: bodyObj.promoDiscount !== undefined ? (bodyObj.promoDiscount === null ? null : Number(bodyObj.promoDiscount)) : existing.promoDiscount,
           promoMessage: bodyObj.promoMessage !== undefined ? bodyObj.promoMessage : existing.promoMessage,
-          promoGradient: bodyObj.promoGradient !== undefined ? bodyObj.promoGradient : existing.promoGradient
+          promoGradient: bodyObj.promoGradient !== undefined ? bodyObj.promoGradient : existing.promoGradient,
+          bypassProductApproval: bodyObj.bypassProductApproval !== undefined ? !!bodyObj.bypassProductApproval : existing.bypassProductApproval
         };
         await setDoc(docRef, merged);
         clearFallbackCache('vendors');

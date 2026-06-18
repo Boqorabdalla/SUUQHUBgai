@@ -89,6 +89,7 @@ export default function AdminPortal({
   const [tempEmail, setTempEmail] = useState('');
   const [tempPassword, setTempPassword] = useState('');
   const [tempRepName, setTempRepName] = useState('');
+  const [tempBypassApproval, setTempBypassApproval] = useState(false);
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [updatingCredentials, setUpdatingCredentials] = useState(false);
 
@@ -358,13 +359,32 @@ export default function AdminPortal({
     }
   };
 
-  const handleUpdateVendorCredentials = async (vendorId: string, email: string, password?: string, representativeName?: string) => {
+  const handleApproveStorefrontNameChange = async (vendorId: string, action: 'approve' | 'reject') => {
+    try {
+      const res = await fetch(`/api/vendors/${vendorId}/approve-name-change`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      if (res.ok) {
+        await fetchAdminData();
+      } else {
+        const errDetail = await res.json().catch(() => ({}));
+        alert(`Failed to process storefront name change request: ${errDetail.error || 'Unknown error occurred.'}`);
+      }
+    } catch (err) {
+      console.error('Error processing storefront name change request:', err);
+      alert('An error occurred while updating the storefront name.');
+    }
+  };
+
+  const handleUpdateVendorCredentials = async (vendorId: string, email: string, password?: string, representativeName?: string, bypassProductApproval?: boolean) => {
     setUpdatingCredentials(true);
     try {
       const res = await fetch(`/api/vendors/${vendorId}/credentials`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, representativeName })
+        body: JSON.stringify({ email, password, representativeName, bypassProductApproval })
       });
       if (res.ok) {
         await fetchAdminData();
@@ -449,6 +469,43 @@ export default function AdminPortal({
     } catch (err) {
       console.error(err);
       alert('An error occurred while deleting the product.');
+    }
+  };
+
+  const handleRejectMultipleProducts = async (ids: string[]) => {
+    if (!confirm(`Are you sure you want to reject and delete all ${ids.length} products?`)) return;
+    try {
+      setUpdatingCredentials(true);
+      await Promise.all(
+        ids.map(id => fetch(`/api/products/${id}`, { method: 'DELETE' }))
+      );
+      await fetchAdminData();
+    } catch (err) {
+      console.error("Bulk rejection error:", err);
+      alert("An error occurred during bulk rejection.");
+    } finally {
+      setUpdatingCredentials(false);
+    }
+  };
+
+  const handleApproveMultipleProducts = async (ids: string[]) => {
+    try {
+      setUpdatingCredentials(true);
+      await Promise.all(
+        ids.map(id =>
+          fetch(`/api/products/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isApproved: true })
+          })
+        )
+      );
+      await fetchAdminData();
+    } catch (err) {
+      console.error("Bulk approval error:", err);
+      alert("An error occurred during bulk approval.");
+    } finally {
+      setUpdatingCredentials(false);
     }
   };
 
@@ -882,87 +939,216 @@ export default function AdminPortal({
         )}
 
         {/* Module 2: Products Listing & Direct approvals */}
-        {activeTab === 'products' && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 mb-2 uppercase tracking-wide">Approval Queue & Inventory Control</h3>
-            
-            <div className="overflow-x-auto rounded border border-slate-200">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 border-b border-slate-200 uppercase font-mono text-[9px] text-slate-500">
-                  <tr>
-                    <th className="p-3">listing details</th>
-                    <th className="p-3">sku code</th>
-                    <th className="p-3 text-center">price</th>
-                    <th className="p-3 text-center">stock units</th>
-                    <th className="p-3 text-center">origin seller</th>
-                    <th className="p-3 text-right">actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {products.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition">
-                      <td className="p-3 flex items-center gap-3">
-                        <img src={p.image} className="w-8 h-8 rounded bg-slate-50 object-cover border border-slate-200" />
-                        <div>
-                          <span className="font-semibold text-slate-800 block">{p.title}</span>
-                          <span className="text-[10px] text-slate-400">{p.category}</span>
-                        </div>
-                      </td>
-                      <td className="p-3 font-mono font-medium text-slate-500">{p.sku}</td>
-                      <td className="p-3 text-center font-mono font-semibold text-slate-800">${p.price}</td>
-                      
-                      {/* Active stock edits inline */}
-                      <td className="p-3 text-center text-xs">
-                        {editingProductId === p.id ? (
-                          <div className="flex gap-1.5 justify-center items-center">
-                            <input
-                              type="number"
-                              size={3}
-                              value={editProductStock}
-                              onChange={(e) => setEditProductStock(Number(e.target.value))}
-                              className="bg-white text-slate-800 p-1 rounded font-mono text-center w-12 border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-650"
-                            />
-                            <button onClick={() => handleUpdateStock(p.id)} className="p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded cursor-pointer"><Save className="w-3.5 h-3.5" /></button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center gap-2.5">
-                            <span className="font-mono text-slate-700">{p.stock} units</span>
-                            <button onClick={() => { setEditingProductId(p.id); setEditProductStock(p.stock); }} className="p-0.5 hover:text-indigo-600 cursor-pointer text-slate-400"><Edit className="w-3.5 h-3.5" /></button>
-                          </div>
-                        )}
-                      </td>
+        {activeTab === 'products' && (() => {
+          const pendingProducts = products.filter(p => !p.isApproved);
+          const approvedProducts = products.filter(p => p.isApproved);
 
-                      <td className="p-3 text-center font-mono text-[10px] text-slate-400">
-                        {p.vendorName || "In-House Store"}
-                      </td>
+          // Group pending products by vendor
+          const pendingByVendor: Record<string, { vendorName: string; vendorId: string; list: any[] }> = {};
+          pendingProducts.forEach(p => {
+            const vKey = p.vendorId || 'in-house';
+            const vName = p.vendorName || 'In-House / Admin Store';
+            if (!pendingByVendor[vKey]) {
+              pendingByVendor[vKey] = {
+                vendorId: vKey,
+                vendorName: vName,
+                list: []
+              };
+            }
+            pendingByVendor[vKey].list.push(p);
+          });
 
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-2 text-xs">
-                          {!p.isApproved ? (
-                            <button
-                              onClick={() => handleApproveProduct(p.id)}
-                              className="px-2.5 py-1.5 rounded bg-emerald-600 text-white font-bold flex items-center gap-1 hover:bg-emerald-700 cursor-pointer text-[10px] uppercase"
-                            >
-                              <Check className="w-3.5 h-3.5" /> Approve Live
-                            </button>
-                          ) : (
-                            <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-sm text-[9px] uppercase font-mono">Approve active</span>
-                          )}
-                          <button
-                            onClick={() => handleDeleteProduct(p.id)}
-                            className="bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 p-2 rounded cursor-pointer transition"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+          const vendorGroups = Object.values(pendingByVendor);
+
+          return (
+            <div className="space-y-6 text-left">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 mb-1 uppercase tracking-wide">Multi-Vendor Approval Hub & Live Catalog</h3>
+                <p className="text-[11px] text-slate-500">Audit new product submissions dynamically. If automatic audit bypass is disabled for a seller, their new listings will be queued below. You may approve or reject all of a vendor's submitted catalog at once or do it one by one.</p>
+              </div>
+
+              {/* SECTION A: PENDING APPROVAL QUEUE - GROUPED BY VENDOR */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-rose-100 pb-2">
+                  <span className="text-[11px] font-black uppercase text-rose-700 tracking-wider flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 bg-rose-600 rounded-full animate-pulse" /> Pending Approval Queues ({pendingProducts.length})
+                  </span>
+                </div>
+
+                {vendorGroups.length === 0 ? (
+                  <div className="bg-slate-50/55 rounded-xl border border-slate-200/80 p-6 text-center text-xs text-slate-500">
+                    <ShieldCheck className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+                    <span className="font-bold text-slate-755 block">Verification Queue Empty</span>
+                    All seller catalog catalog uploads are currently audited. Listings are synchronized with checkout indexes.
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {vendorGroups.map((group) => {
+                      const productIds = group.list.map(p => p.id);
+                      return (
+                        <div key={group.vendorId} className="bg-white rounded-xl border border-indigo-100/80 overflow-hidden shadow-xs animate-in fade-in duration-200">
+                          {/* Group Header */}
+                          <div className="bg-indigo-50/40 px-4 py-3 border-b border-indigo-100/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Store className="w-4 h-4 text-indigo-650" />
+                              <div>
+                                <span className="font-bold text-indigo-950 text-xs uppercase tracking-wide block">{group.vendorName}</span>
+                                <span className="text-[10px] text-slate-400">{group.list.length} pending registration request{group.list.length > 1 ? 's' : ''}</span>
+                              </div>
+                            </div>
+
+                            {/* Group actions: Bulk approve / Bulk reject */}
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                              <button
+                                onClick={() => handleApproveMultipleProducts(productIds)}
+                                className="px-2.5 py-1 text-[10px] uppercase font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                              >
+                                <Check className="w-3 h-3" /> Approve All ({group.list.length})
+                              </button>
+                              <button
+                                onClick={() => handleRejectMultipleProducts(productIds)}
+                                className="px-2.5 py-1 text-[10px] uppercase font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded transition flex items-center gap-1 cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3 text-rose-500" /> Reject All ({group.list.length})
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Table of pending items under this vendor */}
+                          <div className="overflow-x-auto text-xs text-slate-650">
+                            <table className="w-full text-left">
+                              <thead className="bg-slate-50 text-[9.5px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100">
+                                <tr>
+                                  <th className="p-2.5 pl-4">Product Detail</th>
+                                  <th className="p-2.5 text-center">Price</th>
+                                  <th className="p-2.5 text-center">Initial Stock</th>
+                                  <th className="p-2.5 text-right pr-4">Review Action</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {group.list.map((p) => (
+                                  <tr key={p.id} className="hover:bg-slate-50/50">
+                                    <td className="p-2.5 pl-4 flex items-center gap-2.5">
+                                      <img src={p.image} className="w-7 h-7 rounded border object-cover bg-slate-50" />
+                                      <div>
+                                        <span className="font-bold text-slate-805 text-slate-800 text-xs block">{p.title}</span>
+                                        <span className="text-[9.5px] text-slate-400">{p.category}</span>
+                                      </div>
+                                    </td>
+                                    <td className="p-2.5 text-center font-mono font-bold text-indigo-900">${p.price}</td>
+                                    <td className="p-2.5 text-center font-mono text-slate-500">{p.stock} units</td>
+                                    <td className="p-2.5 text-right pr-4">
+                                      <div className="flex items-center justify-end gap-1.55 gap-1">
+                                        <button
+                                          onClick={() => handleApproveProduct(p.id)}
+                                          className="px-2.5 py-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-150 font-bold text-[9px] uppercase transition cursor-pointer"
+                                        >
+                                          Approve One
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteProduct(p.id)}
+                                          className="p-1 bg-rose-50 hover:bg-rose-105 text-rose-600 border border-rose-200 rounded cursor-pointer transition"
+                                          title="Reject & delete this product"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION B: APPROVED ACTIVE DIRECTORY */}
+              <div className="space-y-3 pt-4 border-t border-slate-200">
+                <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+                  <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 bg-emerald-600 rounded-full" /> Approved Storefront Inventory ({approvedProducts.length})
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-50 border-b border-slate-200 uppercase font-mono text-[9px] text-slate-500">
+                      <tr>
+                        <th className="p-3">listing details</th>
+                        <th className="p-3">sku code</th>
+                        <th className="p-3 text-center">price</th>
+                        <th className="p-3 text-center">stock units</th>
+                        <th className="p-3 text-center">origin seller</th>
+                        <th className="p-3 text-right">actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {approvedProducts.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50/50 transition">
+                          <td className="p-3 flex items-center gap-3">
+                            <img src={p.image} className="w-8 h-8 rounded bg-slate-50 object-cover border border-slate-200" />
+                            <div>
+                              <span className="font-semibold text-slate-800 block">{p.title}</span>
+                              <span className="text-[10px] text-slate-400">{p.category}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 font-mono font-medium text-slate-500">{p.sku}</td>
+                          <td className="p-3 text-center font-mono font-semibold text-slate-800">${p.price}</td>
+                          
+                          {/* Active stock edits inline */}
+                          <td className="p-3 text-center text-xs">
+                            {editingProductId === p.id ? (
+                              <div className="flex gap-1.5 justify-center items-center">
+                                <input
+                                  type="number"
+                                  size={3}
+                                  value={editProductStock}
+                                  onChange={(e) => setEditProductStock(Number(e.target.value))}
+                                  className="bg-white text-slate-800 p-1 rounded font-mono text-center w-12 border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-650"
+                                />
+                                <button onClick={() => handleUpdateStock(p.id)} className="p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded cursor-pointer"><Save className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center gap-2.5">
+                                <span className="font-mono text-slate-700">{p.stock} units</span>
+                                <button onClick={() => { setEditingProductId(p.id); setEditProductStock(p.stock); }} className="p-0.5 hover:text-indigo-600 cursor-pointer text-slate-400"><Edit className="w-3.5 h-3.5" /></button>
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="p-3 text-center font-mono text-[10px] text-slate-400">
+                            {p.vendorName || "In-House Store"}
+                          </td>
+
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-2 text-xs">
+                              <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-sm text-[9px] uppercase font-mono">Approve active</span>
+                              <button
+                                onClick={() => handleDeleteProduct(p.id)}
+                                className="bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 p-2 rounded cursor-pointer transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {approvedProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="text-center py-12 text-slate-400 italic">No approved catalog products live on storefront yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Module 2.5: Vendor Approvals */}
         {activeTab === 'vendors' && (
@@ -1000,6 +1186,44 @@ export default function AdminPortal({
                             <div>
                               <span className="block text-xs font-bold text-slate-800">{v.vendorName}</span>
                               <span className="text-[10px] text-slate-450 font-normal">{v.description || "No description supplied."}</span>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {v.bypassProductApproval ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-250 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                    <Check className="w-2.5 h-2.5 text-emerald-600" /> Auto-Approve (Live)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-150 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                    <Clock className="w-2.5 h-2.5 text-indigo-500 animate-pulse" /> Direct Moderation
+                                  </span>
+                                )}
+                              </div>
+                              {v.pendingVendorName && (
+                                <div className="mt-2 p-2 bg-amber-50/50 border border-amber-200 rounded text-[10px] space-y-1">
+                                  <div className="flex items-center gap-1 text-amber-850 font-extrabold uppercase font-mono text-[9px] tracking-wider">
+                                    <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+                                    <span>Proposed Name Change:</span>
+                                  </div>
+                                  <div className="font-mono text-indigo-950 font-bold bg-white p-1.5 rounded border border-slate-150 flex items-center justify-between gap-2">
+                                    <span className="truncate">"{v.pendingVendorName}"</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleApproveStorefrontNameChange(v.id, 'approve')}
+                                        className="bg-emerald-600 hover:bg-emerald-700 active:transform active:scale-95 text-white font-extrabold px-1.5 py-0.5 rounded text-[8.5px] uppercase tracking-wider cursor-pointer font-sans transition-all"
+                                        title="Approve Storefront Name"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleApproveStorefrontNameChange(v.id, 'reject')}
+                                        className="bg-rose-600 hover:bg-rose-700 active:transform active:scale-95 text-white font-extrabold px-1.5 py-0.5 rounded text-[8.5px] uppercase tracking-wider cursor-pointer font-sans transition-all"
+                                        title="Reject Storefront Name"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="p-3">
@@ -1031,6 +1255,24 @@ export default function AdminPortal({
                           </td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Quick bypass toggle */}
+                              {v.status === 'approved' && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await handleUpdateVendorCredentials(v.id, v.email, v.password, v.representativeName, !v.bypassProductApproval);
+                                  }}
+                                  className={`px-2 py-1 border font-bold rounded cursor-pointer text-[9px] uppercase tracking-wider inline-flex items-center gap-1 transition-all ${
+                                    v.bypassProductApproval
+                                      ? 'bg-emerald-100 border-emerald-250 text-emerald-800 hover:bg-emerald-200'
+                                      : 'bg-indigo-55 bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700'
+                                  }`}
+                                  title="If ON, products listed/duplicated by this merchant immediately go LIVE without Superadmin approval. If OFF, they queue for verification."
+                                >
+                                  <Sparkles className="w-2.5 h-2.5" /> {v.bypassProductApproval ? "Bypass: ON" : "Bypass: OFF"}
+                                </button>
+                              )}
+
                               {/* Manage credentials */}
                               <button
                                 onClick={() => {
@@ -1041,6 +1283,7 @@ export default function AdminPortal({
                                     setTempEmail(v.email);
                                     setTempPassword(v.password || "");
                                     setTempRepName(v.representativeName);
+                                    setTempBypassApproval(!!v.bypassProductApproval);
                                   }
                                 }}
                                 className={`px-2 py-1 border font-bold rounded cursor-pointer text-[9px] uppercase tracking-wider inline-flex items-center gap-1 transition ${
@@ -1128,6 +1371,22 @@ export default function AdminPortal({
                                   </div>
                                 </div>
 
+                                <div className="bg-indigo-50/30 border border-indigo-100/70 rounded p-2.5 flex items-center justify-between gap-3 text-left mt-2.5">
+                                  <div>
+                                    <span className="block text-[11px] font-bold text-indigo-950 uppercase tracking-wide">Automatic Product Audit Bypass</span>
+                                    <span className="block text-[10px] text-slate-500 font-normal">If enabled, any product listed or duplicated by this merchant will automatically go LIVE without superadmin review.</span>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={tempBypassApproval} 
+                                      onChange={(e) => setTempBypassApproval(e.target.checked)} 
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-605 peer-checked:bg-indigo-600"></div>
+                                  </label>
+                                </div>
+
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-3 border-t border-slate-100">
                                   <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 px-2 py-1 rounded font-medium border border-emerald-150">
                                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Instant deployment on changes. Securely mapped.
@@ -1144,7 +1403,7 @@ export default function AdminPortal({
                                       type="button"
                                       disabled={updatingCredentials}
                                       onClick={async () => {
-                                        const ok = await handleUpdateVendorCredentials(v.id, tempEmail, tempPassword, tempRepName);
+                                        const ok = await handleUpdateVendorCredentials(v.id, tempEmail, tempPassword, tempRepName, tempBypassApproval);
                                         if (ok) {
                                           setExpandedVendorId(null);
                                         }

@@ -127,6 +127,9 @@ async function saveVendorToFirestore(vendor: Vendor) {
     if (vendor.isClosed !== undefined) payload.isClosed = !!vendor.isClosed;
 
     // Contact and clearance fields
+    if ((vendor as any).pendingVendorName !== undefined) payload.pendingVendorName = (vendor as any).pendingVendorName;
+    if ((vendor as any).vendorNameStatus !== undefined) payload.vendorNameStatus = (vendor as any).vendorNameStatus;
+    if ((vendor as any).bypassProductApproval !== undefined) payload.bypassProductApproval = !!(vendor as any).bypassProductApproval;
     if ((vendor as any).whatsapp !== undefined) payload.whatsapp = (vendor as any).whatsapp;
     if ((vendor as any).callContact !== undefined) payload.callContact = (vendor as any).callContact;
     if ((vendor as any).clearanceRate !== undefined) payload.clearanceRate = Number((vendor as any).clearanceRate);
@@ -1344,6 +1347,33 @@ app.put("/api/vendors/:id/status", (req, res) => {
   res.json(vendor);
 });
 
+// Approve vendor storefront name change
+app.post("/api/vendors/:id/approve-name-change", (req, res) => {
+  const { action } = req.body;
+  const vendor = dbVendors.find(v => v.id === req.params.id);
+
+  if (!vendor) {
+    return res.status(404).json({ error: "Vendor account not found" });
+  }
+
+  if (action === 'approve') {
+    if ((vendor as any).pendingVendorName) {
+      vendor.vendorName = (vendor as any).pendingVendorName;
+    }
+    (vendor as any).vendorNameStatus = 'approved';
+    (vendor as any).pendingVendorName = null;
+  } else if (action === 'reject') {
+    (vendor as any).vendorNameStatus = 'rejected';
+    (vendor as any).pendingVendorName = null;
+  } else {
+    return res.status(400).json({ error: "Action must be 'approve' or 'reject'" });
+  }
+
+  saveDbToFile();
+  saveVendorToFirestore(vendor);
+  res.json(vendor);
+});
+
 // Manage Vendor owner credentials
 app.put("/api/vendors/:id/credentials", (req, res) => {
   const { 
@@ -1364,7 +1394,10 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
     clearanceStartDate,
     clearanceEndDate,
     whatsapp,
-    callContact
+    callContact,
+    pendingVendorName,
+    vendorNameStatus,
+    bypassProductApproval
   } = req.body;
   const vendor = dbVendors.find(v => v.id === req.params.id);
 
@@ -1398,6 +1431,15 @@ app.put("/api/vendors/:id/credentials", (req, res) => {
   }
   if (description !== undefined) {
     vendor.description = description;
+  }
+  if (pendingVendorName !== undefined) {
+    (vendor as any).pendingVendorName = pendingVendorName;
+  }
+  if (vendorNameStatus !== undefined) {
+    (vendor as any).vendorNameStatus = vendorNameStatus;
+  }
+  if (bypassProductApproval !== undefined) {
+    (vendor as any).bypassProductApproval = !!bypassProductApproval;
   }
   if (whatsapp !== undefined) {
     (vendor as any).whatsapp = whatsapp;

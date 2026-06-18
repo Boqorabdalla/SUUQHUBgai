@@ -189,6 +189,9 @@ export interface Vendor {
   clearanceEndDate?: string;
   whatsapp?: string;
   callContact?: string;
+  pendingVendorName?: string;
+  vendorNameStatus?: 'original' | 'pending' | 'approved' | 'rejected';
+  bypassProductApproval?: boolean;
 }
 
 export interface Coupon {

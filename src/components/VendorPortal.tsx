@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent, RefreshCw, ChevronDown, ChevronRight, Users, BarChart2, FileText, Plus, Search, Share2, MessageCircle, Phone, Printer } from 'lucide-react';
+import { PlusCircle, Loader2, Sparkles, AlertCircle, DollarSign, Package, Check, ShoppingBag, Eye, ShieldCheck, CheckCircle2, Upload, Trash2, Image, Truck, Calendar, User, MapPin, CreditCard, ArrowRight, Clock, Tag, Sliders, X, Percent, RefreshCw, ChevronDown, ChevronRight, Users, BarChart2, FileText, Plus, Search, Share2, MessageCircle, Phone, Printer, Copy } from 'lucide-react';
 import { Product, Vendor, Order, OrderItem, OrderStatus, Coupon, ProductVariant, ProductCategory, SupportTicket } from '../types';
 import QRCode from 'qrcode';
 
@@ -524,6 +524,7 @@ export default function VendorPortal({
   const [whatsapp, setWhatsapp] = useState('');
   const [callContact, setCallContact] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [proposedStorefrontName, setProposedStorefrontName] = useState('');
 
   // QR Code States & Callback Handlers
   const qrCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -612,6 +613,7 @@ export default function VendorPortal({
         setEmergencyPhone(selectedVendor.zaadNumber || selectedVendor.edahabNumber || '');
         setWhatsapp(selectedVendor.whatsapp || '');
         setCallContact(selectedVendor.callContact || '');
+        setProposedStorefrontName(selectedVendor.pendingVendorName || selectedVendor.vendorName || '');
         
         // Sync Clearance
         setClearanceRate(selectedVendor.clearanceRate !== undefined ? String(selectedVendor.clearanceRate) : '15');
@@ -1104,6 +1106,18 @@ export default function VendorPortal({
       }
     }
 
+    const proposedNameTrimmed = (proposedStorefrontName || '').trim();
+    let pendingVendorNameVal = selectedVendor.pendingVendorName || null;
+    let vendorNameStatusVal = selectedVendor.vendorNameStatus || 'original';
+
+    if (proposedNameTrimmed && proposedNameTrimmed !== selectedVendor.vendorName) {
+      pendingVendorNameVal = proposedNameTrimmed;
+      vendorNameStatusVal = 'pending';
+    } else if (!proposedNameTrimmed || proposedNameTrimmed === selectedVendor.vendorName) {
+      pendingVendorNameVal = null;
+      vendorNameStatusVal = 'original';
+    }
+
     try {
       console.log("Saving settings to server for vendor ID:", selectedVendor.id, {
         zaadNumber,
@@ -1114,7 +1128,9 @@ export default function VendorPortal({
         isClosed,
         description: vendorDescription,
         whatsapp,
-        callContact
+        callContact,
+        pendingVendorName: pendingVendorNameVal,
+        vendorNameStatus: vendorNameStatusVal
       });
       const res = await fetch(`/api/vendors/${selectedVendor.id}/credentials`, {
         method: 'PUT',
@@ -1128,7 +1144,9 @@ export default function VendorPortal({
           isClosed: !!isClosed,
           description: vendorDescription || '',
           whatsapp: whatsapp || '',
-          callContact: callContact || ''
+          callContact: callContact || '',
+          pendingVendorName: pendingVendorNameVal,
+          vendorNameStatus: vendorNameStatusVal
         })
       });
       console.log("Credentials save response code:", res.status);
@@ -1136,16 +1154,21 @@ export default function VendorPortal({
       console.log("Credentials save response data:", data);
       if (res.ok) {
         setSettingsSuccess(true);
-        setSettingsMsg('Store settings and branding details saved successfully!');
+        let successText = 'Store settings and branding details saved successfully!';
+        if (data.pendingVendorName) {
+          successText = 'Store configurations saved! Storefront name change proposal was successfully dispatched and is awaiting Superadmin approval.';
+        }
+        setSettingsMsg(successText);
         setSelectedVendor(data);
         setVendors(prev => prev.map(v => v.id === data.id ? data : v));
         // Reset local form states to match returned data
         setLogo(data.logo || '');
         setRepresentativeName(data.representativeName || '');
+        setProposedStorefrontName(data.pendingVendorName || data.vendorName || '');
         if (onVendorUpdated) {
           onVendorUpdated();
         }
-        setTimeout(() => setSettingsMsg(''), 4500);
+        setTimeout(() => setSettingsMsg(''), 6000);
       } else {
         setSettingsSuccess(false);
         setSettingsMsg(data.error || 'Failed to update credentials');
@@ -1571,7 +1594,7 @@ export default function VendorPortal({
     const method = isEditMode ? 'PUT' : 'POST';
 
     if (!isEditMode) {
-      payload.isApproved = false; // Must be approved by superadmin before going live on store catalogue
+      payload.isApproved = !!selectedVendor?.bypassProductApproval;
     }
 
     try {
@@ -1600,7 +1623,11 @@ export default function VendorPortal({
         if (isEditMode) {
           setFormMsg("Product listing has been updated successfully.");
         } else {
-          setFormMsg("Listing successfully submitted to Admin verification queue. Status is marked as 'Pending approval'.");
+          if (selectedVendor?.bypassProductApproval) {
+            setFormMsg("Listing successfully created and is now LIVE on the store catalog!");
+          } else {
+            setFormMsg("Listing successfully submitted to Admin verification queue. Status is marked as 'Pending approval'.");
+          }
         }
         setIsSuccess(true);
         fetchVendorProducts(selectedVendor.id);
@@ -1697,6 +1724,27 @@ export default function VendorPortal({
     setCategory(p.category || 'Electronics');
     setSubcategory(p.subcategory || '');
     setSku(p.sku || '');
+    setStock(String(p.stock));
+    setImage(p.image || '');
+    setGalleryImages(p.images || []);
+    setDescription(p.description || '');
+    setDiscountPrice(p.discountPrice ? String(p.discountPrice) : '');
+    setProductStory(p.productStory || '');
+    setVariantsColors(p.variants?.colors || []);
+    setVariantsSizes(p.variants?.sizes || []);
+    setSpecifications(p.specifications || {});
+    setFormMsg('');
+    setIsSuccess(false);
+    setActiveTab('catalog_add');
+  };
+
+  const handleStartDuplicate = (p: Product) => {
+    setEditingProduct(null); // Keep null to create as a new product on submission
+    setTitle(p.title + " (Copy)");
+    setPrice(String(p.price));
+    setCategory(p.category || 'Electronics');
+    setSubcategory(p.subcategory || '');
+    setSku(p.sku ? `${p.sku}-COPY` : '');
     setStock(String(p.stock));
     setImage(p.image || '');
     setGalleryImages(p.images || []);
@@ -3166,6 +3214,13 @@ export default function VendorPortal({
                               className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-650 hover:text-indigo-650 border rounded font-bold uppercase text-[9.5px] transition cursor-pointer"
                             >
                               Edit
+                            </button>
+                            <button
+                              onClick={() => handleStartDuplicate(p)}
+                              className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-150 rounded font-bold uppercase text-[9.5px] transition cursor-pointer"
+                              title="Duplicate this listing to customize and add a new copy"
+                            >
+                              Duplicate
                             </button>
                             <button
                               onClick={() => handleDeleteProduct(p.id)}
@@ -4960,6 +5015,17 @@ export default function VendorPortal({
                         <span>Edit</span>
                       </button>
 
+                      {/* Duplicate button */}
+                      <button
+                        type="button"
+                        onClick={() => handleStartDuplicate(p)}
+                        className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 rounded border border-indigo-200 transition cursor-pointer flex items-center justify-center gap-1 text-[10px]"
+                        title="Duplicate this listing to customize and add a new copy"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Duplicate</span>
+                      </button>
+
                       {/* Delete Button with Custom Inline Confirmation */}
                       {confirmDeleteId === p.id ? (
                         <div className="flex items-center gap-1 animate-in fade-in duration-205">
@@ -5864,6 +5930,64 @@ export default function VendorPortal({
                   className="w-full text-xs bg-white border border-slate-200 rounded px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600 font-sans"
                 />
               </div>
+
+              {selectedVendor && (
+                <div className="p-3 bg-indigo-50/30 rounded-xl border border-indigo-100/50 space-y-2 text-left">
+                  <div className="flex justify-between items-center flex-wrap gap-1">
+                    <label className="block text-[10px] text-indigo-950 uppercase font-bold tracking-wider">Storefront Public Name</label>
+                    {selectedVendor.vendorNameStatus === 'pending' && (
+                      <span className="text-[9px] uppercase font-mono font-black tracking-wide bg-amber-50 border border-amber-250 text-amber-700 px-1.5 py-0.5 rounded animate-pulse">
+                        Awaiting Superadmin Approval
+                      </span>
+                    )}
+                    {selectedVendor.vendorNameStatus === 'approved' && (
+                      <span className="text-[9px] uppercase font-mono font-black tracking-wide bg-emerald-50 border border-emerald-250 text-emerald-700 px-1.5 py-0.5 rounded">
+                        Name Change Approved
+                      </span>
+                    )}
+                    {selectedVendor.vendorNameStatus === 'rejected' && (
+                      <span className="text-[9px] uppercase font-mono font-black tracking-wide bg-rose-50 border border-rose-200 text-rose-700 px-1.5 py-0.5 rounded">
+                        Name Proposal Rejected
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Current Active Name Display */}
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Current Active Name: <b className="text-indigo-900 font-semibold">{selectedVendor.vendorName}</b>
+                  </div>
+
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      placeholder="Enter prospective new storefront name..."
+                      value={proposedStorefrontName}
+                      onChange={(e) => setProposedStorefrontName(e.target.value)}
+                      className="w-full text-xs bg-white border border-slate-205 rounded px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-600 font-sans font-semibold placeholder-slate-400"
+                    />
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      💡 Changing your storefront name requires platform validation. Once saved, the Superadmin will review your requested change before it goes live.
+                    </p>
+                  </div>
+
+                  {selectedVendor.pendingVendorName && (
+                    <div className="pt-2 border-t border-indigo-100/50 flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[10px] font-mono text-indigo-900">
+                        Pending Approval: <strong className="font-bold underline">"{selectedVendor.pendingVendorName}"</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProposedStorefrontName(selectedVendor.vendorName);
+                        }}
+                        className="text-[9px] font-black uppercase text-rose-600 hover:text-rose-750 font-mono tracking-wider cursor-pointer bg-white px-2 py-0.5 rounded shadow-3xs border border-rose-100 hover:bg-rose-50 transition"
+                      >
+                        Cancel Change Request
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Brand Logo Upload Block */}
