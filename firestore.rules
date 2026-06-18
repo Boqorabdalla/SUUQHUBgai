@@ -81,6 +81,7 @@ service cloud.firestore {
                 request.resource.data.vendorId != null
                 && request.resource.data.vendorId is string
                 && exists(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId))
+                && 'bypassProductApproval' in get(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId)).data
                 && get(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId)).data.bypassProductApproval == true
               )
             )
@@ -97,6 +98,7 @@ service cloud.firestore {
               request.resource.data.isApproved == resource.data.isApproved
               || (
                 exists(/databases/$(database)/documents/vendors/$(resource.data.vendorId))
+                && 'bypassProductApproval' in get(/databases/$(database)/documents/vendors/$(resource.data.vendorId)).data
                 && get(/databases/$(database)/documents/vendors/$(resource.data.vendorId)).data.bypassProductApproval == true
               )
             )
